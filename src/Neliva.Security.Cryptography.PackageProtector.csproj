@@ -3,7 +3,45 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <RootNamespace>Neliva.Security.Cryptography</RootNamespace>
+    <Authors>Maksim Goleta</Authors>
+    <Company>Neliva</Company>
+
+    <!--
+    // https://github.com/dotnet/sourcelink/blob/master/docs/README.md
+    // Starting with .NET Core SDK 2.1.300, a fully deterministic build is
+    // turned on when both Deterministic and ContinuousIntegrationBuild properties are set to true.
+    -->
+    <Deterministic>true</Deterministic>
+
+    <!-- Set ContinuousIntegrationBuild to true to indicate that the build executes on a build/CI server. -->
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    
+    <!-- Only set DeterministicSourcePaths to true on a build/CI server, never for local builds. -->
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
+
+    <!-- Optional: Publish the repository URL in the built .nupkg (in the NuSpec <Repository> element) -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+
+    <!-- Optional: Build symbol package (.snupkg) to distribute the PDB containing Source Link -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!--
+    // Optional: Embed source files that are not tracked by the source control manager in the PDB.
+    // This packs auto generated files such as AssemblyInfo, etc.
+    -->
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- https://github.com/dotnet/sourcelink -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- https://github.com/dotnet/sourcelink/issues/572 -->
+    <EmbeddedFiles Include="$(GeneratedAssemblyInfoFile)"/>
+  </ItemGroup>
 
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
