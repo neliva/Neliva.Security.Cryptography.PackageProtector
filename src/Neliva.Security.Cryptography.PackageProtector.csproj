@@ -17,12 +17,6 @@
     -->
     <Deterministic>true</Deterministic>
 
-    <!-- Set ContinuousIntegrationBuild to true to indicate that the build executes on a build/CI server. -->
-    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-
-    <!-- Only set DeterministicSourcePaths to true on a build/CI server, never for local builds. -->
-    <DeterministicSourcePaths>true</DeterministicSourcePaths>
-
     <!-- Optional: Publish the repository URL in the built .nupkg (in the NuSpec <Repository> element) -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
 
@@ -37,6 +31,15 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
+  
+  <!-- This should not be enabled during local dev or the debugger won't be able to find the local source files. -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <!-- Set ContinuousIntegrationBuild to true to indicate that the build executes on a build/CI server. -->
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+
+    <!-- Only set DeterministicSourcePaths to true on a build/CI server, never for local builds. -->
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
+  </PropertyGroup>
 
   <ItemGroup>
     <!-- https://github.com/dotnet/sourcelink -->
@@ -44,7 +47,7 @@
   </ItemGroup>
   
   <!--
-  // Deterministic build fixes to SDKs prior to 3.1.300
+  // Workaround for deterministic builds on SDKs prior to 3.1.300
   // https://github.com/clairernovotny/DeterministicBuilds
   // https://github.com/dotnet/sourcelink/issues/572
   -->
@@ -53,6 +56,11 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedFiles Include="$(GeneratedAssemblyInfoFile)" />
+  </ItemGroup>
+  
+  <!-- Workaround for https://github.com/dotnet/sdk/issues/11105 -->
+  <ItemGroup>
+    <SourceRoot Include="$(NuGetPackageRoot)" Condition="'$(NuGetPackageRoot)' != ''" />
   </ItemGroup>
 
   <ItemGroup>
