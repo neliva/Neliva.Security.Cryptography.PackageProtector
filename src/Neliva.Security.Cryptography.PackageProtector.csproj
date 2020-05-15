@@ -3,7 +3,67 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <RootNamespace>Neliva.Security.Cryptography</RootNamespace>
+    
+    <Authors>Maksim Goleta</Authors>
+    <Company>Neliva</Company>
+    <Copyright>This is free and unencumbered software released into the public domain.</Copyright>
+
+    <PackageTags>encryption hashing aes256 sha256 hmac</PackageTags>
+
+    <Description>Safe and secure data at rest protection.</Description>
+
+    <!--
+    // https://github.com/dotnet/sourcelink/blob/master/docs/README.md
+    // Starting with .NET Core SDK 2.1.300, a fully deterministic build is
+    // turned on when both Deterministic and ContinuousIntegrationBuild properties are set to true.
+    -->
+    <Deterministic>true</Deterministic>
+
+    <!-- Optional: Publish the repository URL in the built .nupkg (in the NuSpec <Repository> element) -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+
+    <!-- Optional: Build symbol package (.snupkg) to distribute the PDB containing Source Link -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!--
+    // Optional: Embed source files that are not tracked by the source control manager in the PDB.
+    // This packs auto generated files such as AssemblyInfo, etc.
+    -->
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
+  
+  <!-- This should not be enabled during local dev or the debugger won't be able to find the local source files. -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+    <!-- Set ContinuousIntegrationBuild to true to indicate that the build executes on a build/CI server. -->
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+
+    <!-- Only set DeterministicSourcePaths to true on a build/CI server, never for local builds. -->
+    <DeterministicSourcePaths>true</DeterministicSourcePaths>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- https://github.com/dotnet/sourcelink -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
+  </ItemGroup>
+  
+  <!--
+  // Workaround for deterministic builds on SDKs prior to 3.1.300
+  // https://github.com/clairernovotny/DeterministicBuilds
+  // https://github.com/dotnet/sourcelink/issues/572
+  -->
+  <PropertyGroup>
+    <TargetFrameworkMonikerAssemblyAttributesPath>$([System.IO.Path]::Combine('$(IntermediateOutputPath)','$(TargetFrameworkMoniker).AssemblyAttributes$(DefaultLanguageSourceExtension)'))</TargetFrameworkMonikerAssemblyAttributesPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedFiles Include="$(GeneratedAssemblyInfoFile)" />
+  </ItemGroup>
+  
+  <!-- Workaround for https://github.com/dotnet/sdk/issues/11105 -->
+  <ItemGroup>
+    <SourceRoot Include="$(NuGetPackageRoot)" Condition="'$(NuGetPackageRoot)' != ''" />
+  </ItemGroup>
 
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">

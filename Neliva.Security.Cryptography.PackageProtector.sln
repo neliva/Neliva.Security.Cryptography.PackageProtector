@@ -13,12 +13,12 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{630D0BA8-8224-4826-8103-66AF90546EF7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{630D0BA8-8224-4826-8103-66AF90546EF7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{630D0BA8-8224-4826-8103-66AF90546EF7}.Debug|Any CPU.ActiveCfg = Release|Any CPU
+		{630D0BA8-8224-4826-8103-66AF90546EF7}.Debug|Any CPU.Build.0 = Release|Any CPU
 		{630D0BA8-8224-4826-8103-66AF90546EF7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{630D0BA8-8224-4826-8103-66AF90546EF7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D7998ABB-D5FA-4565-AD54-DE5C553F3A32}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D7998ABB-D5FA-4565-AD54-DE5C553F3A32}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D7998ABB-D5FA-4565-AD54-DE5C553F3A32}.Debug|Any CPU.ActiveCfg = Release|Any CPU
+		{D7998ABB-D5FA-4565-AD54-DE5C553F3A32}.Debug|Any CPU.Build.0 = Release|Any CPU
 		{D7998ABB-D5FA-4565-AD54-DE5C553F3A32}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D7998ABB-D5FA-4565-AD54-DE5C553F3A32}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
