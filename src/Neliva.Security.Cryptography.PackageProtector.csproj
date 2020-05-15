@@ -10,6 +10,8 @@
 
     <PackageTags>encryption hashing aes256 sha256 hmac</PackageTags>
 
+    <Description>Safe and secure data at rest protection.</Description>
+
     <!--
     // https://github.com/dotnet/sourcelink/blob/master/docs/README.md
     // Starting with .NET Core SDK 2.1.300, a fully deterministic build is
