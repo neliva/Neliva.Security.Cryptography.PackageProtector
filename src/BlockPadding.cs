@@ -12,8 +12,13 @@ namespace Neliva.Security.Cryptography
     internal static class BlockPadding
     {
         // Returns -1 on failure, or number of padding bytes on success.
-        public static int GetPKCS7PaddingLength(ReadOnlySpan<byte> buffer, int blockSize)
+        public static int GetPKCS7PaddingLength(int blockSize, ReadOnlySpan<byte> buffer)
         {
+            if (blockSize <= 0 || blockSize > byte.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(blockSize));
+            }
+
             int bufferLength = buffer.Length;
 
             if (bufferLength == 0)
@@ -21,14 +26,9 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(buffer));
             }
 
-            if (blockSize <= 0 || blockSize > byte.MaxValue)
-            {
-                throw new ArgumentOutOfRangeException(nameof(blockSize));
-            }
-
             if ((bufferLength < blockSize) || ((bufferLength % blockSize) != 0))
             {
-                throw new ArgumentException("Buffer length is not multiple of block size.", nameof(buffer));
+                throw new ArgumentOutOfRangeException(nameof(buffer), "Length is not a multiple of block size.");
             }
 
             uint padLength = buffer[bufferLength - 1];
