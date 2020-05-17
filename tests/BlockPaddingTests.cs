@@ -16,34 +16,37 @@ namespace Neliva.Security.Cryptography.Tests
         {
             ArgumentException ex;
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(null, 4));
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(4, null));
             Assert.AreEqual<string>("buffer", ex.ParamName);
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(default, 4));
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(4, default));
             Assert.AreEqual<string>("buffer", ex.ParamName);
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(Span<byte>.Empty, 4));
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(4, Span<byte>.Empty));
             Assert.AreEqual<string>("buffer", ex.ParamName);
 
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(new byte[16], -1));
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(-1, new byte[16]));
             Assert.AreEqual<string>("blockSize", ex.ParamName);
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(new byte[16], 0));
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(0, new byte[16]));
             Assert.AreEqual<string>("blockSize", ex.ParamName);
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(new byte[16], byte.MaxValue + 1));
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(byte.MaxValue + 1, new byte[16]));
             Assert.AreEqual<string>("blockSize", ex.ParamName);
 
 
-            ex = Assert.ThrowsException<ArgumentException>(() => BlockPadding.GetPKCS7PaddingLength(new byte[16], 15));
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(15, new byte[16]));
             Assert.AreEqual<string>("buffer", ex.ParamName);
+            Assert.AreEqual<string>("Length is not a multiple of block size. (Parameter 'buffer')", ex.Message);
 
-            ex = Assert.ThrowsException<ArgumentException>(() => BlockPadding.GetPKCS7PaddingLength(new byte[32], 17));
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(17, new byte[32]));
             Assert.AreEqual<string>("buffer", ex.ParamName);
+            Assert.AreEqual<string>("Length is not a multiple of block size. (Parameter 'buffer')", ex.Message);
 
-            ex = Assert.ThrowsException<ArgumentException>(() => BlockPadding.GetPKCS7PaddingLength(new byte[15], 16));
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(16, new byte[15]));
             Assert.AreEqual<string>("buffer", ex.ParamName);
+            Assert.AreEqual<string>("Length is not a multiple of block size. (Parameter 'buffer')", ex.Message);
         }
 
         [TestMethod]
@@ -52,19 +55,19 @@ namespace Neliva.Security.Cryptography.Tests
             for (byte i = 1; i < 16; i++)
             {
                 const int blockSize = 16;
-                Assert.AreEqual(i, BlockPadding.GetPKCS7PaddingLength(CreateBlock(blockSize, i), blockSize));
+                Assert.AreEqual(i, BlockPadding.GetPKCS7PaddingLength(blockSize, CreateBlock(blockSize, i)));
             }
 
             for (byte i = 1; i < 16; i++)
             {
                 const int blockSize = 16;
-                Assert.AreEqual(i, BlockPadding.GetPKCS7PaddingLength(CreateBlock(blockSize * 2, i), blockSize));
+                Assert.AreEqual(i, BlockPadding.GetPKCS7PaddingLength(blockSize, CreateBlock(blockSize * 2, i)));
             }
 
             for (byte i = 1; i < byte.MaxValue; i++)
             {
                 const int blockSize = 255;
-                Assert.AreEqual(i, BlockPadding.GetPKCS7PaddingLength(CreateBlock(blockSize, i), blockSize));
+                Assert.AreEqual(i, BlockPadding.GetPKCS7PaddingLength(blockSize, CreateBlock(blockSize, i)));
             }
         }
 
@@ -78,7 +81,7 @@ namespace Neliva.Security.Cryptography.Tests
                 byte[] b = CreateBlock(blockSize16, i);
                 b[blockSize16 - i] = (byte)(i + 17);
 
-                Assert.AreEqual<int>(-1, BlockPadding.GetPKCS7PaddingLength(b, blockSize16));
+                Assert.AreEqual<int>(-1, BlockPadding.GetPKCS7PaddingLength(blockSize16, b));
             }
 
             const int blockSize255 = byte.MaxValue;
@@ -88,7 +91,7 @@ namespace Neliva.Security.Cryptography.Tests
                 byte[] b = CreateBlock(blockSize255, i);
                 b[blockSize255 - i] = (byte)(i - 1);
 
-                Assert.AreEqual<int>(-1, BlockPadding.GetPKCS7PaddingLength(b, blockSize255));
+                Assert.AreEqual<int>(-1, BlockPadding.GetPKCS7PaddingLength(blockSize255, b));
             }
         }
 
