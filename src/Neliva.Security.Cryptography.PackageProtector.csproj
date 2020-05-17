@@ -35,6 +35,7 @@
   </PropertyGroup>
   
   <!-- This should not be enabled during local dev or the debugger won't be able to find the local source files. -->
+  <!-- https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables -->
   <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
     <!-- Set ContinuousIntegrationBuild to true to indicate that the build executes on a build/CI server. -->
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
