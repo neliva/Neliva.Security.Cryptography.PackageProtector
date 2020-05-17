@@ -1,4 +1,4 @@
-name: .NET Core (master)
+name: master
 
 on:
   push:
@@ -19,12 +19,14 @@ jobs:
         dotnet-version: 3.1.101
     - name: Install dependencies
       run: dotnet restore
-    - name: Build Src
+    - name: Build
       run: dotnet build --configuration Release --no-restore
-      working-directory: ./src
-    - name: Build Test
-      run: dotnet build --configuration Release --no-restore
-      working-directory: ./tests
-    - name: Run Test
+    - name: Test
       run: dotnet test --configuration Release --no-build --no-restore --nologo --verbosity normal
-      working-directory: ./tests
+    - name: Pack
+      run: dotnet pack --configuration Release --no-build --no-restore --output ./pkg
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: nuget-pkg
+        path: ./pkg
