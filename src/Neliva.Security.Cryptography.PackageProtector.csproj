@@ -8,7 +8,7 @@
     <Company>Neliva</Company>
     <Copyright>This is free and unencumbered software released into the public domain.</Copyright>
 
-    <PackageTags>encryption hashing aes256 sha256 hmac</PackageTags>
+    <PackageTags>encryption hashing aes256 sha256 hmac dataprotector</PackageTags>
 
     <Description>Safe and secure data at rest protection.</Description>
 
