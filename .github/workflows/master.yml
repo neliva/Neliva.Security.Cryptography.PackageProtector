@@ -20,11 +20,11 @@ jobs:
     - name: Install dependencies
       run: dotnet restore
     - name: Build
-      run: dotnet build --configuration Release --no-restore
+      run: dotnet build --configuration Release --no-restore -p:VersionSuffix=ci${{ github.run_number }}
     - name: Test
-      run: dotnet test --configuration Release --no-build --no-restore --nologo --verbosity normal
+      run: dotnet test --configuration Release --no-build --no-restore --nologo --verbosity normal -p:VersionSuffix=ci{{ github.run_number }}
     - name: Pack
-      run: dotnet pack --configuration Release --no-build --no-restore --output ./pkg
+      run: dotnet pack --configuration Release --no-build --no-restore --output ./pkg -p:VersionSuffix=ci{{ github.run_number }}
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with:
