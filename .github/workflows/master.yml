@@ -30,6 +30,8 @@ jobs:
       with:
         name: nuget-pkg
         path: ./pkg
+    - name: Add GitHub NuGet feed source
+      run: dotnet nuget add source "https://nuget.pkg.github.com/neliva/index.json" --name "GitHub" --username "neliva" --password "${{secrets.GITHUB_TOKEN}}"
     - name: Push to GitHub NuGet feed
-      run: dotnet nuget push *.nupkg --api-key "${{ secrets.GITHUB_TOKEN }}" --source "https://nuget.pkg.github.com/neliva/index.json" --timeout 120
+      run: dotnet nuget push *.nupkg --source "GitHub" --timeout 120
       working-directory: ./pkg
