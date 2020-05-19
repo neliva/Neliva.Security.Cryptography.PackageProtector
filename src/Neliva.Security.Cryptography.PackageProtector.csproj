@@ -35,8 +35,7 @@
     -->
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-  
-</PropertyGroup>
+  </PropertyGroup>
   
   <!-- This should not be enabled during local dev or the debugger won't be able to find the local source files. -->
   <!-- https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables -->
@@ -60,6 +59,7 @@
   -->
   <PropertyGroup>
     <TargetFrameworkMonikerAssemblyAttributesPath>$([System.IO.Path]::Combine('$(IntermediateOutputPath)','$(TargetFrameworkMoniker).AssemblyAttributes$(DefaultLanguageSourceExtension)'))</TargetFrameworkMonikerAssemblyAttributesPath>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedFiles Include="$(GeneratedAssemblyInfoFile)" />
