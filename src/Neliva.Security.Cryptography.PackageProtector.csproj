@@ -13,7 +13,7 @@
     <Description>Safe and secure data at rest protection.</Description>
 
     <!-- https://github.com/dotnet/sdk/blob/master/src/Tasks/Microsoft.NET.Build.Tasks/targets/Microsoft.NET.DefaultAssemblyInfo.targets -->
-    <VersionSuffix Condition="'$(VersionSuffix)' == ''">dev</VersionSuffix>
+    <!-- <VersionSuffix Condition="'$(VersionSuffix)' == ''">dev</VersionSuffix> -->
 
     <!--
     // https://github.com/dotnet/sourcelink/blob/master/docs/README.md
@@ -48,6 +48,13 @@
     <DeterministicSourcePaths>true</DeterministicSourcePaths>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- https://github.com/dotnet/sourcelink -->
+    <PackageReference Include="GitVersionTask" Version="5.3.3">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+  
   <ItemGroup>
     <!-- https://github.com/dotnet/sourcelink -->
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
