@@ -33,8 +33,8 @@ jobs:
     - name: Add GitHub NuGet feed source
       run: dotnet nuget add source https://nuget.pkg.github.com/neliva/index.json --name GitHub --username neliva --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
     - name: Push to GitHub NuGet feed
-      run: dotnet nuget push *.nupkg --source GitHub --timeout 120 --disable-buffering true
+      run: dotnet nuget push *nupkg --source GitHub --timeout 120 --disable-buffering true
       working-directory: ./pkg
-    - name: Push to GitHub symbols NuGet feed
-      run: dotnet nuget push *.snupkg --source GitHub --timeout 120 --disable-buffering true
-      working-directory: ./pkg
+#    - name: Push to GitHub symbols NuGet feed
+#      run: dotnet nuget push *.snupkg --source GitHub --timeout 120 --disable-buffering true
+#      working-directory: ./pkg
