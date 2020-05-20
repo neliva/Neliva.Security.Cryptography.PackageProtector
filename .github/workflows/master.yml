@@ -28,7 +28,7 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.1.202
-    - name: Experimental action
+#    - name: Experimental action
 #      if: startsWith(github.ref, '<skip>refs/tags/')
 #      run: |
 #        echo ${{ github.ref }}
