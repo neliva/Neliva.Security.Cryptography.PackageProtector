@@ -25,10 +25,10 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: 3.1.202
+#    - name: Setup .NET Core
+#      uses: actions/setup-dotnet@v1
+#      with:
+#        dotnet-version: 3.1.202
     - name: Extract SemVer from git tag
       id: semver
       run: |
@@ -45,28 +45,29 @@ jobs:
             echo ::set-output name=patch::0
             echo ::set-output name=suffix::build.${{ github.run_number }}
         fi
-    - name: Print SemVer
+    - name: Show SemVer details
 #      if: steps.semver.outputs.release == 'true'
       run: |
         echo ${{ github.ref }}
-        echo Tag release: ${{ steps.semver.outputs.release }}
-        echo Tag major: ${{ steps.semver.outputs.major }}
-        echo Tag minor: ${{ steps.semver.outputs.minor }}
-        echo Tag patch: ${{ steps.semver.outputs.patch }}
-        echo Tag suffix: ${{ steps.semver.outputs.suffix }}
-    - name: Install dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --configuration Release --no-restore --nologo -p:VersionSuffix=${{ env.BUILD_VERSION_SUFFIX }}
-    - name: Test
-      run: dotnet test --configuration Release --no-build --no-restore --nologo --verbosity normal -p:VersionSuffix=${{ env.BUILD_VERSION_SUFFIX }}
-    - name: Pack
-      run: dotnet pack --configuration Release --no-build --no-restore --nologo --output ${{ env.ARTIFACTS_PATH }} -p:VersionSuffix=${{ env.BUILD_VERSION_SUFFIX }}
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v2
-      with:
-        name: artifacts-${{ env.BUILD_VERSION_SUFFIX }}+${{ github.sha }}
-        path: ${{ env.ARTIFACTS_PATH }}
+        echo Release: ${{ steps.semver.outputs.release }}
+        echo ---------------------------
+        echo Major: ${{ steps.semver.outputs.major }}
+        echo Minor: ${{ steps.semver.outputs.minor }}
+        echo Patch: ${{ steps.semver.outputs.patch }}
+        echo Suffix: ${{ steps.semver.outputs.suffix }}
+ #   - name: Install dependencies
+ #     run: dotnet restore
+ #   - name: Build
+ #     run: dotnet build --configuration Release --no-restore --nologo -p:VersionSuffix=${{ env.BUILD_VERSION_SUFFIX }}
+ #   - name: Test
+ #     run: dotnet test --configuration Release --no-build --no-restore --nologo --verbosity normal -p:VersionSuffix=${{ env.BUILD_VERSION_SUFFIX }}
+ #   - name: Pack
+ #     run: dotnet pack --configuration Release --no-build --no-restore --nologo --output ${{ env.ARTIFACTS_PATH }} -p:VersionSuffix=${{ env.BUILD_VERSION_SUFFIX }}
+  #  - name: Upload artifacts
+ #     uses: actions/upload-artifact@v2
+ #     with:
+ #       name: artifacts-${{ env.BUILD_VERSION_SUFFIX }}+${{ github.sha }}
+  #      path: ${{ env.ARTIFACTS_PATH }}
 #    - name: Add GitHub NuGet feed source
 #      run: dotnet nuget add source https://nuget.pkg.github.com/neliva/index.json --name GitHub --username neliva --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
 #    - name: Push to GitHub NuGet feed
