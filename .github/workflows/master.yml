@@ -22,15 +22,19 @@ jobs:
       ARTIFACTS_PATH: ${{ github.workspace }}/artifacts
 
     steps:
-#    - name: Checkout
-#      uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.1.202
     - name: Experimental action
-      if: startsWith(github.ref, 'refs/tags/')
-      run: echo ${{ github.ref }}
+      if: startsWith(github.ref, '<skip>refs/tags/')
+      run: |
+        echo ${{ github.ref }}
+        echo ${{ github.sha }}
+        git rev-list --max-count=1 HEAD
+        git describe --tags --long
     - name: Install dependencies
       run: dotnet restore
     - name: Build
