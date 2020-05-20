@@ -29,7 +29,7 @@ jobs:
       with:
         dotnet-version: 3.1.202
     - name: Experimental action
-      if: startsWith(github.ref, '<skip>refs/tags/')
+#      if: startsWith(github.ref, '<skip>refs/tags/')
       run: |
         echo ${{ github.ref }}
         echo ${{ github.sha }}
