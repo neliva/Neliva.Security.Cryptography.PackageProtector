@@ -21,7 +21,6 @@ jobs:
       DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
       ARTIFACTS_PATH: ${{ github.workspace }}/artifacts
       BUILD_VERSION_SUFFIX: build.${{ github.run_number }}
-      BUILD_VERSION_EX: v3.0.1
 
     steps:
     - name: Checkout
@@ -33,12 +32,14 @@ jobs:
     - name: Extract SemVer from git tag
       id: semver
       run: |
-        echo ::set-output name=match::true
+        if [[ "${{ github.ref }}" =~ ^refs/pull/6/merge$ ]]; then
+            echo ::set-output name=match::true
+        fi
     - name: Print SemVer
 #      if: steps.semver.outputs.match == 'true'
       run: |
         echo ${{ github.ref }}
-        echo ${{ steps.semver.outputs.match }}
+        echo Tag match: ${{ steps.semver.outputs.match }}
     - name: Install dependencies
       run: dotnet restore
     - name: Build
