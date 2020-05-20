@@ -11,19 +11,19 @@ on:
 # https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables
 # https://help.github.com/en/actions/reference/context-and-expression-syntax-for-github-actions
 
-env:
-  DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
-  ARTIFACTS_PATH: ${{ github.workspace }}/artifacts
-
 jobs:
   build:
 
     runs-on: ubuntu-latest
+    
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+      ARTIFACTS_PATH: ${{ github.workspace }}/artifacts
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v2
+#    - name: Checkout
+#      uses: actions/checkout@v2
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
