@@ -32,7 +32,7 @@ jobs:
     - name: Extract SemVer from git tag
       id: semver
       run: |
-        if [[ "${{ github.ref }}" =~ ^(refs)/(pull)/(6)/(merge)$ ]]; then
+        if [[ "${{ github.ref }}" =~ ^(refsp)/(pull)/(6)/(merge)$ ]]; then
             echo ::set-output name=release::true
             echo ::set-output name=major::${BASH_REMATCH[1]}
             echo ::set-output name=minor::${BASH_REMATCH[2]}
