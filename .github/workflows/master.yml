@@ -43,7 +43,7 @@ jobs:
             echo ::set-output name=major::0
             echo ::set-output name=minor::1
             echo ::set-output name=patch::0
-            echo ::set-output name=suffix::${build.${{ github.run_number }}}
+            echo ::set-output name=suffix::build.${{ github.run_number }}
         fi
     - name: Print SemVer
 #      if: steps.semver.outputs.release == 'true'
