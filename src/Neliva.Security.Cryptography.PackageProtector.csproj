@@ -12,10 +12,9 @@
 
     <Description>Safe and secure data at rest protection.</Description>
 
-
     <!-- https://github.com/dotnet/sdk/blob/master/src/Tasks/Microsoft.NET.Build.Tasks/targets/Microsoft.NET.DefaultAssemblyInfo.targets -->
     <VersionPrefix Condition=" '$(Version)' == '' and '$(VersionPrefix)' == '' ">0.1.0</VersionPrefix>
-    <VersionSuffix Condition="'$(VersionSuffix)' == ''">dev</VersionSuffix>
+    <VersionSuffix Condition=" '$(Version)' == '' and '$(VersionSuffix)' == ''">dev</VersionSuffix>
 
     <!--
     // https://github.com/dotnet/sourcelink/blob/master/docs/README.md
