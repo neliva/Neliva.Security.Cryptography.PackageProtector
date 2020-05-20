@@ -33,14 +33,12 @@ jobs:
     - name: Extract SemVer from git tag
       id: semver
       run: |
-        if [[ "${{ env.BUILD_VERSION_EX }}" =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo ::set-output name=match::true
-        fi
+        echo ::set-output name=match::true
     - name: Print SemVer
-      if: steps.semver.outputs.match == 'true'
+#      if: steps.semver.outputs.match == 'true'
       run: |
-        echo "${{ github.ref }}
-        echo "Tag is a match"
+        echo ${{ github.ref }}
+        echo ${{ steps.semver.outputs.match }}
     - name: Install dependencies
       run: dotnet restore
     - name: Build
