@@ -32,8 +32,8 @@ jobs:
         dotnet-version: 3.1.202
     - name: Extract SemVer from git tag
       id: semver
-#      if: startsWith(github.ref, '<skip>refs/tags/')
       run: |
+        echo "hello"
         if [[ ${{ env.BUILD_VERSION_EX }} =~ ^refs/tags/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo ::set-output name=match::true
         fi
@@ -42,7 +42,6 @@ jobs:
       run: |
         echo "${{ github.ref }}
         echo "Tag is a match"
-      run:
     - name: Install dependencies
       run: dotnet restore
     - name: Build
