@@ -32,14 +32,22 @@ jobs:
     - name: Extract SemVer from git tag
       id: semver
       run: |
-        if [[ "${{ github.ref }}" =~ ^refs/pull/6/merge$ ]]; then
+        if [[ "${{ github.ref }}" =~ ^(refs)/(pull)/(6)/(merge)$ ]]; then
             echo ::set-output name=match::true
+            echo ::set-output name=major::${BASH_REMATCH[1]}
+            echo ::set-output name=minor::${BASH_REMATCH[2]}
+            echo ::set-output name=patch::${BASH_REMATCH[3]}
+            echo ::set-output name=suffix::${BASH_REMATCH[4]}
         fi
     - name: Print SemVer
 #      if: steps.semver.outputs.match == 'true'
       run: |
         echo ${{ github.ref }}
         echo Tag match: ${{ steps.semver.outputs.match }}
+        echo Tag major: ${{ steps.semver.outputs.major }}
+        echo Tag minor: ${{ steps.semver.outputs.minor }}
+        echo Tag patch: ${{ steps.semver.outputs.patch }}
+        echo Tag suffix: ${{ steps.semver.outputs.suffix }}
     - name: Install dependencies
       run: dotnet restore
     - name: Build
