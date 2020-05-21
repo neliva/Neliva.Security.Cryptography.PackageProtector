@@ -32,32 +32,35 @@ jobs:
     - name: Extract SemVer from git tag
       id: semver
       run: |
+        release=false
+        major=0
+        minor=1
+        patch=0
+        build=${{ github.run_number }}%65534
+        label=-build.${build}
         if [[ "${{ github.ref }}" =~ ^(refsp)/(pull)/(6)/(merge)$ ]]; then
-            echo ::set-output name=release::true
-            echo ::set-output name=major::${BASH_REMATCH[1]}
-            echo ::set-output name=minor::${BASH_REMATCH[2]}
-            echo ::set-output name=patch::${BASH_REMATCH[3]}
-            echo ::set-output name=suffix::${BASH_REMATCH[4]}
-        else
-            echo ::set-output name=release::false
-            echo ::set-output name=major::0
-            echo ::set-output name=minor::1
-            echo ::set-output name=patch::0
-            echo ::set-output name=suffix::build.${{ github.run_number }}
+            release=true
+            major=${BASH_REMATCH[1]}
+            minor=${BASH_REMATCH[2]}
+            patch=${BASH_REMATCH[3]}
+            if [ ${#BASH_REMATCH[@]} -gt 4 ]; then
+                label=-${BASH_REMATCH[4]}
+            fi
         fi
-        echo ::set-output name=build::${{ github.run_number }}
-
+        echo ::set-output name=release::${release}
+        echo ::set-output name=AssemblyVersion::${major}.0.0
+        echo ::set-output name=FileVersion::${major}.${minor}.${patch}.${build}
+        echo ::set-output name=InformationalVersion::${major}.${minor}.${patch}${label}
+        echo ::set-output name=PackageVersion::${major}.${minor}.${patch}${label}
     - name: Show SemVer details
 #      if: steps.semver.outputs.release == 'true'
       run: |
         echo ${{ github.ref }}
         echo Release: ${{ steps.semver.outputs.release }}
-        echo ---------------------------
-        echo Major: ${{ steps.semver.outputs.major }}
-        echo Minor: ${{ steps.semver.outputs.minor }}
-        echo Patch: ${{ steps.semver.outputs.patch }}
-        echo Build: ${{ steps.semver.outputs.build }}
-        echo Suffix: ${{ steps.semver.outputs.suffix }}
+        echo AssemblyVersion: ${{ steps.semver.outputs.AssemblyVersion }}
+        echo FileVersion: ${{ steps.semver.outputs.FileVersion }}
+        echo InformationalVersion: ${{ steps.semver.outputs.InformationalVersion }}
+        echo PackageVersion: ${{ steps.semver.outputs.PackageVersion }}
  #   - name: Install dependencies
  #     run: dotnet restore
  #   - name: Build
