@@ -38,7 +38,8 @@ jobs:
         patch=0
         build=$((${{ github.run_number }}%65534))
         label=-build.${build}
-        if [[ "${{ github.ref }}" =~ ^(refs)/(pull)/(6)/merge$ ]]; then
+        verRegex="^(refs)/(pull)/(6)/(merge)$"
+        if [[ "${{ github.ref }}" =~ $verRegex ]]; then
             release=true
             major=${BASH_REMATCH[1]}
             minor=${BASH_REMATCH[2]}
