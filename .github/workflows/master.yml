@@ -37,9 +37,9 @@ jobs:
         minor=1
         patch=0
         build=$((${{ github.run_number }}%65534))
-        prerelease="-ci-${{ github.run_number }}"
+        prerelease="-ci.${{ github.run_number }}"
         buildlabel=""
-        verRegex="^(refs)/(pull)/(6)/(merge)$"
+        verRegex="^p(refs)/(pull)/(6)/(merge)$"
         if [[ "${{ github.ref }}" =~ $verRegex ]]; then
             release=true
             major=${BASH_REMATCH[1]}
