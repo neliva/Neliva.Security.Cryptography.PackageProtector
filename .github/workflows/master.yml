@@ -36,7 +36,7 @@ jobs:
         major=0
         minor=1
         patch=0
-        build=${{ github.run_number }}%65534
+        build=$((${{ github.run_number }}%65534))
         label=-build.${build}
         if [[ "${{ github.ref }}" =~ ^(refsp)/(pull)/(6)/(merge)$ ]]; then
             release=true
