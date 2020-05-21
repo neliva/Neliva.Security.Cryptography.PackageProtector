@@ -37,7 +37,8 @@ jobs:
         minor=1
         patch=0
         build=$((${{ github.run_number }}%65534))
-        label=-build.${build}
+        prerelease="-ci"
+        buildlabel=build.${{ github.run_number }}
         verRegex="^(refs)/(pull)/(6)/(merge)$"
         if [[ "${{ github.ref }}" =~ $verRegex ]]; then
             release=true
@@ -45,14 +46,16 @@ jobs:
             minor=${BASH_REMATCH[2]}
             patch=${BASH_REMATCH[3]}
             if [ ${#BASH_REMATCH[@]} -gt 4 ]; then
-                label=-${BASH_REMATCH[4]}
+                prerelease=-${BASH_REMATCH[4]}
+            else
+                prerelease=""
             fi
         fi
         echo ::set-output name=release::${release}
         echo ::set-output name=AssemblyVersion::${major}.0.0
         echo ::set-output name=FileVersion::${major}.${minor}.${patch}.${build}
-        echo ::set-output name=InformationalVersion::${major}.${minor}.${patch}${label}
-        echo ::set-output name=PackageVersion::${major}.${minor}.${patch}${label}
+        echo ::set-output name=InformationalVersion::${major}.${minor}.${patch}${prerelease}+${buildlabel}
+        echo ::set-output name=PackageVersion::${major}.${minor}.${patch}${prerelease}
     - name: Show SemVer details
 #      if: steps.semver.outputs.release == 'true'
       run: |
