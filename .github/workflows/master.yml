@@ -55,7 +55,8 @@ jobs:
     - name: Show SemVer details
 #      if: steps.semver.outputs.release == 'true'
       run: |
-        echo ${{ github.ref }}
+        echo Ref: ${{ github.ref }}
+        echo SHA: ${{ github.sha }}
         echo Release: ${{ steps.semver.outputs.release }}
         echo AssemblyVersion: ${{ steps.semver.outputs.AssemblyVersion }}
         echo FileVersion: ${{ steps.semver.outputs.FileVersion }}
