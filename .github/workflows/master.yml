@@ -52,7 +52,7 @@ jobs:
             fi
             buildlabel="+build.${{ github.run_number }}"
         fi
-        echo ::set-output name=release::${release}
+        echo ::set-output name=Release::${release}
         echo ::set-output name=AssemblyVersion::${major}.0.0
         echo ::set-output name=FileVersion::${major}.${minor}.${patch}.${build}
         echo ::set-output name=InformationalVersion::${major}.${minor}.${patch}${prerelease}${buildlabel}
@@ -62,7 +62,7 @@ jobs:
       run: |
         echo Ref: ${{ github.ref }}
         echo SHA: ${{ github.sha }}
-        echo Release: ${{ steps.semver.outputs.release }}
+        echo Release: ${{ steps.semver.outputs.Release }}
         echo AssemblyVersion: ${{ steps.semver.outputs.AssemblyVersion }}
         echo FileVersion: ${{ steps.semver.outputs.FileVersion }}
         echo InformationalVersion: ${{ steps.semver.outputs.InformationalVersion }}
