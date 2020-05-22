@@ -13,7 +13,8 @@
     <Description>Safe and secure data at rest protection.</Description>
 
     <!-- https://github.com/dotnet/sdk/blob/master/src/Tasks/Microsoft.NET.Build.Tasks/targets/Microsoft.NET.DefaultAssemblyInfo.targets -->
-    <VersionSuffix Condition="'$(VersionSuffix)' == ''">dev</VersionSuffix>
+    <VersionPrefix Condition=" '$(Version)' == '' and '$(VersionPrefix)' == '' ">0.1.0</VersionPrefix>
+    <VersionSuffix Condition=" '$(Version)' == '' and '$(VersionSuffix)' == ''">dev</VersionSuffix>
 
     <!--
     // https://github.com/dotnet/sourcelink/blob/master/docs/README.md
@@ -35,8 +36,7 @@
     -->
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-  
-</PropertyGroup>
+  </PropertyGroup>
   
   <!-- This should not be enabled during local dev or the debugger won't be able to find the local source files. -->
   <!-- https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables -->
@@ -47,7 +47,7 @@
     <!-- Only set DeterministicSourcePaths to true on a build/CI server, never for local builds. -->
     <DeterministicSourcePaths>true</DeterministicSourcePaths>
   </PropertyGroup>
-
+  
   <ItemGroup>
     <!-- https://github.com/dotnet/sourcelink -->
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
@@ -61,6 +61,11 @@
   <PropertyGroup>
     <TargetFrameworkMonikerAssemblyAttributesPath>$([System.IO.Path]::Combine('$(IntermediateOutputPath)','$(TargetFrameworkMoniker).AssemblyAttributes$(DefaultLanguageSourceExtension)'))</TargetFrameworkMonikerAssemblyAttributesPath>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <NoWarn>$(NoWarn);NU5105</NoWarn>
+  </PropertyGroup>
+  
   <ItemGroup>
     <EmbeddedFiles Include="$(GeneratedAssemblyInfoFile)" />
   </ItemGroup>

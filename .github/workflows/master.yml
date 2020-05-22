@@ -1,37 +1,107 @@
+# This is free and unencumbered software released into the public domain.
+# See the UNLICENSE file in the project root for more information.
+
 name: master
 
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+    - 'README.md'
+    - 'UNLICENSE.md'
+    - '.gitignore'
+    - 'docs/**'
   pull_request:
     branches: [ master ]
+    paths-ignore:
+    - 'README.md'
+    - 'UNLICENSE.md'
+    - '.gitignore'
+    - 'docs/**'
+  release:
+    types: [ published ]
 
 jobs:
   build:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Make SemVer from git tag
+      id: semver
+      run: |
+        isRelease=false
+        major=0
+        minor=1
+        patch=0
+        build=$((${{ github.run_number }}%65534))
+        prerelease="-ci.${{ github.run_number }}"
+        buildlabel=""
+        longsha=${{ github.sha }}
+        shortsha=${longsha:0:8}
+        shasuffix=+${shortsha}
+        verRegex="^refs/tags/[vV]?\
+        (0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\
+        (-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?$"
+        if [[ "${{ github.ref }}" =~ $verRegex ]]; then
+            isRelease=true
+            major=${BASH_REMATCH[1]}
+            minor=${BASH_REMATCH[2]}
+            patch=${BASH_REMATCH[3]}
+            if [ ${#BASH_REMATCH[@]} -gt 4 ]; then
+                prerelease=${BASH_REMATCH[4]}
+            else
+                prerelease=""
+            fi
+            buildlabel="+build.${{ github.run_number }}"
+            shasuffix=.${shortsha}
+        fi
+        echo ::set-output name=OfficialRelease::${isRelease}
+        echo ::set-output name=AssemblyVersion::${major}.0.0
+        echo ::set-output name=FileVersion::${major}.${minor}.${patch}.${build}
+        echo ::set-output name=InformationalVersion::${major}.${minor}.${patch}${prerelease}${buildlabel}
+        echo ::set-output name=PackageVersion::${major}.${minor}.${patch}${prerelease}
+        echo ::set-output name=ArtifactsVersion::${major}.${minor}.${patch}${prerelease}${buildlabel}${shasuffix}
+    - name: Show build version
+      run: |
+        echo EventName: ${{ github.event_name }}
+        echo Ref: ${{ github.ref }}
+        echo Repo: ${{ github.repository }}
+        echo SHA: ${{ github.sha }}
+        echo OfficialRelease: ${{ steps.semver.outputs.OfficialRelease }}
+        echo AssemblyVersion: ${{ steps.semver.outputs.AssemblyVersion }}
+        echo FileVersion: ${{ steps.semver.outputs.FileVersion }}
+        echo InformationalVersion: ${{ steps.semver.outputs.InformationalVersion }}
+        echo PackageVersion: ${{ steps.semver.outputs.PackageVersion }}
+        echo ArtifactsVersion: ${{ steps.semver.outputs.ArtifactsVersion }}
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 3.1.202
-    - name: Install dependencies
+        dotnet-version: 3.1.300
+    - name: Restore
       run: dotnet restore
     - name: Build
-      run: dotnet build --configuration Release --no-restore -p:VersionSuffix=ci${{ github.run_number }}
+      run: dotnet build --configuration Release --no-restore --nologo -p:AssemblyVersion=${{ steps.semver.outputs.AssemblyVersion }} -p:FileVersion=${{ steps.semver.outputs.FileVersion }} -p:InformationalVersion=${{ steps.semver.outputs.InformationalVersion }} -p:PackageVersion=${{ steps.semver.outputs.PackageVersion }}
     - name: Test
-      run: dotnet test --configuration Release --no-build --no-restore --nologo --verbosity normal -p:VersionSuffix=ci${{ github.run_number }}
+      run: dotnet test --configuration Release --no-build --no-restore --nologo --verbosity normal -p:AssemblyVersion=${{ steps.semver.outputs.AssemblyVersion }} -p:FileVersion=${{ steps.semver.outputs.FileVersion }} -p:InformationalVersion=${{ steps.semver.outputs.InformationalVersion }} -p:PackageVersion=${{ steps.semver.outputs.PackageVersion }}
     - name: Pack
-      run: dotnet pack --configuration Release --no-build --no-restore --output ./pkg -p:VersionSuffix=ci${{ github.run_number }}
+      run: dotnet pack --configuration Release --no-build --no-restore --nologo --output ./artifacts -p:AssemblyVersion=${{ steps.semver.outputs.AssemblyVersion }} -p:FileVersion=${{ steps.semver.outputs.FileVersion }} -p:InformationalVersion=${{ steps.semver.outputs.InformationalVersion }} -p:PackageVersion=${{ steps.semver.outputs.PackageVersion }}
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: nuget-pkg-ci${{ github.run_number }}
-        path: ./pkg
+        name: ${{ github.event.repository.name }}.${{ steps.semver.outputs.ArtifactsVersion }}
+        path: ./artifacts
 #    - name: Add GitHub NuGet feed source
+#      if: github.event_name == 'release' && steps.semver.outputs.OfficialRelease == 'true'
 #      run: dotnet nuget add source https://nuget.pkg.github.com/neliva/index.json --name GitHub --username neliva --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
 #    - name: Push to GitHub NuGet feed
-#      run: dotnet nuget push *.nupkg --source GitHub --timeout 120
-#      working-directory: ./pkg
+#      if: github.event_name == 'release' && steps.semver.outputs.OfficialRelease == 'true'
+#      run: dotnet nuget push *.nupkg --source GitHub --timeout 90 --disable-buffering true
+#      working-directory: ./artifacts
