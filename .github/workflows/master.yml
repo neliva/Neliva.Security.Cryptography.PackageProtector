@@ -52,6 +52,7 @@ jobs:
         build=$((${{ github.run_number }}%65534))
         prerelease="-ci.${{ github.run_number }}"
         buildlabel=""
+        longsha=${{ github.sha }}
         verRegex="^refs/tags/[vV]?\
         (0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\
         (-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?$"
@@ -72,6 +73,7 @@ jobs:
         echo ::set-output name=FileVersion::${major}.${minor}.${patch}.${build}
         echo ::set-output name=InformationalVersion::${major}.${minor}.${patch}${prerelease}${buildlabel}
         echo ::set-output name=PackageVersion::${major}.${minor}.${patch}${prerelease}
+        echo ::set-output name=ShortSha::${longsha:0:8}
     - name: Build details
       run: |
         echo EventName: ${{ github.event_name }}
@@ -94,7 +96,7 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: ${{ github.event.repository.name }}.${{ steps.semver.outputs.InformationalVersion }}+${{ github.sha }}
+        name: ${{ github.event.repository.name }}.${{ steps.semver.outputs.InformationalVersion }}+${{ steps.semver.outputs.ShortSha }}
         path: ./artifacts
     - name: Add GitHub NuGet feed source
       if: github.event_name == 'release' && steps.semver.outputs.OfficialRelease == 'true'
