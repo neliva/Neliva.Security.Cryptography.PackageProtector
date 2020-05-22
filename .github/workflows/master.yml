@@ -44,7 +44,7 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 3.1.300
-    - name: Extract SemVer from git tag
+    - name: Make SemVer from git tag
       id: semver
       run: |
         isRelease=false
@@ -55,6 +55,8 @@ jobs:
         prerelease="-ci.${{ github.run_number }}"
         buildlabel=""
         longsha=${{ github.sha }}
+        shortsha=${longsha:0:8}
+        shasuffix=+${shortsha}
         verRegex="^refs/tags/[vV]?\
         (0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\
         (-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?$"
@@ -69,14 +71,15 @@ jobs:
                 prerelease=""
             fi
             buildlabel="+build.${{ github.run_number }}"
+            shasuffix=.${shortsha}
         fi
         echo ::set-output name=OfficialRelease::${isRelease}
         echo ::set-output name=AssemblyVersion::${major}.0.0
         echo ::set-output name=FileVersion::${major}.${minor}.${patch}.${build}
         echo ::set-output name=InformationalVersion::${major}.${minor}.${patch}${prerelease}${buildlabel}
         echo ::set-output name=PackageVersion::${major}.${minor}.${patch}${prerelease}
-        echo ::set-output name=ShortSha::${longsha:0:8}
-    - name: Build details
+        echo ::set-output name=ArtifactsVersion::${major}.${minor}.${patch}${prerelease}${buildlabel}${shasuffix}
+    - name: Show build version
       run: |
         echo EventName: ${{ github.event_name }}
         echo Ref: ${{ github.ref }}
@@ -87,6 +90,7 @@ jobs:
         echo FileVersion: ${{ steps.semver.outputs.FileVersion }}
         echo InformationalVersion: ${{ steps.semver.outputs.InformationalVersion }}
         echo PackageVersion: ${{ steps.semver.outputs.PackageVersion }}
+        echo ArtifactsVersion: ${{ steps.semver.outputs.ArtifactsVersion }}
     - name: Install dependencies
       run: dotnet restore
     - name: Build
@@ -98,7 +102,7 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: ${{ github.event.repository.name }}.${{ steps.semver.outputs.InformationalVersion }}+${{ steps.semver.outputs.ShortSha }}
+        name: ${{ github.event.repository.name }}.${{ steps.semver.outputs.ArtifactsVersion }}
         path: ./artifacts
     - name: Add GitHub NuGet feed source
       if: github.event_name == 'release' && steps.semver.outputs.OfficialRelease == 'true'
