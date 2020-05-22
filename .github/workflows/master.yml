@@ -34,7 +34,7 @@ jobs:
     - name: Extract SemVer from git tag
       id: semver
       run: |
-        release=false
+        isRelease=false
         major=0
         minor=1
         patch=0
@@ -45,7 +45,7 @@ jobs:
         (0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\
         (-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?$"
         if [[ "${{ github.ref }}" =~ $verRegex ]]; then
-            release=true
+            isRelease=true
             major=${BASH_REMATCH[1]}
             minor=${BASH_REMATCH[2]}
             patch=${BASH_REMATCH[3]}
@@ -56,7 +56,7 @@ jobs:
             fi
             buildlabel="+build.${{ github.run_number }}"
         fi
-        echo ::set-output name=Release::${release}
+        echo ::set-output name=OfficialRelease::${isRelease}
         echo ::set-output name=AssemblyVersion::${major}.0.0
         echo ::set-output name=FileVersion::${major}.${minor}.${patch}.${build}
         echo ::set-output name=InformationalVersion::${major}.${minor}.${patch}${prerelease}${buildlabel}
@@ -67,7 +67,7 @@ jobs:
         echo Ref: ${{ github.ref }}
         echo Repo: ${{ github.repository }}
         echo SHA: ${{ github.sha }}
-        echo Release: ${{ steps.semver.outputs.Release }}
+        echo OfficialRelease: ${{ steps.semver.outputs.OfficialRelease }}
         echo AssemblyVersion: ${{ steps.semver.outputs.AssemblyVersion }}
         echo FileVersion: ${{ steps.semver.outputs.FileVersion }}
         echo InformationalVersion: ${{ steps.semver.outputs.InformationalVersion }}
@@ -86,9 +86,9 @@ jobs:
         name: artifacts-${{ steps.semver.outputs.InformationalVersion }}+${{ github.sha }}
         path: ./artifacts
     - name: Add GitHub NuGet feed source
-      # if: steps.semver.outputs.release != 'true'
+      # if: steps.semver.outputs.OfficialRelease != 'true'
       run: dotnet nuget add source https://nuget.pkg.github.com/neliva/index.json --name GitHub --username neliva --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
     - name: Push to GitHub NuGet feed
-      # if: steps.semver.outputs.release != 'true'
+      # if: steps.semver.outputs.OfficialRelease != 'true'
       run: dotnet nuget push *.nupkg --source GitHub --timeout 90 --disable-buffering true
       working-directory: ./artifacts
