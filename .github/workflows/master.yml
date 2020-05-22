@@ -83,12 +83,12 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with:
-        name: artifacts-${{ steps.semver.outputs.InformationalVersion }}+${{ github.sha }}
+        name: ${{ github.event.repository.name }}.${{ steps.semver.outputs.InformationalVersion }}+${{ github.sha }}
         path: ./artifacts
-    - name: Add GitHub NuGet feed source
+#    - name: Add GitHub NuGet feed source
       # if: steps.semver.outputs.OfficialRelease != 'true'
-      run: dotnet nuget add source https://nuget.pkg.github.com/neliva/index.json --name GitHub --username neliva --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
-    - name: Push to GitHub NuGet feed
+#      run: dotnet nuget add source https://nuget.pkg.github.com/neliva/index.json --name GitHub --username neliva --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
+#    - name: Push to GitHub NuGet feed
       # if: steps.semver.outputs.OfficialRelease != 'true'
-      run: dotnet nuget push *.nupkg --source GitHub --timeout 90 --disable-buffering true
-      working-directory: ./artifacts
+#      run: dotnet nuget push *.nupkg --source GitHub --timeout 90 --disable-buffering true
+#      working-directory: ./artifacts
