@@ -9,8 +9,36 @@ using System.Threading.Tasks;
 
 namespace Neliva.Security.Cryptography
 {
+    /// <summary>
+    /// Provides extension methods to protect and unprotect streams using
+    /// the underlying <see cref="PackageProtector"/> algorithm.
+    /// </summary>
     public static class StreamExtensions
     {
+        /// <summary>
+        /// Protects the <paramref name="content"/> stream into the
+        /// <paramref name="package"/> destination stream.
+        /// </summary>
+        /// <param name="content">
+        /// The content to protect.
+        /// </param>
+        /// <param name="package">
+        /// The destination to receive the protected <paramref name="content"/>.
+        /// </param>
+        /// <param name="key">
+        /// The secret key used to protect the <paramref name="content"/>.
+        /// </param>
+        /// <param name="packageSize">
+        /// The package size in bytes, which must match the value
+        /// provided during unprotection.</param>
+        /// <param name="associatedData">
+        /// Extra data associated with the <paramref name="content"/>, which must match the value
+        /// provided during unprotection.
+        /// </param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>
+        /// The number of bytes written to the <paramref name="package"/> destination.
+        /// </returns>
         public static async Task<long> ProtectAsync(this Stream content, Stream package, byte[] key, int packageSize = 64 * 1024, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (content == null)
@@ -104,6 +132,31 @@ namespace Neliva.Security.Cryptography
             return totalOutputSize;
         }
 
+        /// <summary>
+        /// Unprotects the <paramref name="package"/> stream into the
+        /// <paramref name="content"/> destination stream.
+        /// </summary>
+        /// <param name="package">
+        /// The package to unprotect.
+        /// </param>
+        /// <param name="content">
+        /// The destination to receive the unprotected <paramref name="package"/>.
+        /// </param>
+        /// <param name="key">
+        /// The secret key used to unprotect the <paramref name="package"/>.
+        /// </param>
+        /// <param name="packageSize">
+        /// The package size in bytes, which must match the value
+        /// provided during protection.
+        /// </param>
+        /// <param name="associatedData">
+        /// Extra data associated with the <paramref name="package"/>, which must match the value
+        /// provided during protection.
+        /// </param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>
+        /// The number of bytes written to the <paramref name="content"/> destination.
+        /// </returns>
         public static async Task<long> UnprotectAsync(this Stream package, Stream content, byte[] key, int packageSize = 64 * 1024, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (package == null)

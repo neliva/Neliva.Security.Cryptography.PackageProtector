@@ -7,17 +7,15 @@ using System.Security.Cryptography;
 
 namespace Neliva.Security.Cryptography
 {
+    /// <summary>
+    /// Represents pad-then-mac-then-encrypt chunked data protection using
+    /// CBC-AES256 and HMAC-SHA256 algorithms.
+    /// </summary>
     public static class PackageProtector
     {
-        /// <summary>
-        /// AES256 block size, IV size, max associated data size, salt size.
-        /// </summary>
-        internal const int BlockSize = 16;
+        internal const int BlockSize = 16; // AES256 block size, IV size, max associated data size, salt size.
 
-        /// <summary>
-        /// HMAC-SHA256 hash size, HMAC key size, AES256 key size.
-        /// </summary>
-        private const int HashSize = 32;
+        private const int HashSize = 32; // HMAC-SHA256 hash size, HMAC key size, AES256 key size.
 
         /// <summary>
         /// The minimum number of bytes added to content
@@ -43,6 +41,32 @@ namespace Neliva.Security.Cryptography
             return aes;
         }
 
+        /// <summary>
+        /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.
+        /// </summary>
+        /// <param name="content">
+        /// The content to protect.
+        /// </param>
+        /// <param name="package">
+        /// The destination to receive the protected <paramref name="content"/>.
+        /// </param>
+        /// <param name="key">
+        /// The secret key used to protect the <paramref name="content"/>.
+        /// </param>
+        /// <param name="packageNumber">
+        /// The package number in a series of packages, which must match the value
+        /// provided during unprotection.
+        /// </param>
+        /// <param name="packageSize">
+        /// The package size in bytes, which must match the value
+        /// provided during unprotection.</param>
+        /// <param name="associatedData">
+        /// Extra data associated with the <paramref name="content"/>, which must match the value
+        /// provided during unprotection.
+        /// </param>
+        /// <returns>
+        /// The number of bytes written to the <paramref name="package"/> destination.
+        /// </returns>
         public static int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, int packageSize, ArraySegment<byte> associatedData)
         {
             bool isInvalidPackageSizeParam = IsInvalidPackageSize(packageSize);
@@ -128,6 +152,33 @@ namespace Neliva.Security.Cryptography
             return outputPackageSize;
         }
 
+        /// <summary>
+        /// Unprotects the <paramref name="package"/> into the <paramref name="content"/> destination.
+        /// </summary>
+        /// <param name="package">
+        /// The package to unprotect.
+        /// </param>
+        /// <param name="content">
+        /// The destination to receive the unprotected <paramref name="package"/>.
+        /// </param>
+        /// <param name="key">
+        /// The secret key used to unprotect the <paramref name="package"/>.
+        /// </param>
+        /// <param name="packageNumber">
+        /// The package number in a series of packages, which must match the value
+        /// provided during protection.
+        /// </param>
+        /// <param name="packageSize">
+        /// The package size in bytes, which must match the value
+        /// provided during protection.
+        /// </param>
+        /// <param name="associatedData">
+        /// Extra data associated with the <paramref name="package"/>, which must match the value
+        /// provided during protection.
+        /// </param>
+        /// <returns>
+        /// The number of bytes written to the <paramref name="content"/> destination.
+        /// </returns>
         public static int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, int packageSize, ArraySegment<byte> associatedData)
         {
             bool isInvalidPackageSizeParam = IsInvalidPackageSize(packageSize);
@@ -222,20 +273,13 @@ namespace Neliva.Security.Cryptography
             return value % align != 0;
         }
 
-        /// <summary>
-        /// Aligns the <paramref name="value"/> on <see cref="BlockSize"/> byte boundary.
-        /// If <paramref name="value"/> is already aligned or zero,
-        /// extends the value by extra <see cref="BlockSize"/> bytes.
-        /// </summary>
-        /// <param name="value">
-        /// The value to align or extend.
-        /// </param>
-        /// <returns>
-        /// The aligned <paramref name="value"/>.
-        /// </returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int AlignBlock(int value)
         {
+            // Aligns the value on BlockSize byte boundary.
+            // If value is already aligned or zero,
+            // extends the value by extra BlockSize bytes.
+
             const int align = BlockSize;
 
             return value + (align - (value % align));

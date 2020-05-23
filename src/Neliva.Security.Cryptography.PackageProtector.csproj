@@ -36,6 +36,8 @@
     -->
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   
   <!-- This should not be enabled during local dev or the debugger won't be able to find the local source files. -->
