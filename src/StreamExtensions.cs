@@ -39,6 +39,16 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="package"/> destination.
         /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// The <paramref name="content"/>, <paramref name="package"/>, or <paramref name="key"/>
+        /// parameter is <c>null</c>.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
+        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
+        /// - or -
+        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// </exception>
         public static async Task<long> ProtectAsync(this Stream content, Stream package, byte[] key, int packageSize = 64 * 1024, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (content == null)
@@ -157,6 +167,29 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="content"/> destination.
         /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// The <paramref name="package"/>, <paramref name="content"/>, or <paramref name="key"/>
+        /// parameter is <c>null</c>.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
+        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
+        /// - or -
+        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// </exception>
+        /// <exception cref="InvalidDataException">
+        /// Unexpected data after end of stream marker.
+        /// - or -
+        /// Unexpected stream length. Stream is truncated or corrupted.
+        /// - or -
+        /// Unexpected end of stream. Stream is truncated or corrupted.
+        /// </exception>
+        /// <exception cref="BadPackageException">
+        /// Package is invalid or corrupted.
+        /// - or -
+        /// The <paramref name="key"/>, <paramref name="packageSize"/>,
+        /// or <paramref name="associatedData"/> parameter is not valid.
+        /// </exception>
         public static async Task<long> UnprotectAsync(this Stream package, Stream content, byte[] key, int packageSize = 64 * 1024, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (package == null)

@@ -67,6 +67,21 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="package"/> destination.
         /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// The <paramref name="key"/> parameter is <c>null</c>.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="content"/> length is greater than (<paramref name="packageSize"/> - <see cref="Overhead"/>).
+        /// - or -
+        /// The <paramref name="package"/> destination space is insufficient.
+        /// - or -
+        /// The <paramref name="packageNumber"/> parameter is less than zero.
+        /// - or -
+        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
+        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
+        /// - or -
+        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// </exception>
         public static int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, int packageSize, ArraySegment<byte> associatedData)
         {
             bool isInvalidPackageSizeParam = IsInvalidPackageSize(packageSize);
@@ -179,6 +194,28 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="content"/> destination.
         /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// The <paramref name="key"/> parameter is <c>null</c>.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="content"/> destination space is insufficient.
+        /// - or -
+        /// The <paramref name="packageNumber"/> parameter is less than zero.
+        /// - or -
+        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
+        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
+        /// - or -
+        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// </exception>
+        /// <exception cref="BadPackageException">
+        /// Package is invalid or corrupted.
+        /// - or -
+        /// The <paramref name="package"/> length is less than <c>64 bytes</c>,
+        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
+        /// - or -
+        /// The <paramref name="key"/>, <paramref name="packageNumber"/>, <paramref name="packageSize"/>,
+        /// or <paramref name="associatedData"/> parameter is not valid.
+        /// </exception>
         public static int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, int packageSize, ArraySegment<byte> associatedData)
         {
             bool isInvalidPackageSizeParam = IsInvalidPackageSize(packageSize);
