@@ -13,7 +13,7 @@ Protected streams have no headers, markers, or identifiers. This makes protected
 
 ## Algorithm choice
 
-There are many authenticated encryption algorithms such as AES-CCM, AES-GCM, or ChaCha20-Poly1305 that perform very well on modern hardware. There are two shortcomings with such algorithms:
+There are many authenticated encryption algorithms such as AES-CCM, AES-GCM, or ChaCha20-Poly1305 that perform very well on modern hardware. There are shortcomings with such algorithms:
 * Reuse of key and nounce in stream ciphers is catastrophic.
 * The authentication tag is only 16 bytes.
 
