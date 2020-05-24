@@ -9,8 +9,46 @@ using System.Threading.Tasks;
 
 namespace Neliva.Security.Cryptography
 {
+    /// <summary>
+    /// Provides extension methods to protect and unprotect streams using
+    /// the underlying <see cref="PackageProtector"/> algorithm.
+    /// </summary>
     public static class StreamExtensions
     {
+        /// <summary>
+        /// Protects the <paramref name="content"/> stream into the
+        /// <paramref name="package"/> destination stream.
+        /// </summary>
+        /// <param name="content">
+        /// The content to protect.
+        /// </param>
+        /// <param name="package">
+        /// The destination to receive the protected <paramref name="content"/>.
+        /// </param>
+        /// <param name="key">
+        /// The secret key used to protect the <paramref name="content"/>.
+        /// </param>
+        /// <param name="packageSize">
+        /// The package size in bytes, which must match the value
+        /// provided during unprotection.</param>
+        /// <param name="associatedData">
+        /// Extra data associated with the <paramref name="content"/>, which must match the value
+        /// provided during unprotection.
+        /// </param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>
+        /// The number of bytes written to the <paramref name="package"/> destination.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// The <paramref name="content"/>, <paramref name="package"/>, or <paramref name="key"/>
+        /// parameter is <c>null</c>.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
+        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
+        /// - or -
+        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// </exception>
         public static async Task<long> ProtectAsync(this Stream content, Stream package, byte[] key, int packageSize = 64 * 1024, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (content == null)
@@ -104,6 +142,54 @@ namespace Neliva.Security.Cryptography
             return totalOutputSize;
         }
 
+        /// <summary>
+        /// Unprotects the <paramref name="package"/> stream into the
+        /// <paramref name="content"/> destination stream.
+        /// </summary>
+        /// <param name="package">
+        /// The package to unprotect.
+        /// </param>
+        /// <param name="content">
+        /// The destination to receive the unprotected <paramref name="package"/>.
+        /// </param>
+        /// <param name="key">
+        /// The secret key used to unprotect the <paramref name="package"/>.
+        /// </param>
+        /// <param name="packageSize">
+        /// The package size in bytes, which must match the value
+        /// provided during protection.
+        /// </param>
+        /// <param name="associatedData">
+        /// Extra data associated with the <paramref name="package"/>, which must match the value
+        /// provided during protection.
+        /// </param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>
+        /// The number of bytes written to the <paramref name="content"/> destination.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// The <paramref name="package"/>, <paramref name="content"/>, or <paramref name="key"/>
+        /// parameter is <c>null</c>.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
+        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
+        /// - or -
+        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// </exception>
+        /// <exception cref="InvalidDataException">
+        /// Unexpected data after end of stream marker.
+        /// - or -
+        /// Unexpected stream length. Stream is truncated or corrupted.
+        /// - or -
+        /// Unexpected end of stream. Stream is truncated or corrupted.
+        /// </exception>
+        /// <exception cref="BadPackageException">
+        /// Package is invalid or corrupted.
+        /// - or -
+        /// The <paramref name="key"/>, <paramref name="packageSize"/>,
+        /// or <paramref name="associatedData"/> parameter is not valid.
+        /// </exception>
         public static async Task<long> UnprotectAsync(this Stream package, Stream content, byte[] key, int packageSize = 64 * 1024, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (package == null)

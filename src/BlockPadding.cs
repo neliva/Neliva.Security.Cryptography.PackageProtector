@@ -6,9 +6,6 @@ using System.Runtime.CompilerServices;
 
 namespace Neliva.Security.Cryptography
 {
-    /// <summary>
-    /// Provides methods to verify message block padding.
-    /// </summary>
     internal static class BlockPadding
     {
         // Returns -1 on failure, or number of padding bytes on success.
