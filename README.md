@@ -17,4 +17,4 @@ There are many authenticated encryption algorithms such as AES-CCM, AES-GCM, or 
 * Reuse of key and nounce in stream ciphers is catastrophic.
 * The authentication tag is only 16 bytes.
 
-Block ciphers have their own issues such as padding oracle attacks. CBC mode provides a bit more safety in key/IV reuse and re-encryption of individual chunks. Algorithm performance is not a primary goal. PackageProtector uses *pad-then-mac-then-encrypt* mode with PKCS7 padding scheme.
+Block ciphers have their own issues such as padding oracle attacks. CBC mode provides a bit more safety in key/IV reuse and re-encryption of individual chunks. Algorithm performance is not a primary goal. PackageProtector uses PKCS7 padding scheme in *pad-then-mac-then-encrypt* mode to guard against padding oracle attacks.
