@@ -38,11 +38,21 @@ Package **iv/salt** is cryptographically strong random bytes generated for every
 
 Given a data stream key (master key), for each package a KDF-HMAC-SHA256 in Counter Mode ([described in SP800-108](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-108.pdf)) is used to derive encryption and MAC keys. This provides a level of key indirection. Recovered individual package keys cannot be used to recover other packages or the stream master key.
 
-The KDF takes into account the following **derived key context**:
+The KDF takes into account the following per package **derived key context**:
 * Key purpose (encrypt or MAC)
 * Package number (64 bit int)
 * Package size (24 bit int)
 * Package salt (16 bytes)
 * Stream associated data (caller provided, 16 bytes)
+
+```
++----------------+     +-------+     +----------+     +--------------+     +-------+
+| master key     |---->|       |---->| MAC key  |---->| HMAC-SHA256  |---->|       |
++----------------+     | ----- |     +----------+     +--------------+     |       |
+                       |  KDF  |                                           | PKG N |
++----------------+     | ----- |     +----------+     +--------------+     |       |
+| key context N  |---->|       |---->| ENC key  |---->| CBC-AES256   |---->|       |
++----------------+     +-------+     +----------+     +--------------+     +-------+
+```
 
 The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. The master key can be any length. However, the recommended key size is 64 bytes. PackageProtector restricts the key size to 32 - 64 bytes.
