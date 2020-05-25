@@ -42,8 +42,8 @@ Given a data stream key (**master key**), for each package a KDF-HMAC-SHA256 in 
 
 The KDF takes into account the following **derived key context**:
 * Key purpose (encrypt or sign)
-* Package number (64 bit int)
-* Package size (24 bit int, same value for all stream packages)
+* **Package number** (64 bit int, starts from 0 and sequentially increases)
+* **Package size** (24 bit int, same value for all stream packages)
 * Package salt (16 bytes, randomly generated for each package)
 * Stream **associated data** (0 - 16 bytes, user provided)
 
@@ -67,3 +67,8 @@ Provided that the stream key and *associated data* combination is unique for eve
 * Stream truncation
 * Extra data after *end of stream* marker
 * Package substitution from a different stream
+
+## Stream limits
+Every package is protected independently by derived keys from the data stream key and package key context. PackageProtector uses int64 for package numbers. Given the max 9223372036854775807 *package number* value and the default 64KiB *package size* we can expect:
+* *64KiB - 49 bytes* of content per package
+* 
