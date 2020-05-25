@@ -24,12 +24,13 @@ Block ciphers have their own issues such as padding oracle attacks. PackageProte
 PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package** that will be signed and encrypted with keys derived from the provided data stream key.
 
 ```
-+-------------------------------------------------------------------------+
-|                   Package, 64 bytes - (16MiB - 16 bytes)                |
-+-------------------------------------------------------------------------+
-| IV/Salt     | Chunk content             | PAD             | MAC         |
-+-------------+---------------------------+-----------------+-------------+
-| 16 bytes    | 0 - (16MiB - 65 bytes)    | 1 - 16 bytes    | 32 bytes    |
-+-------------------------------------------------------------------------+
++------------------------------------------------------------------------------------+
+|                   package, 64 bytes - (16MiB - 16 bytes)                           |
++------------------------------------------------------------------------------------+
+| iv/salt     | chunk content             | pad             | MAC (content | pad)    |
++-------------+---------------------------+-----------------+------------------------+
+| 16 bytes    | 0 - (16MiB - 65 bytes)    | 1 - 16 bytes    | 32 bytes               |
++-------------+----------------------------------------------------------------------+
+              |                              encrypted                               |
 ```
 
