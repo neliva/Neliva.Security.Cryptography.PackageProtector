@@ -34,9 +34,11 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 ```
 Package **iv/salt** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. Notice that the padding comes before the MAC. This *pad-then-mac-then-encrypt* format forces the decryption operation to verify MAC before padding, eliminating padding oracle attacks.
 
-## Keys derivation
+All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length **content**.
 
-Given a data stream key (**master key**), for each package a KDF-HMAC-SHA256 in Counter Mode ([described in SP800-108](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-108.pdf)) is used to derive encryption and MAC keys. This provides a level of key indirection. Recovered individual package keys cannot be used to recover other packages or the stream master key.
+## Stream keys
+
+Given a data stream key (**master key**), for each package a KDF-HMAC-SHA256 in Counter Mode ([described in SP800-108](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-108.pdf)) is used to derive MAC and ENC keys. This provides a level of key indirection. Recovered individual package keys cannot be used to recover other packages or the stream master key.
 
 The KDF takes into account the following **derived key context**:
 * Key purpose (encrypt or MAC)
