@@ -17,6 +17,14 @@ There are many authenticated encryption algorithms such as AES-CCM, AES-GCM, or 
 * Reuse of key and nounce in stream ciphers is catastrophic.
 * The authentication tag is only 16 bytes.
 
-Block ciphers have their own issues such as padding oracle attacks. CBC mode provides a bit more safety in key/IV reuse and re-encryption of individual chunks (if required). Algorithms performance is not the primary goal of DataProtector. It was deemed nessesary to have separate algorithms and keys for MAC and ENCRYPT operations. PackageProtector uses PKCS7 padding scheme in *pad-then-mac-then-encrypt* mode to guard against padding oracle attacks.
+Block ciphers have their own issues such as padding oracle attacks. PackageProtector uses PKCS7 padding scheme in *pad-then-mac-then-encrypt* mode to guard against padding oracle attacks. CBC mode provides a bit more safety in key/IV reuse and re-encryption of individual chunks (if required). Algorithms performance is not the primary goal of DataProtector. It was deemed nessesary to have separate algorithms and keys for MAC and ENCRYPT operations.
 
-## 
+## Stream format
+
+PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package** that will be signed and encrypted with keys derived from the provided data stream key.
+
+IV/Salt     | Chunk *content*           | PAD             | MAC
+----------- | ------------------------- | --------------- | ----------
+16 bytes    | 0 - (16MiB - 65 bytes)    | 1 - 16 bytes    | 32 bytes
+
+
