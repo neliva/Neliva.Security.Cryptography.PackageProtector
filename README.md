@@ -32,13 +32,13 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 +-------------+----------------------------------------------------------------------+
               |                       encrypted (no padding)                         |
 ```
-Package **iv/salt** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes are generated. Notice that the padding comes before the MAC. This *pad-then-mac-then-encrypt* format forces the decryption operation to verify MAC before padding, eliminating padding oracle attacks.
+Package **iv/salt** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. Notice that the padding comes before the MAC. This *pad-then-mac-then-encrypt* format forces the decryption operation to verify MAC before padding, eliminating padding oracle attacks.
 
 ## Keys derivation
 
 Given a data stream key (master key), for each package a KDF-HMAC-SHA256 in counter mode as described in SP800-108 is used to derive encryption and MAC keys. This provides a level of key indirection and recovered individual package keys cannot be used to recover other packages or the stream master key.
 
-The KDF takes into account the following context:
+The KDF takes into account the following **derived key context**:
 * Key purpose (encrypt or MAC)
 * Package number (64 bit int)
 * Package size (24 bit int)
