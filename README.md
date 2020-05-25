@@ -11,7 +11,7 @@ PackageProtector combines SP800-108 KDF (CTR), HMAC-SHA256 and CBC-AES256 to for
 
 Protected streams have no headers, markers or identifiers. This makes protected streams indistinguishable from true randomness. Without a key, it is impossible to determine if the protected stream was produced by PackageProtector or do traffic analysis.
 
-## Underlying algorithms
+## Algorithms
 
 There are many authenticated encryption algorithms such as AES-CCM, AES-GCM, or ChaCha20-Poly1305 that perform very well on modern hardware. There are shortcomings with such algorithms:
 * Reuse of key and nounce in stream ciphers is catastrophic.
@@ -34,18 +34,18 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 ```
 Package **iv/salt** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. Notice that the padding comes before the MAC. This *pad-then-mac-then-encrypt* format forces the decryption operation to verify MAC before padding, eliminating padding oracle attacks.
 
-All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length *content*.
+All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length *content* and produces 64 byte *package*.
 
 ## Stream keys
 
 Given a data stream key (**master key**), for each package a KDF-HMAC-SHA256 in Counter Mode ([described in SP800-108](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-108.pdf)) is used to derive MAC and ENC keys. This provides a level of key indirection. Recovered individual package keys cannot be used to recover other packages or the stream master key.
 
 The KDF takes into account the following **derived key context**:
-* Key purpose (encrypt or MAC)
+* Key purpose (encrypt or sign)
 * Package number (64 bit int)
 * Package size (24 bit int, same value for all stream packages)
 * Package salt (16 bytes, randomly generated for each package)
-* Stream associated data (16 bytes, caller provided)
+* Stream **associated data** (0 - 16 bytes, caller provided)
 
 ```
 +----------------+     +-------+     +----------+     +--------------+     +-------+
@@ -58,3 +58,10 @@ The KDF takes into account the following **derived key context**:
 ```
 
 The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. The master key can be any length. However, the **recommended key size is 64 bytes**. PackageProtector restricts key size to 32 - 64 bytes to provide adequate security.
+
+## Stream security
+Provided that the stream key and *associated data* combination is unique for every data stream, PackageProtector guarantees to detect:
+* Package reordering
+* Stream truncation
+* Extra data after *end of stream* marker
+* Package substitution from a different stream
