@@ -11,6 +11,17 @@ PackageProtector combines SP800-108 KDF (CTR), HMAC-SHA256 and CBC-AES256 to for
 
 Protected streams have no headers, markers or identifiers. This makes protected streams indistinguishable from true randomness. Without a key, it is impossible to determine if the protected stream was produced by PackageProtector or do traffic analysis.
 
+### Usage
+```
+// using Neliva.Security.Cryptography;
+
+var key = new byte[32];
+RandomNumberGenerator.Fill(key);
+
+// Use default values for package size and associated data
+srcContentStream.ProtectAsync(destProtectedStream, key);
+```
+
 ## Algorithms
 
 There are many authenticated encryption algorithms such as AES-CCM, AES-GCM, or ChaCha20-Poly1305 that perform very well on modern hardware. There are shortcomings with such algorithms:
@@ -61,7 +72,7 @@ The KDF takes into account the following **derived key context**:
 
 The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. The master key can be any length. However, the **recommended key size is 64 bytes**. PackageProtector restricts key size to 32 - 64 bytes to provide adequate security.
 
-Data streams can have user provided *associated data* stream context (up to 16 bytes) that is used by KDF. The same value must be provided to unprotect the stream.
+Data streams can have user provided *associated data* context (up to 16 bytes) that is used by KDF. The same value must be provided to unprotect the stream.
 
 ## Stream security
 Provided that the stream key and *associated data* combination is unique for every data stream, PackageProtector guarantees to detect:
