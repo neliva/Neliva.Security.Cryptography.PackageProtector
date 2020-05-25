@@ -34,7 +34,9 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 ```
 Package **iv/salt** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. Notice that the padding comes before the MAC. This *pad-then-mac-then-encrypt* format forces the decryption operation to verify MAC before padding, eliminating padding oracle attacks.
 
-All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length *content* and produces 64 byte *package*.
+All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length *content* and produces a 64 byte *package*.
+
+*Package size* is used to control the amount of data held in memory during protection and unprotection of a single package. The default recomended size is 64 KiB but can be changed based on the application requirements.
 
 ## Stream keys
 
