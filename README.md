@@ -45,7 +45,7 @@ The KDF takes into account the following **derived key context**:
 * Package number (64 bit int)
 * Package size (24 bit int, same value for all stream packages)
 * Package salt (16 bytes, randomly generated for each package)
-* Stream **associated data** (0 - 16 bytes, caller provided)
+* Stream **associated data** (0 - 16 bytes, user provided)
 
 ```
 +----------------+     +-------+     +----------+     +--------------+     +-------+
@@ -58,6 +58,8 @@ The KDF takes into account the following **derived key context**:
 ```
 
 The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. The master key can be any length. However, the **recommended key size is 64 bytes**. PackageProtector restricts key size to 32 - 64 bytes to provide adequate security.
+
+Data streams can have user provided *associated data* stream context (up to 16 bytes) that is used by KDF. The same value must be provided to unprotect the stream.
 
 ## Stream security
 Provided that the stream key and *associated data* combination is unique for every data stream, PackageProtector guarantees to detect:
