@@ -12,7 +12,7 @@ PackageProtector combines SP800-108 KDF (CTR), HMAC-SHA256 and CBC-AES256 to for
 Protected streams have no headers, markers or identifiers. This makes protected streams indistinguishable from true randomness. Without a key, it is impossible to determine if the protected stream was produced by PackageProtector or do traffic analysis.
 
 ### Usage
-```
+```C#
 // using Neliva.Security.Cryptography;
 
 var key = new byte[32];
