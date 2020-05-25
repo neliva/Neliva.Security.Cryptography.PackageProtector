@@ -71,4 +71,4 @@ Provided that the stream key and *associated data* combination is unique for eve
 ## Stream limits
 Every package is protected independently by the keys derived from the data stream key and package key context. PackageProtector uses *int64* for package numbers. Given the max 9223372036854775807 *package number* value and the default 64 KiB *package size* we can expect to protect:
 * *64 KiB - 49 bytes* of content per package
-* *~511 ZiB* of content per stream key and associated data combination
+* *~511 ZiB* of content per stream key and *associated data* combination
