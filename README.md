@@ -21,7 +21,7 @@ Block ciphers have their own issues such as padding oracle attacks. PackageProte
 
 ## Stream format
 
-PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package**. Package size is configurable and must be a multiple of 16 bytes.
+PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package**. Package size is configurable and must be a multiple of 16 bytes. The minimum package **overhead** is 49 bytes.
 
 ```
 |                   package, 64 bytes - (16MiB - 16 bytes)                           |
