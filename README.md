@@ -1,6 +1,6 @@
 ## PackageProtector (aka DataProtector)
 
-This repository provides safe and secure data at rest protection for untrusted remote storage. The specification and reference implementation is released into the public domain. See the [UNLISENCE](UNLICENSE.md) file.
+This repository describes safe and secure data at rest protection for untrusted remote storage. The specification and reference implementation is released into the public domain. See the [UNLISENCE](UNLICENSE.md) file.
 
 [![master](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/workflows/master/badge.svg)](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/actions?query=workflow%3Amaster)
 [![Nuget](https://img.shields.io/nuget/v/Neliva.Security.Cryptography.PackageProtector?style=plastic)](https://www.nuget.org/packages/Neliva.Security.Cryptography.PackageProtector)
@@ -45,4 +45,4 @@ The KDF takes into account the following context:
 * Package salt (16 bytes)
 * Stream associated data (caller provided, 16 bytes)
 
-The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead.
+The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. The master key can be any length. However, the recommended key size is 64 bytes. PackageProtector restricts the key size to 32 - 64 bytes.
