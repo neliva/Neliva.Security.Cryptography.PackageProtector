@@ -21,7 +21,7 @@ Block ciphers have their own issues such as padding oracle attacks. PackageProte
 
 ## Stream format
 
-PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package** that will be signed and encrypted with keys derived from the provided data stream key.
+PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package**.
 
 ```
 
@@ -33,4 +33,4 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 +-------------+----------------------------------------------------------------------+
               |                              encrypted                               |
 ```
-
+Package IV is cryptographically strong random bytes generated for every package. When package is updated, new random bytes are generated. Notice that the padding comes before the MAC. This nonstandard format forces the decryption operation to verify MAC before padding, eliminating padding oracle attacks.
