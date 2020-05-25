@@ -9,7 +9,7 @@ This repository provides safe and secure data at rest protection for untrusted r
 
 PackageProtector combines SP800-108 KDF (CTR), HMAC-SHA256 and CBC-AES256 to form authenticated encryption. Data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated.
 
-Protected streams have no headers, markers, or identifiers. This makes protected streams indistinguishable from true randomness. Without a key, it is impossible to determine if the protected stream was produced by PackageProtector or do traffic analysis.
+Protected streams have no headers, markers or identifiers. This makes protected streams indistinguishable from true randomness. Without a key, it is impossible to determine if the protected stream was produced by PackageProtector or do traffic analysis.
 
 ## Underlying algorithms
 
@@ -21,10 +21,9 @@ Block ciphers have their own issues such as padding oracle attacks. PackageProte
 
 ## Stream format
 
-PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package**.
+PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package**. Package size is configurable and must be a multiple of 16 bytes.
 
 ```
-
 |                   package, 64 bytes - (16MiB - 16 bytes)                           |
 +------------------------------------------------------------------------------------+
 | iv/salt     | chunk content             | PKCS7 pad       | MAC (content | pad)    |
@@ -34,3 +33,16 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
               |                       encrypted (no padding)                         |
 ```
 Package **iv/salt** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes are generated. Notice that the padding comes before the MAC. This uncommon *pad-then-mac-then-encrypt* format forces the decryption operation to verify MAC before padding, eliminating padding oracle attacks.
+
+## Keys derivation
+
+Given a data stream key (master key), for each package a KDF-HMAC-SHA256 in counter mode as described in SP800-108 is used to derive encryption and MAC keys. This provides a level of key indirection and recovered individual package keys cannot be used to recover other packages or the stream master key.
+
+The KDF takes into account the following context:
+* Key purpose (encrypt or MAC)
+* Package number (64 bit int)
+* Package size (24 bit int)
+* Package salt (16 bytes)
+* Stream associated data (16 bytes)
+
+The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead.
