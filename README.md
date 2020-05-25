@@ -31,6 +31,6 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 +-------------+---------------------------+-----------------+------------------------+
 | 16 bytes    | 0 - (16MiB - 65 bytes)    | 1 - 16 bytes    | 32 bytes               |
 +-------------+----------------------------------------------------------------------+
-              |                              encrypted                               |
+              |                       encrypted (no padding)                         |
 ```
-Package IV is cryptographically strong random bytes generated for every package. When package is updated, new random bytes are generated. Notice that the padding comes before the MAC. This nonstandard format forces the decryption operation to verify MAC before padding, eliminating padding oracle attacks.
+Package **iv/salt** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes are generated. Notice that the padding comes before the MAC. This uncommon *pad-then-mac-then-encrypt* format forces the decryption operation to verify MAC before padding, eliminating padding oracle attacks.
