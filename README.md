@@ -21,7 +21,7 @@ Block ciphers have their own issues such as padding oracle attacks. PackageProte
 
 ## Stream format
 
-PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package**. Package size is configurable and must be a multiple of 16 bytes. The minimum package **overhead** is 49 bytes.
+PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package**. Package size is configurable and must be a multiple of 16 bytes. The minimum package **overhead is 49 bytes**.
 
 ```
 |                   package, 64 bytes - (16MiB - 16 bytes)                           |
@@ -34,7 +34,7 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 ```
 Package **iv/salt** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. Notice that the padding comes before the MAC. This *pad-then-mac-then-encrypt* format forces the decryption operation to verify MAC before padding, eliminating padding oracle attacks.
 
-All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length **content**.
+All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length *content*.
 
 ## Stream keys
 
@@ -57,4 +57,4 @@ The KDF takes into account the following **derived key context**:
 +----------------+     +-------+     +----------+     +--------------+     +-------+
 ```
 
-The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. The master key can be any length. However, the recommended key size is 64 bytes. PackageProtector restricts the key size to 32 - 64 bytes.
+The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. The master key can be any length. However, the **recommended key size is 64 bytes**. PackageProtector restricts key size to 32 - 64 bytes to provide adequate security.
