@@ -43,6 +43,6 @@ The KDF takes into account the following context:
 * Package number (64 bit int)
 * Package size (24 bit int)
 * Package salt (16 bytes)
-* Stream associated data (16 bytes)
+* Stream associated data (caller provided, 16 bytes)
 
 The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead.
