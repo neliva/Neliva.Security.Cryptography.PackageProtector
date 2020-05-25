@@ -1,6 +1,6 @@
 ## PackageProtector (aka DataProtector)
 
-This repository provides safe and secure data at rest protection for untrusted remote storage. The specification and reference implementation is released into the public domain. See the [UNLISENCE](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/blob/master/UNLICENSE.md) file.
+This repository provides safe and secure data at rest protection for untrusted remote storage. The specification and reference implementation is released into the public domain. See the [UNLISENCE](UNLICENSE.md) file.
 
 [![master](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/workflows/master/badge.svg)](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/actions?query=workflow%3Amaster)
 [![Nuget](https://img.shields.io/nuget/v/Neliva.Security.Cryptography.PackageProtector?style=plastic)](https://www.nuget.org/packages/Neliva.Security.Cryptography.PackageProtector)
