@@ -1,6 +1,6 @@
 ## PackageProtector (aka DataProtector)
 
-This repository describes safe and secure data at rest protection for untrusted remote storage. The specification and reference implementation is released into the public domain. See the [UNLISENCE](UNLICENSE.md) file.
+This repository describes safe and secure data at rest protection for untrusted remote storage. The specification and reference implementation are released into the public domain. See the [UNLISENCE](UNLICENSE.md) file.
 
 [![master](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/workflows/master/badge.svg)](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/actions?query=workflow%3Amaster)
 [![Nuget](https://img.shields.io/nuget/v/Neliva.Security.Cryptography.PackageProtector?style=plastic)](https://www.nuget.org/packages/Neliva.Security.Cryptography.PackageProtector)
@@ -25,10 +25,10 @@ srcContentStream.ProtectAsync(destProtectedStream, key);
 ## Algorithms
 
 There are many authenticated encryption algorithms such as AES-CCM, AES-GCM, or ChaCha20-Poly1305 that perform very well on modern hardware. There are shortcomings with such algorithms:
-* Reuse of key and nounce in stream ciphers is catastrophic.
+* Reuse of key and nonce in stream ciphers is catastrophic.
 * The authentication tag is only 16 bytes.
 
-Block ciphers have their own issues such as padding oracle attacks. PackageProtector uses PKCS7 padding scheme in *pad-then-mac-then-encrypt* mode to guard against padding oracle attacks. CBC mode provides a bit more safety in key/IV reuse and re-encryption of individual chunks (if required). Algorithms performance is not the primary goal of DataProtector. It was deemed nessesary to have separate algorithms and keys for MAC and ENCRYPT operations.
+Block ciphers have their own issues such as padding oracle attacks. PackageProtector uses PKCS7 padding scheme in *pad-then-mac-then-encrypt* mode to guard against padding oracle attacks. CBC mode provides a bit more safety in key/IV reuse and re-encryption of individual chunks (if required). Algorithms performance is not the primary goal of DataProtector. It was deemed necessary to have separate algorithms and keys for MAC and ENCRYPT operations.
 
 ## Stream format
 
@@ -47,7 +47,7 @@ Package **iv/salt** is cryptographically strong random bytes generated for every
 
 All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length *content* and produces a 64 byte *package*.
 
-*Package size* is used to control the amount of data held in memory during protection and unprotection of a single package. The default recomended size is 64 KiB but can be changed based on the application requirements.
+*Package size* is used to control the amount of data held in memory during protection and unprotection of a single package. The default recommended size is 64 KiB but can be changed based on the application requirements.
 
 ## Stream keys
 
