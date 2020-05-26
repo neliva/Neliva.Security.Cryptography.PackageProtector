@@ -36,6 +36,15 @@ namespace Neliva.Security.Cryptography.Tests
             ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, null, MinPackageSize)).ConfigureAwait(false);
             Assert.AreEqual<string>("key", ex.ParamName);
 
+            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, new byte[0], MinPackageSize)).ConfigureAwait(false);
+            Assert.AreEqual<string>("key", ex.ParamName);
+
+            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, new byte[31], MinPackageSize)).ConfigureAwait(false);
+            Assert.AreEqual<string>("key", ex.ParamName);
+
+            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, new byte[65], MinPackageSize)).ConfigureAwait(false);
+            Assert.AreEqual<string>("key", ex.ParamName);
+
             ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, new byte[32], MinPackageSize - 1)).ConfigureAwait(false);
             Assert.AreEqual<string>("packageSize", ex.ParamName);
 
@@ -60,6 +69,15 @@ namespace Neliva.Security.Cryptography.Tests
             ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, null, MinPackageSize)).ConfigureAwait(false);
             Assert.AreEqual<string>("key", ex.ParamName);
 
+            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, new byte[0], MinPackageSize)).ConfigureAwait(false);
+            Assert.AreEqual<string>("key", ex.ParamName);
+
+            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, new byte[31], MinPackageSize)).ConfigureAwait(false);
+            Assert.AreEqual<string>("key", ex.ParamName);
+
+            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, new byte[65], MinPackageSize)).ConfigureAwait(false);
+            Assert.AreEqual<string>("key", ex.ParamName);
+
             ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, new byte[32], MinPackageSize - 1)).ConfigureAwait(false);
             Assert.AreEqual<string>("packageSize", ex.ParamName);
 
@@ -73,7 +91,7 @@ namespace Neliva.Security.Cryptography.Tests
         [TestMethod]
         public async Task UnprotectTruncatedAtPackageBoundaryFail()
         {
-            var key = new byte[32].Fill(33);
+            var key = new byte[64].Fill(33);
 
             var package = new MemoryStream();
             var content = new MemoryStream(new byte[MinPackageSize * 4 - Overhead]);
@@ -184,7 +202,7 @@ namespace Neliva.Security.Cryptography.Tests
         [TestMethod]
         public async Task UnprotectBadAssociatedDataFail()
         {
-            var key = new byte[32].Fill(199);
+            var key = new byte[64].Fill(199);
 
             var package = new MemoryStream();
             var content = new MemoryStream(new byte[MinPackageSize * 4 - Overhead]);
@@ -262,7 +280,7 @@ namespace Neliva.Security.Cryptography.Tests
                 CreateArray(1024, 7),
                 CreateArray(1025, 79),
                 CreateArray(1026, 159),
-                CreateArray(256 - PackageProtector.Overhead, 3),
+                CreateArray(256 - Overhead, 3),
             };
 
             foreach (var d in data)

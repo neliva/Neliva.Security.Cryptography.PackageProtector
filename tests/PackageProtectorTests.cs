@@ -34,6 +34,15 @@ namespace Neliva.Security.Cryptography.Tests
             ex = Assert.ThrowsException<ArgumentNullException>(() => PackageProtector.Protect(Array.Empty<byte>(), new byte[MinPackageSize], null, 0, MinPackageSize, ArraySegment<byte>.Empty));
             Assert.AreEqual<string>("key", ex.ParamName);
 
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Protect(Array.Empty<byte>(), new byte[MinPackageSize], new byte[0], 0, MinPackageSize, ArraySegment<byte>.Empty));
+            Assert.AreEqual<string>("key", ex.ParamName);
+
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Protect(Array.Empty<byte>(), new byte[MinPackageSize], new byte[31], 0, MinPackageSize, ArraySegment<byte>.Empty));
+            Assert.AreEqual<string>("key", ex.ParamName);
+
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Protect(Array.Empty<byte>(), new byte[MinPackageSize], new byte[65], 0, MinPackageSize, ArraySegment<byte>.Empty));
+            Assert.AreEqual<string>("key", ex.ParamName);
+
             ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Protect(Array.Empty<byte>(), new byte[MinPackageSize], new byte[HashSize], -1, MinPackageSize, ArraySegment<byte>.Empty));
             Assert.AreEqual<string>("packageNumber", ex.ParamName);
 
@@ -56,6 +65,15 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.AreEqual<string>("content", ex.ParamName);
 
             ex = Assert.ThrowsException<ArgumentNullException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], null, 0, MinPackageSize, ArraySegment<byte>.Empty));
+            Assert.AreEqual<string>("key", ex.ParamName);
+
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], new byte[0], 0, MinPackageSize, ArraySegment<byte>.Empty));
+            Assert.AreEqual<string>("key", ex.ParamName);
+
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], new byte[31], 0, MinPackageSize, ArraySegment<byte>.Empty));
+            Assert.AreEqual<string>("key", ex.ParamName);
+
+            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], new byte[65], 0, MinPackageSize, ArraySegment<byte>.Empty));
             Assert.AreEqual<string>("key", ex.ParamName);
 
             ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], new byte[HashSize], -1, MinPackageSize, ArraySegment<byte>.Empty));
@@ -95,8 +113,8 @@ namespace Neliva.Security.Cryptography.Tests
         public void ProtectNullOrDefaultAssociatedDataPass()
         {
             PackageProtector.Protect(new byte[1], new byte[128], new byte[32], 0, 128, null);
-            PackageProtector.Protect(new byte[1], new byte[128], new byte[32], 0, 128, default);
-            PackageProtector.Protect(new byte[1], new byte[128], new byte[32], 0, 128, ArraySegment<byte>.Empty);
+            PackageProtector.Protect(new byte[1], new byte[128], new byte[33], 0, 128, default);
+            PackageProtector.Protect(new byte[1], new byte[128], new byte[64], 0, 128, ArraySegment<byte>.Empty);
         }
 
         [TestMethod]
@@ -114,7 +132,7 @@ namespace Neliva.Security.Cryptography.Tests
         [TestMethod]
         public void RoundTripFullPackagePass()
         {
-            var key = new byte[32].Fill(4);
+            var key = new byte[64].Fill(4);
             var associatedData = new byte[13].Fill(4);
 
             foreach (var packageSize in new int[] { MinPackageSize, MinPackageSize + BlockSize, MaxPackageSize })
