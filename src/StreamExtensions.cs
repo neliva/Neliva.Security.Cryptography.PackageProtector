@@ -44,6 +44,8 @@ namespace Neliva.Security.Cryptography
         /// parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
+        /// - or -
         /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
         /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
         /// - or -
@@ -66,12 +68,17 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
+            if (PackageProtector.IsInvalidKeySize(key))
+            {
+                throw new ArgumentOutOfRangeException(nameof(key));
+            }
+
             if (PackageProtector.IsInvalidPackageSize(packageSize))
             {
                 throw new ArgumentOutOfRangeException(nameof(packageSize));
             }
 
-            if (associatedData.Count > PackageProtector.BlockSize)
+            if (PackageProtector.IsInvalidAssociatedData(associatedData))
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
@@ -172,6 +179,8 @@ namespace Neliva.Security.Cryptography
         /// parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
+        /// - or -
         /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
         /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
         /// - or -
@@ -207,12 +216,17 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
+            if (PackageProtector.IsInvalidKeySize(key))
+            {
+                throw new ArgumentOutOfRangeException(nameof(key));
+            }
+
             if (PackageProtector.IsInvalidPackageSize(packageSize))
             {
                 throw new ArgumentOutOfRangeException(nameof(packageSize));
             }
 
-            if (associatedData.Count > PackageProtector.BlockSize)
+            if (PackageProtector.IsInvalidAssociatedData(associatedData))
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }

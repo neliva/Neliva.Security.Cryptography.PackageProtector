@@ -13,7 +13,7 @@ namespace Neliva.Security.Cryptography
     /// </summary>
     public static class PackageProtector
     {
-        internal const int BlockSize = 16; // AES256 block size, IV size, max associated data size, salt size.
+        private const int BlockSize = 16; // AES256 block size, IV size, max associated data size, salt size.
 
         private const int HashSize = 32; // HMAC-SHA256 hash size, HMAC key size, AES256 key size.
 
@@ -71,6 +71,8 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="key"/> parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
+        /// - or -
         /// The <paramref name="content"/> length is greater than (<paramref name="packageSize"/> - <see cref="Overhead"/>).
         /// - or -
         /// The <paramref name="package"/> destination space is insufficient.
@@ -104,6 +106,11 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
+            if (IsInvalidKeySize(key))
+            {
+                throw new ArgumentOutOfRangeException(nameof(key));
+            }
+
             if (packageNumber < 0L)
             {
                 throw new ArgumentOutOfRangeException(nameof(packageNumber));
@@ -114,7 +121,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(packageSize));
             }
 
-            if (associatedData.Count > BlockSize)
+            if (IsInvalidAssociatedData(associatedData))
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
@@ -198,6 +205,8 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="key"/> parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
+        /// - or -
         /// The <paramref name="content"/> destination space is insufficient.
         /// - or -
         /// The <paramref name="packageNumber"/> parameter is less than zero.
@@ -232,6 +241,11 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
+            if (IsInvalidKeySize(key))
+            {
+                throw new ArgumentOutOfRangeException(nameof(key));
+            }
+
             if (packageNumber < 0L)
             {
                 throw new ArgumentOutOfRangeException(nameof(packageNumber));
@@ -242,7 +256,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(packageSize));
             }
 
-            if (associatedData.Count > BlockSize)
+            if (IsInvalidAssociatedData(associatedData))
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
@@ -326,6 +340,23 @@ namespace Neliva.Security.Cryptography
         internal static bool IsInvalidPackageSize(int value)
         {
             return value < MinPackageSize || value > MaxPackageSize || IsNotAlignedBlock(value);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool IsInvalidAssociatedData(ArraySegment<byte> value)
+        {
+            return value.Count > BlockSize;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static bool IsInvalidKeySize(byte[] value)
+        {
+            const int MinKeySize = 32;
+            const int MaxKeySize = 64;
+
+            var length = value.Length;
+
+            return length < MinKeySize || length > MaxKeySize;
         }
 
         internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> associatedData, Span<byte> encryptionKey, Span<byte> signingKey)
