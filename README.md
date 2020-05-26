@@ -22,7 +22,7 @@ RandomNumberGenerator.Fill(key);
 srcContentStream.ProtectAsync(destProtectedStream, key);
 ```
 
-## Algorithms
+### Algorithms
 
 There are many authenticated encryption algorithms such as AES-CCM, AES-GCM, or ChaCha20-Poly1305 that perform very well on modern hardware. There are shortcomings with such algorithms:
 * Reuse of key and nonce in stream ciphers is catastrophic.
@@ -72,7 +72,7 @@ The KDF takes into account the following **derived key context**:
 
 The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. The master key can be any length. However, the **recommended key size is 64 bytes**. PackageProtector restricts key size to 32 - 64 bytes to provide adequate security.
 
-Data streams can have user provided *associated data* context (up to 16 bytes) that is used by KDF. The same value must be provided to unprotect the stream.
+Data streams can have user provided *associated data* context (up to 16 bytes) that is used by the KDF. The same value must be provided to unprotect the stream.
 
 ## Stream security
 Provided that the stream key and *associated data* combination is unique for every data stream, PackageProtector guarantees to detect:
@@ -82,6 +82,6 @@ Provided that the stream key and *associated data* combination is unique for eve
 * Package substitution from a different stream
 
 ## Stream limits
-Every package is protected independently by the keys derived from the data stream key and package key context. PackageProtector uses *int64* for package numbers. Given the max 9223372036854775807 *package number* value and the default 64 KiB *package size* we can expect to protect:
+Every package is protected independently by the keys derived from the data stream key and package key context. PackageProtector uses *int64* for package numbers. Given the max 9223372036854775807 *package number* and the default 64 KiB *package size* we can expect to protect:
 * *64 KiB - 49 bytes* of content per package
 * *~511 ZiB* of content per stream key and *associated data* combination
