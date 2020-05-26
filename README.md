@@ -1,6 +1,6 @@
 ## PackageProtector (aka DataProtector)
 
-This repository describes safe and secure data at rest protection for untrusted remote storage. The specification and reference implementation are released into the public domain. See the [UNLISENCE](UNLICENSE.md) file.
+This repository describes safe and secure data at rest protection for untrusted remote storage. The specification and reference implementation are released into the public domain. See the [UNLICENSE](UNLICENSE.md) file.
 
 [![master](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/workflows/master/badge.svg)](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/actions?query=workflow%3Amaster)
 [![Nuget](https://img.shields.io/nuget/v/Neliva.Security.Cryptography.PackageProtector?style=plastic)](https://www.nuget.org/packages/Neliva.Security.Cryptography.PackageProtector)
@@ -28,7 +28,7 @@ There are many authenticated encryption algorithms such as AES-CCM, AES-GCM, or 
 * Reuse of key and nonce in stream ciphers is catastrophic.
 * The authentication tag is only 16 bytes.
 
-Block ciphers have their own issues such as padding oracle attacks. PackageProtector uses PKCS7 padding scheme in *pad-then-mac-then-encrypt* mode to guard against padding oracle attacks. CBC mode provides a bit more safety in key/IV reuse and re-encryption of individual chunks (if required). Algorithms performance is not the primary goal of DataProtector. It was deemed necessary to have separate algorithms and keys for MAC and ENCRYPT operations.
+Block ciphers have their own issues such as padding oracle attacks. PackageProtector uses PKCS7 padding scheme in *pad-then-mac-then-encrypt* mode to guard against padding oracle attacks. CBC mode provides a bit more safety in key/IV reuse and re-encryption of individual chunks (if required). Algorithms performance is not the primary goal of PackageProtector. It was deemed necessary to have separate algorithms and keys for MAC and ENCRYPT operations.
 
 ## Stream format
 
@@ -82,6 +82,6 @@ Provided that the stream key and *associated data* combination is unique for eve
 * Package substitution from a different stream
 
 ## Stream limits
-Every package is protected independently by the keys derived from the data stream key and package key context. PackageProtector uses *int64* for package numbers. Given the max 9223372036854775807 *package number* and the default 64 KiB *package size* we can expect to protect:
+Every package is protected independently by the keys derived from the data stream key and package key context. PackageProtector uses *int64* for package numbers. Given the max 9223372036854775807 *package number* and the default 64 KiB *package size*, the amount of data that can be protected is:
 * *64 KiB - 49 bytes* of content per package
-* *~511 ZiB* of content per stream key and *associated data* combination
+* *~511 ZiB* of content per unique pair of stream key and *associated data*
