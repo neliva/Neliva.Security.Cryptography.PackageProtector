@@ -6,6 +6,9 @@
     <IsPackable>false</IsPackable>
 
     <RootNamespace>Neliva.Security.Cryptography.Tests</RootNamespace>
+
+    <AssemblyOriginatorKeyFile>..\build\AssemblyKey.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
   </PropertyGroup>
 
   <ItemGroup>
