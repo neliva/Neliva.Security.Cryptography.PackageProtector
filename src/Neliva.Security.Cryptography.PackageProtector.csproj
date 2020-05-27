@@ -10,6 +10,12 @@
 
     <PackageTags>encryption hashing aes256 sha256 hmac dataprotector dataprotection AEAD</PackageTags>
 
+    <!--
+    // https://github.com/NuGet/Home/wiki/Packaging-License-within-the-nupkg-(Technical-Spec)#spdx-specification
+    -->
+    <!-- <PackageLicenseFile>UNLICENSE.md</PackageLicenseFile> -->
+    <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
+
     <Description>Safe and secure data at rest protection.</Description>
 
     <!-- https://github.com/dotnet/sdk/blob/master/src/Tasks/Microsoft.NET.Build.Tasks/targets/Microsoft.NET.DefaultAssemblyInfo.targets -->
@@ -38,7 +44,22 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
 
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <NoWarn>$(NoWarn);NU5105</NoWarn>
+
+    <AssemblyOriginatorKeyFile>..\build\AssemblyKey.snk</AssemblyOriginatorKeyFile>
+    <SignAssembly>true</SignAssembly>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Needed for NuGet package. Do not remove. -->
+    <None Include="..\UNLICENSE.md" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Build generated file. -->
+    <None Include=".AssemblyAttributes" Visible="false" />
+  </ItemGroup>
   
   <!-- This should not be enabled during local dev or the debugger won't be able to find the local source files. -->
   <!-- https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables -->
@@ -63,10 +84,6 @@
   <PropertyGroup>
     <TargetFrameworkMonikerAssemblyAttributesPath>$([System.IO.Path]::Combine('$(IntermediateOutputPath)','$(TargetFrameworkMoniker).AssemblyAttributes$(DefaultLanguageSourceExtension)'))</TargetFrameworkMonikerAssemblyAttributesPath>
   </PropertyGroup>
-
-  <PropertyGroup>
-    <NoWarn>$(NoWarn);NU5105</NoWarn>
-  </PropertyGroup>
   
   <ItemGroup>
     <EmbeddedFiles Include="$(GeneratedAssemblyInfoFile)" />
@@ -79,7 +96,7 @@
 
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
-      <_Parameter1>$(MSBuildProjectName).Tests</_Parameter1>
+      <_Parameter1>$(MSBuildProjectName).Tests, PublicKey=0024000004800000940000000602000000240000525341310004000001000100153f94ec79cd1e1c770f73962cc0393a0c27ac51548464d0de4938d9c1a1cd0d7fb7c98e531355746f0e14a085f3f5f95830117a41f05772a52d0c14ddef1e811fa581d4356cc729e69a85eff7355902d11386c4b63e24a25d05a511f63dca0050ca0e70d34293f1d530aa015e789affe234e14395d7639a7d1bd28603bcc2db</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
 </Project>
