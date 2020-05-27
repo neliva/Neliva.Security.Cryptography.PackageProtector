@@ -16,6 +16,12 @@
     <!-- <PackageLicenseFile>UNLICENSE.md</PackageLicenseFile> -->
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
 
+    <!--
+    // The NuGet client min required version to use the package.
+    // With NuGet 4.3.0+ and Visual Studio 2017 version 15.3+, NuGet supports Semantic Versioning 2.0.0.
+    -->
+    <!-- <MinClientVersion>4.3.0</MinClientVersion> -->
+
     <Description>Safe and secure data at rest protection.</Description>
 
     <!-- https://github.com/dotnet/sdk/blob/master/src/Tasks/Microsoft.NET.Build.Tasks/targets/Microsoft.NET.DefaultAssemblyInfo.targets -->
