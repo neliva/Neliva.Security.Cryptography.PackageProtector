@@ -122,8 +122,9 @@ namespace Neliva.Security.Cryptography
                         await package.WriteAsync(packageBuffer.Slice(0, bytesProtected), cancellationToken).ConfigureAwait(false);
 
                         packageNumber++;
-                        totalOutputSize += bytesProtected;
                         lastPackageContentSize = offset;
+
+                        totalOutputSize = checked(totalOutputSize + bytesProtected);
                     }
                 }
                 while (bytesRead > 0);
@@ -137,7 +138,7 @@ namespace Neliva.Security.Cryptography
 
                     await package.WriteAsync(packageBuffer.Slice(0, bytesProtected), cancellationToken).ConfigureAwait(false);
 
-                    totalOutputSize += bytesProtected;
+                    totalOutputSize = checked(totalOutputSize + bytesProtected);
                 }
             }
             finally
@@ -285,8 +286,9 @@ namespace Neliva.Security.Cryptography
                         }
 
                         packageNumber++;
-                        totalOutputSize += bytesUnprotected;
                         lastPackageContentSize = bytesUnprotected;
+
+                        totalOutputSize = checked(totalOutputSize + bytesUnprotected);
                     }
                 }
                 while (bytesRead > 0);
