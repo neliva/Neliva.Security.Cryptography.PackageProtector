@@ -72,7 +72,7 @@ The KDF takes into account the following **derived key context**:
   55 bytes                             32 bytes
 ```
 
-The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. The master key can be any length. However, the **recommended key size is 64 bytes**. PackageProtector restricts key size to 32 - 64 bytes to provide adequate security.
+The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. PackageProtector restricts the master key size to 32 - 64 bytes to provide adequate security. **The recommended key size is 64 bytes**. 
 
 Data streams can have optional *associated data* context (up to 16 bytes) that is used by the KDF. The same value must be provided to unprotect the stream. There is no overhead in using *associated data*.
 
