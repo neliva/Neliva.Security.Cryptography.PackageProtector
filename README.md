@@ -7,7 +7,7 @@ This repository describes safe and secure data at rest protection for untrusted 
 
 ## Overview
 
-PackagProtector is designed for secure, long-term storage. It combines SP800-108 KDF (CTR), HMAC-SHA256 and CBC-AES256 to form authenticated encryption. The data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated.
+PackageProtector combines SP800-108 KDF (CTR), HMAC-SHA256 and CBC-AES256 to form authenticated encryption. The data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated. PackagProtector is designed for secure, long term storage.
 
 Protected streams have no headers, markers or identifiers. This makes protected streams indistinguishable from true randomness. Without a key, it is impossible to determine if the protected stream was produced by PackageProtector or do traffic analysis.
 
@@ -61,7 +61,7 @@ The KDF takes into account the following **derived key context**:
 * Stream **associated data** (0 - 16 bytes, user provided)
 
 ```
-| 32 - 64 bytes  |                   | 32 bytes |   
+  32 - 64 bytes                        32 bytes
 +----------------+     +-------+     +----------+     +--------------+     +-------+
 | master key     |---->|       |---->| MAC key  |---->| HMAC-SHA256  |---->|       |
 +----------------+     | ----- |     +----------+     +--------------+     |       |
@@ -69,7 +69,7 @@ The KDF takes into account the following **derived key context**:
 +----------------+     | ----- |     +----------+     +--------------+     |       |
 | key context N  |---->|       |---->| ENC key  |---->| CBC-AES256   |---->|       |
 +----------------+     +-------+     +----------+     +--------------+     +-------+
-|  55 bytes      |                   | 32 bytes |
+  55 bytes                             32 bytes
 ```
 
 The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. The master key can be any length. However, the **recommended key size is 64 bytes**. PackageProtector restricts key size to 32 - 64 bytes to provide adequate security.
