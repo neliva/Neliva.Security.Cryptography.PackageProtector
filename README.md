@@ -7,7 +7,7 @@ This repository describes safe and secure data at rest protection for untrusted 
 
 ## Overview
 
-PackageProtector combines SP800-108 KDF (CTR), HMAC-SHA256 and CBC-AES256 to form authenticated encryption. Data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated.
+PackagProtector is designed for secure, long-term storage. It combines SP800-108 KDF (CTR), HMAC-SHA256 and CBC-AES256 to form authenticated encryption. The data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated.
 
 Protected streams have no headers, markers or identifiers. This makes protected streams indistinguishable from true randomness. Without a key, it is impossible to determine if the protected stream was produced by PackageProtector or do traffic analysis.
 
@@ -61,6 +61,7 @@ The KDF takes into account the following **derived key context**:
 * Stream **associated data** (0 - 16 bytes, user provided)
 
 ```
+| 32 - 64 bytes  |                   | 32 bytes |   
 +----------------+     +-------+     +----------+     +--------------+     +-------+
 | master key     |---->|       |---->| MAC key  |---->| HMAC-SHA256  |---->|       |
 +----------------+     | ----- |     +----------+     +--------------+     |       |
@@ -68,11 +69,12 @@ The KDF takes into account the following **derived key context**:
 +----------------+     | ----- |     +----------+     +--------------+     |       |
 | key context N  |---->|       |---->| ENC key  |---->| CBC-AES256   |---->|       |
 +----------------+     +-------+     +----------+     +--------------+     +-------+
+|  55 bytes      |                   | 32 bytes |
 ```
 
 The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. The master key can be any length. However, the **recommended key size is 64 bytes**. PackageProtector restricts key size to 32 - 64 bytes to provide adequate security.
 
-Data streams can have user provided *associated data* context (up to 16 bytes) that is used by the KDF. The same value must be provided to unprotect the stream.
+Data streams can have optional *associated data* context (up to 16 bytes) that is used by the KDF. The same value must be provided to unprotect the stream. There is no overhead in using *associated data*.
 
 ## Stream security
 Provided that the stream key and *associated data* combination is unique for every data stream, PackageProtector guarantees to detect:
@@ -84,4 +86,4 @@ Provided that the stream key and *associated data* combination is unique for eve
 ## Stream limits
 Every package is protected independently by the keys derived from the data stream key and package key context. PackageProtector uses *int64* for package numbers. Given the max 9223372036854775807 *package number* and the default 64 KiB *package size*, the amount of data that can be protected is:
 * *64 KiB - 49 bytes* of content per package
-* *~511 ZiB* of content per unique pair of stream key and *associated data*
+* *~511 ZiB* of content per stream key and *associated data* combination
