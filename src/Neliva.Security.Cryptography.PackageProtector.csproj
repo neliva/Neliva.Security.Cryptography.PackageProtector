@@ -8,13 +8,19 @@
     <Company>Neliva</Company>
     <Copyright>This is free and unencumbered software released into the public domain.</Copyright>
 
-    <PackageTags>encryption hashing aes256 sha256 hmac dataprotector dataprotection AEAD</PackageTags>
+    <PackageTags>encryption hashing aes256 aes-256 sha256 sha-256 hmac cbc sp800-108 dataprotector dataprotection aead</PackageTags>
 
     <!--
     // https://github.com/NuGet/Home/wiki/Packaging-License-within-the-nupkg-(Technical-Spec)#spdx-specification
     -->
     <!-- <PackageLicenseFile>UNLICENSE.md</PackageLicenseFile> -->
     <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
+
+    <!--
+    // The NuGet client min required version to use the package.
+    // With NuGet 4.3.0+ and Visual Studio 2017 version 15.3+, NuGet supports Semantic Versioning 2.0.0.
+    -->
+    <MinClientVersion>4.3.0</MinClientVersion>
 
     <Description>Safe and secure data at rest protection.</Description>
 
