@@ -59,9 +59,7 @@
     <AssemblyOriginatorKeyFile>..\build\AssemblyKey.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
 
-    <!--
     <NeutralLanguage>en-US</NeutralLanguage>
-    -->
 
   </PropertyGroup>
 
