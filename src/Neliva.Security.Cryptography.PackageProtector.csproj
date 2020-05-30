@@ -5,7 +5,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <RootNamespace>Neliva.Security.Cryptography</RootNamespace>
     
-    <Authors>Maksim Goleta</Authors>
+    <Authors>Neliva</Authors>
     <Company>Neliva</Company>
 
     <Copyright>This is free and unencumbered software released into the public domain.</Copyright>
@@ -114,10 +114,10 @@
     </AssemblyAttribute>
   </ItemGroup>
 
-  <ItemGroup Condition=" $(Authors) != '' ">
-    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute ">
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>Authors</_Parameter1>
-      <_Parameter2>$(Authors)</_Parameter2>
+      <_Parameter2>Maksim Goleta</_Parameter2>
     </AssemblyAttribute>
   </ItemGroup>
 </Project>
