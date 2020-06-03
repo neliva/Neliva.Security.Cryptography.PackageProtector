@@ -12,6 +12,8 @@
 
     <PackageTags>encryption hashing aes256 aes-256 sha256 sha-256 hmac cbc sp800-108 dataprotector dataprotection aead</PackageTags>
 
+    <PackageProjectUrl>https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector</PackageProjectUrl>
+
     <!--
     // https://github.com/NuGet/Home/wiki/Packaging-License-within-the-nupkg-(Technical-Spec)#spdx-specification
     -->
