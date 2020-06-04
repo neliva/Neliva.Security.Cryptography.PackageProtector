@@ -20,7 +20,7 @@ var key = new byte[32];
 RandomNumberGenerator.Fill(key);
 
 // Use default values for package size and associated data
-srcContentStream.ProtectAsync(destProtectedStream, key);
+await srcContentStream.ProtectAsync(destProtectedStream, key);
 ```
 
 ### Algorithms
