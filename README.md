@@ -8,7 +8,7 @@ This repository describes safe and secure data at rest protection for untrusted 
 
 ## Overview
 
-PackageProtector combines SP800-108 KDF (CTR), HMAC-SHA256 and CBC-AES256 to form authenticated encryption. The data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated. PackageProtector is designed for secure, long term storage.
+PackageProtector combines SP800-108 KDF (CTR), HMAC-SHA256 and AES256-CBC to form authenticated encryption. The data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated. PackageProtector is designed for secure, long term storage.
 
 Protected streams have no headers, markers or identifiers. This makes protected streams indistinguishable from true randomness. Without a key, it is impossible to determine if the protected stream was produced by PackageProtector or do traffic analysis.
 
@@ -25,7 +25,7 @@ await srcContentStream.ProtectAsync(destProtectedStream, key);
 
 ### Algorithms
 
-There are many authenticated encryption algorithms such as AES-CCM, AES-GCM, or ChaCha20-Poly1305 that perform very well on modern hardware. There are shortcomings with such algorithms:
+There are many authenticated encryption algorithms such as AES-GCM or ChaCha20-Poly1305 that perform very well on modern hardware. There are shortcomings with such algorithms:
 * Reuse of key and nonce in stream ciphers is catastrophic.
 * The authentication tag is only 16 bytes.
 
@@ -68,7 +68,7 @@ The KDF takes into account the following **derived key context**:
 +----------------+     | ----- |     +----------+     +--------------+     |       |
                        |  KDF  |                                           | PKG N |
 +----------------+     | ----- |     +----------+     +--------------+     |       |
-| key context N  |---->|       |---->| ENC key  |---->| CBC-AES256   |---->|       |
+| key context N  |---->|       |---->| ENC key  |---->| AES256-CBC   |---->|       |
 +----------------+     +-------+     +----------+     +--------------+     +-------+
   55 bytes                             32 bytes
 ```
