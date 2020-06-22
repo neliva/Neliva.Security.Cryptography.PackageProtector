@@ -9,7 +9,7 @@ namespace Neliva.Security.Cryptography
 {
     /// <summary>
     /// Represents pad-then-mac-then-encrypt chunked data protection using
-    /// CBC-AES256 and HMAC-SHA256 algorithms.
+    /// AES256-CBC and HMAC-SHA256 algorithms.
     /// </summary>
     public static class PackageProtector
     {
