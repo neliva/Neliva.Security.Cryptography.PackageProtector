@@ -20,6 +20,8 @@ namespace Neliva.Security.Cryptography.Tests
         private const int MaxContentSize = MaxPackageSize - Overhead;
         private const int Overhead = BlockSize + HashSize + 1;
 
+        private static byte[] ZeroIV = new byte[BlockSize];
+
         [TestMethod]
         public void ProtectInvalidArgsFail()
         {
@@ -387,33 +389,33 @@ namespace Neliva.Security.Cryptography.Tests
                 aes.Padding = PaddingMode.None;
                 aes.Mode = CipherMode.CBC;
 
-                using (var dec = aes.CreateDecryptor(encKey, package.Slice(0, BlockSize).ToArray()))
+                using (var dec = aes.CreateDecryptor(encKey, ZeroIV))
                 {
                     // Decrypt to package itself
                     dec.TransformBlock(package.Array, BlockSize, MinPackageSize - BlockSize, package.Array, BlockSize);
                 }
 
                 // Verify decrypted payload
-                CollectionAssert.AreEqual(content.Array, package.Slice(BlockSize, content.Count).ToArray());
+                CollectionAssert.AreEqual(content.Array, package.Slice(BlockSize + HashSize, content.Count).ToArray());
 
                 using (var hmac = new HMACSHA256(sigKey))
                 {
-                    var hash = hmac.ComputeHash(package.Array, BlockSize, MinPackageSize - BlockSize - HashSize);
+                    var hash = hmac.ComputeHash(package.Array, BlockSize + HashSize, MinPackageSize - BlockSize - HashSize);
 
                     // Verify original hash - should pass
-                    CollectionAssert.AreEqual(hash, package.Slice(package.Count - HashSize).ToArray());
+                    CollectionAssert.AreEqual(hash, package.Slice(BlockSize, HashSize).ToArray());
 
                     // Set invalid padding
-                    package[MinPackageSize - HashSize - 1] = 2;
+                    package[MinPackageSize - 1] = 2;
 
                     // Compute new mac on data with corrupted padding
-                    if (!hmac.TryComputeHash(package.Slice(BlockSize, MinPackageSize - BlockSize - HashSize), package.Slice(MinPackageSize - HashSize, HashSize), out _))
+                    if (!hmac.TryComputeHash(package.Slice(BlockSize + HashSize, MinPackageSize - BlockSize - HashSize), package.Slice(BlockSize, HashSize), out _))
                     {
                         throw new CryptographicUnexpectedOperationException();
                     }
                 }
 
-                using (var enc = aes.CreateEncryptor(encKey, package.Slice(0, BlockSize).ToArray()))
+                using (var enc = aes.CreateEncryptor(encKey, ZeroIV))
                 {
                     // Encrypt to package itself the corrupted padding with valid mac
                     enc.TransformBlock(package.Array, BlockSize, MinPackageSize - BlockSize, package.Array, BlockSize);
