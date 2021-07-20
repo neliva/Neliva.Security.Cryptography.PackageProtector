@@ -274,12 +274,14 @@ namespace Neliva.Security.Cryptography
                 throw new BadPackageException(badPackageMsg);
             }
 
-            var data = content.Slice(HashSize, package.Count - BlockSize - HashSize); // content + padding
+            var data = content.Slice(0, package.Count - BlockSize - HashSize); // content + padding
 
             Span<byte> computedHash = stackalloc byte[HashSize];
 
             byte[] encKey = new byte[HashSize];
             byte[] signKey = new byte[HashSize];
+
+            byte[] packageHash = new byte[HashSize];
 
             using (var hmac = new HMACSHA256(key))
             {
@@ -289,10 +291,20 @@ namespace Neliva.Security.Cryptography
 
                 using (var dec = aes.CreateDecryptor(encKey, ZeroIV))
                 {
+                    // Decrypt package hash
                     dec.TransformBlock(
                         package.Array,
                         package.Offset + BlockSize,
-                        package.Count - BlockSize,
+                        HashSize,
+                        packageHash,
+                        0);
+
+                    // Decrypt (content + padding) directly into output.
+                    // IV for the block comes from the previous invocation of the method.
+                    dec.TransformBlock(
+                        package.Array,
+                        package.Offset + BlockSize + HashSize,
+                        package.Count - BlockSize - HashSize,
                         content.Array,
                         content.Offset);
                 }
@@ -303,7 +315,7 @@ namespace Neliva.Security.Cryptography
                 hmac.ComputeHash(data, computedHash);
             }
 
-            if (!CryptographicOperations.FixedTimeEquals(computedHash, content.Slice(0, HashSize)))
+            if (!CryptographicOperations.FixedTimeEquals(computedHash, packageHash))
             {
                 throw new BadPackageException();
             }
@@ -314,9 +326,6 @@ namespace Neliva.Security.Cryptography
             {
                 throw new BadPackageException();
             }
-
-            // TODO: work around this copy requirement
-            Array.Copy(content.Array, HashSize, content.Array, 0, data.Count);
 
             return data.Count - padLength;
         }
