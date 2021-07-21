@@ -38,13 +38,13 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 ```
 |                   package, 64 bytes - (16MiB - 16 bytes)                            |
 +-------------------------------------------------------------------------------------+
-| KDF iv      | MAC (content || pad)    | chunk content             | PKCS7 pad       |
+| KDF IV      | MAC (content || pad)    | chunk content             | PKCS7 pad       |
 +-------------+-------------------------+---------------------------+-----------------+
 | 16 bytes    | 32 bytes                | 0 - (16MiB - 65 bytes)    | 1 - 16 bytes    |
 +-------------+-----------------------------------------------------------------------+
               |                       encrypted (no padding)                          |
 ```
-Package KDF **iv** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. MAC placed before chunk content, in addition, acts as synthetic IV.
+The KDF **IV** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. The MAC placed before chunk content, in addition, acts as synthetic IV.
 
 All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length *content* and produces a 64 byte *package*.
 
@@ -58,7 +58,7 @@ The KDF takes into account the following **derived key context**:
 * Key purpose (encrypt or sign)
 * **Package number** (64 bit int, starts from 0 and sequentially increases)
 * **Package size** (24 bit uint, same value for all stream packages)
-* KDF iv (16 bytes, randomly generated for each package)
+* KDF IV (16 bytes, randomly generated for each package)
 * Stream **associated data** (0 - 16 bytes, user provided)
 
 ```
