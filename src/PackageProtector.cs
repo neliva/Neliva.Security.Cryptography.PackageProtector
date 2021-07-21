@@ -13,7 +13,7 @@ namespace Neliva.Security.Cryptography
     /// </summary>
     public static class PackageProtector
     {
-        private const int BlockSize = 16; // AES256 block size, IV size, max associated data size, salt size.
+        private const int BlockSize = 16; // AES256 block size, IV size, max associated data size.
 
         private const int HashSize = 32; // HMAC-SHA256 hash size, HMAC key size, AES256 key size.
 
@@ -373,7 +373,7 @@ namespace Neliva.Security.Cryptography
             return length < MinKeySize || length > MaxKeySize;
         }
 
-        internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> associatedData, Span<byte> encryptionKey, Span<byte> signingKey)
+        internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> kdfIV, ReadOnlySpan<byte> associatedData, Span<byte> encryptionKey, Span<byte> signingKey)
         {
             Span<byte> data = stackalloc byte[55]; // Max available space before hmac padding.
 
@@ -403,7 +403,7 @@ namespace Neliva.Security.Cryptography
             data[14] = (byte)(packageNumber >> 8);
             data[15] = (byte)packageNumber;
 
-            salt.CopyTo(data.Slice(16, BlockSize)); // Salt must be always equal to block size.
+            kdfIV.CopyTo(data.Slice(16, BlockSize)); // IV must be always equal to block size.
 
             var destAD = data.Slice(32, BlockSize);
             destAD.Clear();
