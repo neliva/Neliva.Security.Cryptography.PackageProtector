@@ -13,7 +13,7 @@ namespace Neliva.Security.Cryptography
     /// </summary>
     public static class PackageProtector
     {
-        private const int BlockSize = 16; // AES256 block size, IV size, max associated data size, salt size.
+        private const int BlockSize = 16; // AES256 block size, IV size, max associated data size.
 
         private const int HashSize = 32; // HMAC-SHA256 hash size, HMAC key size, AES256 key size.
 
@@ -28,6 +28,8 @@ namespace Neliva.Security.Cryptography
         private const int MaxPackageSize = (16 * 1024 * 1024) - BlockSize;
 
         private const int MaxContentSize = MaxPackageSize - Overhead;
+
+        private static byte[] ZeroIV = new byte[BlockSize];
 
         private static Aes aes = CreateAes();
         
@@ -94,7 +96,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(content), $"Content cannot be larger than '{maxAllowedContentSize}' bytes.");
             }
 
-            int outputPackageSize = BlockSize + AlignBlock(content.Count) + HashSize;
+            int outputPackageSize = BlockSize + HashSize + AlignBlock(content.Count);
 
             if (package.Count < outputPackageSize)
             {
@@ -126,7 +128,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
-            var data = package.Slice(BlockSize, outputPackageSize - BlockSize - HashSize);  // content + padding
+            var data = package.Slice(BlockSize + HashSize, outputPackageSize - BlockSize - HashSize);  // content + padding
             var randomData = package.Slice(0, BlockSize);
 
             RandomNumberGenerator.Fill(randomData);
@@ -134,7 +136,7 @@ namespace Neliva.Security.Cryptography
             // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
             if (content.Array != null)
             {
-                // Copy plain text to output buffer (after random bytes).
+                // Copy plain text to output buffer (after random bytes and hash).
                 content.CopyTo(data);
             }
 
@@ -156,11 +158,11 @@ namespace Neliva.Security.Cryptography
 
                 hmac.Key = signKey;
 
-                // Sign plaintext and padding, then append hash to padded plaintext.
-                hmac.ComputeHash(data, package.Slice(outputPackageSize - HashSize, HashSize));
+                // Sign plaintext and padding, then prepend hash to padded plaintext.
+                hmac.ComputeHash(data, package.Slice(BlockSize, HashSize));
             }
 
-            using (var enc = aes.CreateEncryptor(encKey, randomData.ToArray()))
+            using (var enc = aes.CreateEncryptor(encKey, ZeroIV))
             {
                 // Encrypt buffer in place.
                 enc.TransformBlock(
@@ -279,18 +281,30 @@ namespace Neliva.Security.Cryptography
             byte[] encKey = new byte[HashSize];
             byte[] signKey = new byte[HashSize];
 
+            byte[] packageHash = new byte[HashSize];
+
             using (var hmac = new HMACSHA256(key))
             {
                 var randomData = package.Slice(0, BlockSize);
 
                 DeriveKeys(hmac, packageNumber, packageSize, randomData, associatedData, encKey, signKey);
 
-                using (var dec = aes.CreateDecryptor(encKey, randomData.ToArray()))
+                using (var dec = aes.CreateDecryptor(encKey, ZeroIV))
                 {
+                    // Decrypt package hash
                     dec.TransformBlock(
                         package.Array,
                         package.Offset + BlockSize,
-                        package.Count - BlockSize,
+                        HashSize,
+                        packageHash,
+                        0);
+
+                    // Decrypt (content + padding) directly into output.
+                    // IV for the block comes from the previous invocation of the method.
+                    dec.TransformBlock(
+                        package.Array,
+                        package.Offset + BlockSize + HashSize,
+                        package.Count - BlockSize - HashSize,
                         content.Array,
                         content.Offset);
                 }
@@ -301,7 +315,7 @@ namespace Neliva.Security.Cryptography
                 hmac.ComputeHash(data, computedHash);
             }
 
-            if (!CryptographicOperations.FixedTimeEquals(computedHash, content.Slice(data.Count, HashSize)))
+            if (!CryptographicOperations.FixedTimeEquals(computedHash, packageHash))
             {
                 throw new BadPackageException();
             }
@@ -359,7 +373,7 @@ namespace Neliva.Security.Cryptography
             return length < MinKeySize || length > MaxKeySize;
         }
 
-        internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> associatedData, Span<byte> encryptionKey, Span<byte> signingKey)
+        internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> kdfIV, ReadOnlySpan<byte> associatedData, Span<byte> encryptionKey, Span<byte> signingKey)
         {
             Span<byte> data = stackalloc byte[55]; // Max available space before hmac padding.
 
@@ -389,7 +403,7 @@ namespace Neliva.Security.Cryptography
             data[14] = (byte)(packageNumber >> 8);
             data[15] = (byte)packageNumber;
 
-            salt.CopyTo(data.Slice(16, BlockSize)); // Salt must be always equal to block size.
+            kdfIV.CopyTo(data.Slice(16, BlockSize)); // IV must be always equal to block size.
 
             var destAD = data.Slice(32, BlockSize);
             destAD.Clear();

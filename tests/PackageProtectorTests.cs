@@ -20,6 +20,8 @@ namespace Neliva.Security.Cryptography.Tests
         private const int MaxContentSize = MaxPackageSize - Overhead;
         private const int Overhead = BlockSize + HashSize + 1;
 
+        private static byte[] ZeroIV = new byte[BlockSize];
+
         [TestMethod]
         public void ProtectInvalidArgsFail()
         {
@@ -217,7 +219,7 @@ namespace Neliva.Security.Cryptography.Tests
         public void DeriveKeysProduceDifferentKeysPass()
         {
             var masterKey = new byte[32].Fill(31);
-            var salt = new byte[16].Fill(91);
+            var kdfIV = new byte[16].Fill(91);
             var associatedData = new byte[16].Fill(201);
 
             var encKey = new byte[32];
@@ -225,7 +227,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA256(masterKey))
             {
-                PackageProtector.DeriveKeys(hmac, 42, 4096, salt, associatedData, encKey, sigKey);
+                PackageProtector.DeriveKeys(hmac, 42, 4096, kdfIV, associatedData, encKey, sigKey);
             }
 
             CollectionAssert.AreNotEqual(masterKey, sigKey);
@@ -238,7 +240,7 @@ namespace Neliva.Security.Cryptography.Tests
         public void DeriveKeysValidKeyContextPass()
         {
             var masterKey = new byte[32].Fill(31);
-            var salt = new byte[16].Fill(91);
+            var kdfIV = new byte[16].Fill(91);
             var associatedData = new byte[16].Fill(201);
 
             var encKey = new byte[32];
@@ -257,11 +259,11 @@ namespace Neliva.Security.Cryptography.Tests
             {
                 using (var hmac = new HMACSHA256(masterKey))
                 {
-                    PackageProtector.DeriveKeys(hmac, a.Item1, a.Item2, salt, a.Item3, encKey, sigKey);
+                    PackageProtector.DeriveKeys(hmac, a.Item1, a.Item2, kdfIV, a.Item3, encKey, sigKey);
                 }
 
-                var expectedEncKey = DeriveKey32(masterKey, true, a.Item1, a.Item2, salt, a.Item3);
-                var expectedSigKey = DeriveKey32(masterKey, false, a.Item1, a.Item2, salt, a.Item3);
+                var expectedEncKey = DeriveKey32(masterKey, true, a.Item1, a.Item2, kdfIV, a.Item3);
+                var expectedSigKey = DeriveKey32(masterKey, false, a.Item1, a.Item2, kdfIV, a.Item3);
 
                 CollectionAssert.AreEqual(expectedEncKey, encKey);
                 CollectionAssert.AreEqual(expectedSigKey, sigKey);
@@ -387,33 +389,33 @@ namespace Neliva.Security.Cryptography.Tests
                 aes.Padding = PaddingMode.None;
                 aes.Mode = CipherMode.CBC;
 
-                using (var dec = aes.CreateDecryptor(encKey, package.Slice(0, BlockSize).ToArray()))
+                using (var dec = aes.CreateDecryptor(encKey, ZeroIV))
                 {
                     // Decrypt to package itself
                     dec.TransformBlock(package.Array, BlockSize, MinPackageSize - BlockSize, package.Array, BlockSize);
                 }
 
                 // Verify decrypted payload
-                CollectionAssert.AreEqual(content.Array, package.Slice(BlockSize, content.Count).ToArray());
+                CollectionAssert.AreEqual(content.Array, package.Slice(BlockSize + HashSize, content.Count).ToArray());
 
                 using (var hmac = new HMACSHA256(sigKey))
                 {
-                    var hash = hmac.ComputeHash(package.Array, BlockSize, MinPackageSize - BlockSize - HashSize);
+                    var hash = hmac.ComputeHash(package.Array, BlockSize + HashSize, MinPackageSize - BlockSize - HashSize);
 
                     // Verify original hash - should pass
-                    CollectionAssert.AreEqual(hash, package.Slice(package.Count - HashSize).ToArray());
+                    CollectionAssert.AreEqual(hash, package.Slice(BlockSize, HashSize).ToArray());
 
                     // Set invalid padding
-                    package[MinPackageSize - HashSize - 1] = 2;
+                    package[MinPackageSize - 1] = 2;
 
                     // Compute new mac on data with corrupted padding
-                    if (!hmac.TryComputeHash(package.Slice(BlockSize, MinPackageSize - BlockSize - HashSize), package.Slice(MinPackageSize - HashSize, HashSize), out _))
+                    if (!hmac.TryComputeHash(package.Slice(BlockSize + HashSize, MinPackageSize - BlockSize - HashSize), package.Slice(BlockSize, HashSize), out _))
                     {
                         throw new CryptographicUnexpectedOperationException();
                     }
                 }
 
-                using (var enc = aes.CreateEncryptor(encKey, package.Slice(0, BlockSize).ToArray()))
+                using (var enc = aes.CreateEncryptor(encKey, ZeroIV))
                 {
                     // Encrypt to package itself the corrupted padding with valid mac
                     enc.TransformBlock(package.Array, BlockSize, MinPackageSize - BlockSize, package.Array, BlockSize);
@@ -425,7 +427,7 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.ThrowsException<BadPackageException>(() => PackageProtector.Unprotect(package, unprotectedContent, key, 5, MinPackageSize, associatedData));
         }
 
-        private static byte[] DeriveKey32(byte[] masterKey, bool encrypt, long packageNumber, int packageSize, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> associatedData)
+        private static byte[] DeriveKey32(byte[] masterKey, bool encrypt, long packageNumber, int packageSize, ReadOnlySpan<byte> kdfIV, ReadOnlySpan<byte> associatedData)
         {
             byte purpose = encrypt ? (byte)0xff : (byte)0x00;
 
@@ -447,7 +449,7 @@ namespace Neliva.Security.Cryptography.Tests
                 data[14] = (byte)(packageNumber >> 8);
                 data[15] = (byte)packageNumber;
 
-                salt.CopyTo(data.Slice(16, 16));
+                kdfIV.CopyTo(data.Slice(16, 16));
 
                 var destAD = data.Slice(32, 16);
                 destAD.Clear();

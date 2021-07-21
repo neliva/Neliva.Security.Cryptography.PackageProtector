@@ -36,15 +36,15 @@ Block ciphers have their own issues such as padding oracle attacks. PackageProte
 PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package**. Package size is configurable and must be a multiple of 16 bytes. The minimum package **overhead is 49 bytes**.
 
 ```
-|                   package, 64 bytes - (16MiB - 16 bytes)                           |
-+------------------------------------------------------------------------------------+
-| iv/salt     | chunk content             | PKCS7 pad       | MAC (content | pad)    |
-+-------------+---------------------------+-----------------+------------------------+
-| 16 bytes    | 0 - (16MiB - 65 bytes)    | 1 - 16 bytes    | 32 bytes               |
-+-------------+----------------------------------------------------------------------+
-              |                       encrypted (no padding)                         |
+|                   package, 64 bytes - (16MiB - 16 bytes)                            |
++-------------------------------------------------------------------------------------+
+| KDF IV      | MAC (content || pad)    | chunk content             | PKCS7 pad       |
++-------------+-------------------------+---------------------------+-----------------+
+| 16 bytes    | 32 bytes                | 0 - (16MiB - 65 bytes)    | 1 - 16 bytes    |
++-------------+-----------------------------------------------------------------------+
+              |                       encrypted (no padding)                          |
 ```
-Package **iv/salt** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. Notice that the padding comes before the MAC. This *pad-then-mac-then-encrypt* format forces the decryption operation to verify MAC before padding, eliminating padding oracle attacks.
+The KDF **IV** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. The MAC placed before chunk content, in addition, acts as synthetic IV for CBC mode.
 
 All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length *content* and produces a 64 byte *package*.
 
@@ -58,7 +58,7 @@ The KDF takes into account the following **derived key context**:
 * Key purpose (encrypt or sign)
 * **Package number** (64 bit int, starts from 0 and sequentially increases)
 * **Package size** (24 bit uint, same value for all stream packages)
-* Package salt (16 bytes, randomly generated for each package)
+* KDF IV (16 bytes, randomly generated for each package)
 * Stream **associated data** (0 - 16 bytes, user provided)
 
 ```
