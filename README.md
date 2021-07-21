@@ -44,7 +44,7 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 +-------------+-----------------------------------------------------------------------+
               |                       encrypted (no padding)                          |
 ```
-The KDF **IV** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. The MAC placed before chunk content, in addition, acts as synthetic IV.
+The KDF **IV** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. The MAC placed before chunk content, in addition, acts as synthetic IV for CBC mode.
 
 All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length *content* and produces a 64 byte *package*.
 
