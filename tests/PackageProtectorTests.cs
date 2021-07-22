@@ -437,7 +437,8 @@ namespace Neliva.Security.Cryptography.Tests
             using (var hmac = new HMACSHA256(masterKey))
             {
                 data[3] = 1;
-                data[5] = purpose;
+                data[4] = purpose;
+                data[5] = 16;
                 data[6] = (byte)associatedData.Length;
 
                 data[8] = (byte)(packageNumber >> 56);
