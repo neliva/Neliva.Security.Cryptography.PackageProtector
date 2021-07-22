@@ -373,7 +373,7 @@ namespace Neliva.Security.Cryptography
             return length < MinKeySize || length > MaxKeySize;
         }
 
-        internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> kdfIV, ReadOnlySpan<byte> associatedData, Span<byte> encryptionKey, Span<byte> signingKey)
+        internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
         {
             Span<byte> data = stackalloc byte[55]; // Max available space before hmac padding.
 
@@ -388,9 +388,9 @@ namespace Neliva.Security.Cryptography
             data[2] = (byte)(counter >> 8);
             data[3] = (byte)counter;
 
-            data[4] = 0; // Reserved for future use.
-            data[5] = EncryptPurpose;
-            data[6] = (byte)associatedData.Length;            
+            data[4] = EncryptPurpose;
+            data[5] = (byte)ivArg1.Length;
+            data[6] = (byte)ivArg2.Length;            
 
             data[7] = 0; // SP800-108 label and context separator.
 
@@ -403,12 +403,13 @@ namespace Neliva.Security.Cryptography
             data[14] = (byte)(packageNumber >> 8);
             data[15] = (byte)packageNumber;
 
-            kdfIV.CopyTo(data.Slice(16, BlockSize)); // IV must be always equal to block size.
+            var ivArgs = data.Slice(16, 32);
 
-            var destAD = data.Slice(32, BlockSize);
-            destAD.Clear();
+            ivArg1.CopyTo(ivArgs);
 
-            associatedData.CopyTo(destAD);
+            ivArg2.CopyTo(ivArgs.Slice(ivArg1.Length));
+
+            ivArgs.Slice(ivArg1.Length + ivArg2.Length).Clear();
 
             data[48] = (byte)(packageSize >> 16);
             data[49] = (byte)(packageSize >> 8);
@@ -421,7 +422,7 @@ namespace Neliva.Security.Cryptography
 
             hmac.ComputeHash(data, encryptionKey);
 
-            data[5] = SignPurpose;
+            data[4] = SignPurpose;
 
             hmac.ComputeHash(data, signingKey);
         }

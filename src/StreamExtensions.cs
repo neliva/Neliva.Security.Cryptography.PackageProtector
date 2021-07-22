@@ -144,7 +144,7 @@ namespace Neliva.Security.Cryptography
             finally
             {
                 pool.Return(contentBuffer.Array, true);
-                pool.Return(packageBuffer.Array);
+                pool.Return(packageBuffer.Array, true);
             }
 
             return totalOutputSize;
