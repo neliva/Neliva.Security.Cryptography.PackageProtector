@@ -237,6 +237,61 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [TestMethod]
+        public void DeriveKeysAllowVariableIVSizePass()
+        {
+            var masterKey = new byte[32].Fill(31);
+
+            var iv1 = (Span<byte>)new byte[32];
+            var iv2 = (Span<byte>)new byte[iv1.Length];
+
+            for (int i = 0; i < iv1.Length; i++)
+            {
+                iv1[i] = (byte)(i + 1);
+                iv2[i] = (byte)(i + 101);
+            }
+
+            var encKey = new byte[32];
+            var sigKey = new byte[32];
+
+            using (var hmac = new HMACSHA256(masterKey))
+            {
+                for (int i = 0; i < iv1.Length; i++)
+                {
+                    var s1 = iv1.Slice(0, i);
+                    var s2 = iv2.Slice(i);
+
+                    PackageProtector.DeriveKeys(hmac, 42, 4096, s1, s2, encKey, sigKey);
+
+                    CollectionAssert.AreNotEqual(masterKey, sigKey);
+                    CollectionAssert.AreNotEqual(masterKey, encKey);
+
+                    CollectionAssert.AreNotEqual(encKey, sigKey);
+                }
+            }
+        }
+
+        [TestMethod]
+        public void DeriveKeysBadIVSizeFail()
+        {
+            var masterKey = new byte[32].Fill(31);
+
+            var encKey = new byte[32];
+            var sigKey = new byte[32];
+
+            using (var hmac = new HMACSHA256(masterKey))
+            {
+                Assert.ThrowsException<ArgumentException>(() => PackageProtector.DeriveKeys(hmac, 42, 4096, new byte[33], new byte[0], encKey, sigKey));
+                Assert.ThrowsException<ArgumentException>(() => PackageProtector.DeriveKeys(hmac, 42, 4096, new byte[0], new byte[33], encKey, sigKey));
+
+                Assert.ThrowsException<ArgumentException>(() => PackageProtector.DeriveKeys(hmac, 42, 4096, new byte[32], new byte[1], encKey, sigKey));
+                Assert.ThrowsException<ArgumentException>(() => PackageProtector.DeriveKeys(hmac, 42, 4096, new byte[1], new byte[32], encKey, sigKey));
+
+                Assert.ThrowsException<ArgumentException>(() => PackageProtector.DeriveKeys(hmac, 42, 4096, new byte[17], new byte[16], encKey, sigKey));
+                Assert.ThrowsException<ArgumentException>(() => PackageProtector.DeriveKeys(hmac, 42, 4096, new byte[16], new byte[17], encKey, sigKey));
+            }
+        }
+
+        [TestMethod]
         public void DeriveKeysValidKeyContextPass()
         {
             var masterKey = new byte[32].Fill(31);
