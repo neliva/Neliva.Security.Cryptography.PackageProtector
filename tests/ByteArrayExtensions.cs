@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Neliva.Security.Cryptography.Tests
 {
-    [ExcludeFromCodeCoverageAttribute]
+    [ExcludeFromCodeCoverage]
     internal static class ByteArrayExtensions
     {
         public static byte[] Fill(this byte[] array, byte value)
