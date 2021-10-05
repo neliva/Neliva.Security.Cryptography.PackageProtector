@@ -40,9 +40,9 @@ namespace Neliva.Security.Cryptography
             const int SeparatorSpaceSize = 1; // 0x00 separator
             const int KeySpaceSize = sizeof(uint);
 
-            const int MaxLabelAndContextLength = int.MaxValue - CounterSpaceSize - SeparatorSpaceSize - KeySpaceSize;
+            const uint MaxLabelAndContextLength = int.MaxValue - CounterSpaceSize - SeparatorSpaceSize - KeySpaceSize;
 
-            if ((label.Length + context.Length) > MaxLabelAndContextLength)
+            if (((uint)label.Length + (uint)context.Length) > MaxLabelAndContextLength)
             {
                 throw new ArgumentException($"The combined length of '{nameof(label)}' and '{nameof(context)}' cannot exceed {MaxLabelAndContextLength} bytes.");
             }
@@ -51,7 +51,7 @@ namespace Neliva.Security.Cryptography
 
             if (derivedKey.Length == 0 || derivedKey.Length > MaxDerivedKeyLength)
             {
-                throw new ArgumentOutOfRangeException(nameof(derivedKey));
+                throw new ArgumentOutOfRangeException(nameof(derivedKey), $"The derived key length cannot be zero or exceed {MaxDerivedKeyLength} bytes.");
             }
 
             const int MaxStackAllocSize = 256;          
