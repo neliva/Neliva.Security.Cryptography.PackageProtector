@@ -100,7 +100,7 @@ namespace Neliva.Security.Cryptography
 
             if (package.Count < outputPackageSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(package), "Insufficiet space for package output.");
+                throw new ArgumentOutOfRangeException(nameof(package), "Insufficient space for package output.");
             }
 
             if (key == null)
@@ -235,7 +235,7 @@ namespace Neliva.Security.Cryptography
             if ((!isInvalidPackageSizeParam && !isInvalidPackage) &&
                 content.Count < package.Count)
             {
-                throw new ArgumentOutOfRangeException(nameof(content), "Insufficiet space for content output.");
+                throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
             }
 
             if (key == null)
