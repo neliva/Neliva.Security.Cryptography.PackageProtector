@@ -489,18 +489,18 @@ namespace Neliva.Security.Cryptography.Tests
 
             Span<byte> label = stackalloc byte[3] { purpose, (byte)kdfIV.Length, (byte)associatedData.Length };
 
-            Span<byte> context = stackalloc byte[sizeof(long) + 16 + 16 + 3];
+            Span<byte> context = stackalloc byte[sizeof(ulong) + 16 + 16 + 3];
             context.Clear();
 
             using (var hmac = new HMACSHA256(masterKey))
             {
                 var derivedKey = new byte[hmac.HashSize / 8];
 
-                BinaryPrimitives.WriteUInt64BigEndian(context.Slice(0, 8), (ulong)packageNumber);
+                BinaryPrimitives.WriteUInt64BigEndian(context.Slice(0, sizeof(ulong)), (ulong)packageNumber);
 
-                kdfIV.CopyTo(context.Slice(sizeof(long), kdfIV.Length));
+                kdfIV.CopyTo(context.Slice(sizeof(ulong), kdfIV.Length));
 
-                associatedData.CopyTo(context.Slice(sizeof(long) + kdfIV.Length, associatedData.Length));
+                associatedData.CopyTo(context.Slice(sizeof(ulong) + kdfIV.Length, associatedData.Length));
 
                 context[context.Length - 3] = (byte)(packageSize >> 16);
                 context[context.Length - 2] = (byte)(packageSize >> 8);
