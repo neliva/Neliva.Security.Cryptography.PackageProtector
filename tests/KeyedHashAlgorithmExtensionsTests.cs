@@ -102,6 +102,7 @@ namespace Neliva.Security.Cryptography.Tests
             }
         }
 
+        // Test vectors taken from https://github.com/aspnet/DataProtection/blob/release/2.0/test/Microsoft.AspNetCore.DataProtection.Test/SP800_108/SP800_108Tests.cs
         [TestMethod]
         [DataRow(512 / 8 - 1, "V47WmHzPSkdC2vkLAomIjCzZlDOAetll3yJLcSvon7LJFjJpEN+KnSNp+gIpeydKMsENkflbrIZ/3s6GkEaH")]
         [DataRow(512 / 8 + 0, "mVaFM4deXLl610CmnCteNzxgbM/VkmKznAlPauHcDBn0le06uOjAKLHx0LfoU2/Ttq9nd78Y6Nk6wArmdwJgJg==")]
@@ -110,11 +111,12 @@ namespace Neliva.Security.Cryptography.Tests
         {
             byte[] derivedKey = new byte[derivedKeyLength];
 
-            byte[] kdk = Encoding.UTF8.GetBytes("kdk");
+            byte[] masterKey = Encoding.UTF8.GetBytes("kdk");
+
             byte[] label = Encoding.UTF8.GetBytes("label");
             byte[] context = Encoding.UTF8.GetBytes("contextHeadercontext");
 
-            using (var hmac = new HMACSHA512(kdk))
+            using (var hmac = new HMACSHA512(masterKey))
             {
                 hmac.DeriveKey(label, context, derivedKey);
             }
@@ -124,6 +126,7 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.AreEqual(expectedDerivedKey, actual);
         }
 
+        // Test vectors taken from https://github.com/aspnet/DataProtection/blob/release/2.0/test/Microsoft.AspNetCore.DataProtection.Test/SP800_108/SP800_108Tests.cs
         [TestMethod]
         [DataRow(512 / 8 - 1, "rt2hM6kkQ8hAXmkHx0TU4o3Q+S7fie6b3S1LAq107k++P9v8uSYA2G+WX3pJf9ZkpYrTKD7WUIoLkgA1R9lk")]
         [DataRow(512 / 8 + 0, "RKiXmHSrWq5gkiRSyNZWNJrMR0jDyYHJMt9odOayRAE5wLSX2caINpQmfzTH7voJQi3tbn5MmD//dcspghfBiw==")]
@@ -132,17 +135,17 @@ namespace Neliva.Security.Cryptography.Tests
         {
             byte[] derivedKey = new byte[derivedKeyLength];
 
-            byte[] kdk = new byte[50000];
+            byte[] masterKey = new byte[50000];
 
-            for (int i = 0; i < kdk.Length; i++)
+            for (int i = 0; i < masterKey.Length; i++)
             {
-                kdk[i] = (byte)i;
+                masterKey[i] = (byte)i;
             }
 
             byte[] label = Encoding.UTF8.GetBytes("label");
             byte[] context = Encoding.UTF8.GetBytes("contextHeadercontext");
 
-            using (var hmac = new HMACSHA512(kdk))
+            using (var hmac = new HMACSHA512(masterKey))
             {
                 hmac.DeriveKey(label, context, derivedKey);
             }
