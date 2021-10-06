@@ -59,7 +59,7 @@ namespace Neliva.Security.Cryptography
             // counter + label + separator + context + derivedKeyInBits
             int inputDataSize = CounterSpaceSize + label.Length + SeparatorSpaceSize + context.Length + KeySpaceSize;
 
-            Span<byte> inputData = (inputDataSize < MaxStackAllocSize) ?
+            Span<byte> inputData = (inputDataSize <= MaxStackAllocSize) ?
                 stackalloc byte[inputDataSize] :
                 new byte[inputDataSize];
 
