@@ -9,13 +9,13 @@ namespace Neliva.Security.Cryptography
     /// <summary>
     /// Provides extension methods for <see cref="HMAC"/> implementations.
     /// </summary>
-    public static class HMACExtensions
+    public static class KeyedHashAlgorithmExtensions
     {
         /// <summary>
         /// Derives a key using the KDF in Counter Mode as described in SP800-108.
         /// </summary>
-        /// <param name="hmac">
-        /// The <see cref="HMAC"/> instance that is already initialized with a master key.
+        /// <param name="alg">
+        /// The <see cref="KeyedHashAlgorithm "/> instance that is already initialized with a master key.
         /// </param>
         /// <param name="label">
         /// A span that identifies the purpose for the derived keying material.
@@ -29,11 +29,11 @@ namespace Neliva.Security.Cryptography
         /// <param name="derivedKey">
         /// A span that receives the keying material output from the key derivation function.
         /// </param>
-        public static void DeriveKey(this HMAC hmac, ReadOnlySpan<byte> label, ReadOnlySpan<byte> context, Span<byte> derivedKey)
+        public static void DeriveKey(this KeyedHashAlgorithm alg, ReadOnlySpan<byte> label, ReadOnlySpan<byte> context, Span<byte> derivedKey)
         {
-            if (hmac == null)
+            if (alg == null)
             {
-                throw new ArgumentNullException(nameof(hmac));
+                throw new ArgumentNullException(nameof(alg));
             }
 
             const int CounterSpaceSize = sizeof(uint);
@@ -76,37 +76,36 @@ namespace Neliva.Security.Cryptography
             derivedKeyInBits[2] = (byte)(lengthBits >> 8);
             derivedKeyInBits[3] = (byte)lengthBits;
 
-            Span<byte> hash = stackalloc byte[hmac.HashSize / 8];
+            Span<byte> hash = stackalloc byte[alg.HashSize / 8];
 
-            for (uint counter = 1; ; counter++)
+            try
             {
-                inputData[0] = (byte)(counter >> 24);
-                inputData[1] = (byte)(counter >> 16);
-                inputData[2] = (byte)(counter >> 8);
-                inputData[3] = (byte)counter;
-
-                if (!hmac.TryComputeHash(inputData, hash, out int bytesWritten) ||
-                    bytesWritten != hash.Length)
+                for (uint counter = 1; ; counter++)
                 {
-                    CryptographicOperations.ZeroMemory(hash);
+                    inputData[0] = (byte)(counter >> 24);
+                    inputData[1] = (byte)(counter >> 16);
+                    inputData[2] = (byte)(counter >> 8);
+                    inputData[3] = (byte)counter;
 
-                    throw new CryptographicUnexpectedOperationException();
+                    alg.ComputeHash(inputData, hash);
+
+                    int length = Math.Min(derivedKey.Length, hash.Length);
+
+                    var fragment = hash.Slice(0, length);
+
+                    fragment.CopyTo(derivedKey);
+
+                    derivedKey = derivedKey.Slice(length);
+
+                    if (derivedKey.Length == 0)
+                    {
+                        break;
+                    }
                 }
-
-                int length = Math.Min(derivedKey.Length, bytesWritten);
-
-                var fragment = hash.Slice(0, length);
-
-                fragment.CopyTo(derivedKey);
-
-                derivedKey = derivedKey.Slice(length);
-
-                if (derivedKey.Length == 0)
-                {
-                    CryptographicOperations.ZeroMemory(hash);
-
-                    break;
-                }
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(hash);
             }
         }
     }

@@ -10,16 +10,16 @@ namespace Neliva.Security.Cryptography.Tests
 {
     [ExcludeFromCodeCoverage]
     [TestClass]
-    public class HMACExtensionsTests
+    public class KeyedHashAlgorithmExtensionsTests
     {
         [TestMethod]
         public void NullHmacFail()
         {
             var keyOut = new byte[32];
 
-            var ex = Assert.ThrowsException<ArgumentNullException>(() => HMACExtensions.DeriveKey(null, Span<byte>.Empty, Span<byte>.Empty, keyOut));
+            var ex = Assert.ThrowsException<ArgumentNullException>(() => KeyedHashAlgorithmExtensions.DeriveKey(null, Span<byte>.Empty, Span<byte>.Empty, keyOut));
 
-            Assert.AreEqual("hmac", ex.ParamName);
+            Assert.AreEqual("alg", ex.ParamName);
         }
 
         [TestMethod]
@@ -29,7 +29,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA256())
             {
-                var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => HMACExtensions.DeriveKey(hmac, Span<byte>.Empty, Span<byte>.Empty, keyOut));
+                var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, Span<byte>.Empty, Span<byte>.Empty, keyOut));
 
                 Assert.AreEqual("derivedKey", ex.ParamName);
 
@@ -53,7 +53,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA256())
             {
-                var ex = Assert.ThrowsException<ArgumentException>(() => HMACExtensions.DeriveKey(hmac, new ReadOnlySpan<byte>((void*)0, labelLength), new ReadOnlySpan<byte>((void*)0, contextLength), keyOut));
+                var ex = Assert.ThrowsException<ArgumentException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, new ReadOnlySpan<byte>((void*)0, labelLength), new ReadOnlySpan<byte>((void*)0, contextLength), keyOut));
 
                 Assert.AreEqual(null, ex.ParamName);
 
@@ -71,7 +71,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA256())
             {
-                var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => HMACExtensions.DeriveKey(hmac, Span<byte>.Empty, Span<byte>.Empty, new Span<byte>((void*)0, derivedKeyLength)));
+                var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, Span<byte>.Empty, Span<byte>.Empty, new Span<byte>((void*)0, derivedKeyLength)));
 
                 Assert.AreEqual("derivedKey", ex.ParamName);
 
