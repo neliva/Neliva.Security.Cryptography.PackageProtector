@@ -2,6 +2,7 @@
 // See the UNLICENSE file in the project root for more information.
 
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
@@ -495,14 +496,7 @@ namespace Neliva.Security.Cryptography.Tests
             {
                 var derivedKey = new byte[hmac.HashSize / 8];
 
-                context[0] = (byte)(packageNumber >> 56);
-                context[1] = (byte)(packageNumber >> 48);
-                context[2] = (byte)(packageNumber >> 40);
-                context[3] = (byte)(packageNumber >> 32);
-                context[4] = (byte)(packageNumber >> 24);
-                context[5] = (byte)(packageNumber >> 16);
-                context[6] = (byte)(packageNumber >> 8);
-                context[7] = (byte)packageNumber;
+                BinaryPrimitives.WriteUInt64BigEndian(context.Slice(0, 8), (ulong)packageNumber);
 
                 kdfIV.CopyTo(context.Slice(sizeof(long), kdfIV.Length));
 
