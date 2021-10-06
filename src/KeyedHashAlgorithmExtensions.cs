@@ -24,11 +24,21 @@ namespace Neliva.Security.Cryptography
         /// A span containing the information related to the derived keying
         /// material. It may include identities of parties who are deriving and/or using the
         /// derived keying material and, optionally, a nonce known by the parties who derive
-        /// the keys. 
+        /// the keys.
         /// </param>
         /// <param name="derivedKey">
         /// A span that receives the keying material output from the key derivation function.
         /// </param>
+        /// <exception cref="ArgumentNullException">
+        /// The <paramref name="alg"/> parameter is a <c>null</c> reference.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// The combined length of <paramref name="label"/> and <paramref name="context"/>
+        /// exceeds 2147483638 bytes.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="derivedKey"/> length is zero or exceeds 536870911 bytes.
+        /// </exception>
         public static void DeriveKey(this KeyedHashAlgorithm alg, ReadOnlySpan<byte> label, ReadOnlySpan<byte> context, Span<byte> derivedKey)
         {
             if (alg == null)
