@@ -486,39 +486,35 @@ namespace Neliva.Security.Cryptography.Tests
         {
             byte purpose = encrypt ? (byte)0xff : (byte)0x00;
 
-            var context = new byte[55];
-            var data = (Span<byte>)context;
+            Span<byte> label = stackalloc byte[3] { purpose, (byte)kdfIV.Length, (byte)associatedData.Length };
+
+            Span<byte> context = stackalloc byte[sizeof(long) + 16 + 16 + 3];
+            context.Clear();
 
             using (var hmac = new HMACSHA256(masterKey))
             {
-                data[3] = 1;
-                data[4] = purpose;
-                data[5] = 16;
-                data[6] = (byte)associatedData.Length;
+                var derivedKey = new byte[hmac.HashSize / 8];
 
-                data[8] = (byte)(packageNumber >> 56);
-                data[9] = (byte)(packageNumber >> 48);
-                data[10] = (byte)(packageNumber >> 40);
-                data[11] = (byte)(packageNumber >> 32);
-                data[12] = (byte)(packageNumber >> 24);
-                data[13] = (byte)(packageNumber >> 16);
-                data[14] = (byte)(packageNumber >> 8);
-                data[15] = (byte)packageNumber;
+                context[0] = (byte)(packageNumber >> 56);
+                context[1] = (byte)(packageNumber >> 48);
+                context[2] = (byte)(packageNumber >> 40);
+                context[3] = (byte)(packageNumber >> 32);
+                context[4] = (byte)(packageNumber >> 24);
+                context[5] = (byte)(packageNumber >> 16);
+                context[6] = (byte)(packageNumber >> 8);
+                context[7] = (byte)packageNumber;
 
-                kdfIV.CopyTo(data.Slice(16, 16));
+                kdfIV.CopyTo(context.Slice(sizeof(long), kdfIV.Length));
 
-                var destAD = data.Slice(32, 16);
-                destAD.Clear();
+                associatedData.CopyTo(context.Slice(sizeof(long) + kdfIV.Length, associatedData.Length));
 
-                associatedData.CopyTo(destAD);
+                context[context.Length - 3] = (byte)(packageSize >> 16);
+                context[context.Length - 2] = (byte)(packageSize >> 8);
+                context[context.Length - 1] = (byte)packageSize;
 
-                data[48] = (byte)(packageSize >> 16);
-                data[49] = (byte)(packageSize >> 8);
-                data[50] = (byte)packageSize;
+                hmac.DeriveKey(label, context, derivedKey);
 
-                data[53] = 1;
-
-                return hmac.ComputeHash(context);
+                return derivedKey;
             }
         }
 
