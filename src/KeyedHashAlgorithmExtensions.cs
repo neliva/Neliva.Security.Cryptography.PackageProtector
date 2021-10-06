@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 namespace Neliva.Security.Cryptography
 {
     /// <summary>
-    /// Provides extension methods for <see cref="HMAC"/> implementations.
+    /// Provides extension methods for <see cref="KeyedHashAlgorithm"/> implementations.
     /// </summary>
     public static class KeyedHashAlgorithmExtensions
     {
