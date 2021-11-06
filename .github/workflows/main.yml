@@ -1,18 +1,18 @@
 # This is free and unencumbered software released into the public domain.
 # See the UNLICENSE file in the project root for more information.
 
-name: master
+name: main
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
     paths-ignore:
     - 'README.md'
     - 'UNLICENSE.md'
     - '.gitignore'
     - 'docs/**'
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
     paths-ignore:
     - 'README.md'
     - 'UNLICENSE.md'
