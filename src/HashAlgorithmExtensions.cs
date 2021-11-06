@@ -18,7 +18,7 @@ namespace Neliva.Security.Cryptography
         /// The hash algorithm instance.
         /// </param>
         /// <param name="source">
-        /// The input for whcih to compute the hash.
+        /// The input for which to compute the hash.
         /// </param>
         /// <param name="destination">
         /// The buffer to receive the hash value.
