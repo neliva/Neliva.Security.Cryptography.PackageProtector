@@ -45,6 +45,8 @@ namespace Neliva.Security.Cryptography.Tests
         [TestMethod]
         public void BadPackageExceptionSerializePass()
         {
+#pragma warning disable SYSLIB0011 // Type or member is obsolete
+
             var sourceEx = new BadPackageException("My custom message for serialization.");
 
             using (var stream = new MemoryStream())
@@ -52,6 +54,7 @@ namespace Neliva.Security.Cryptography.Tests
                 try
                 {
                     BinaryFormatter formatter = new BinaryFormatter(null, new StreamingContext(StreamingContextStates.File));
+
                     formatter.Serialize(stream, sourceEx);
 
                     stream.Position = 0; // rewind for reading
@@ -64,6 +67,9 @@ namespace Neliva.Security.Cryptography.Tests
                     Assert.AreEqual(sourceEx.Message, ex.Message);
                 }
             }
+
+
+#pragma warning restore SYSLIB0011 // Type or member is obsolete
         }
     }
 }
