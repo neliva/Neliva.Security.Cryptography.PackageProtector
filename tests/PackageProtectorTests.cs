@@ -133,6 +133,52 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [TestMethod]
+        [DataRow(0, 48, 0)]
+        [DataRow(0, 48 + BlockSize, 0)]
+        [DataRow(0, MaxPackageSize, 0)]
+        [DataRow(0, 48, 16)]
+        [DataRow(0, 48 + BlockSize, 16)]
+        [DataRow(0, MaxPackageSize, 16)]
+        [DataRow(0, 48, 32)]
+        [DataRow(0, 48 + BlockSize, 32)]
+        [DataRow(0, MaxPackageSize, 32)]
+        //
+        [DataRow(16, 64, 0)]
+        [DataRow(16, 64 + BlockSize, 0)]
+        [DataRow(16, MaxPackageSize, 0)]
+        [DataRow(16, 64, 16)]
+        [DataRow(16, 64 + BlockSize, 16)]
+        [DataRow(16, MaxPackageSize, 16)]
+        //
+        [DataRow(32, 80, 0)]
+        [DataRow(32, 80 + BlockSize, 0)]
+        [DataRow(32, MaxPackageSize, 0)]
+        public void RoundTripFullPackagePass2(int ivSize, int packageSize, int associatedDataSize)
+        {
+            var key = new byte[64].Fill(4);
+            var associatedData = new byte[associatedDataSize].Fill((byte)associatedDataSize);
+
+            using (var protector = new PackageProtector2(ivSize, packageSize))
+            {
+                var content = new ArraySegment<byte>(new byte[protector.MaxContentSize].Fill(7));
+
+                var package = new ArraySegment<byte>(new byte[packageSize]);
+
+                var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
+
+                Assert.AreEqual<int>(packageSize, bytesProtected);
+
+                var unprotectedContent = new ArraySegment<byte>(new byte[packageSize]);
+
+                var bytesUnprotected = protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData);
+
+                Assert.AreEqual<int>(content.Count, bytesUnprotected);
+
+                CollectionAssert.AreEqual(content.Array, unprotectedContent.Slice(0, bytesUnprotected).ToArray());
+            }
+        }
+
+        [TestMethod]
         public void RoundTripFullPackagePass()
         {
             var key = new byte[64].Fill(4);
@@ -140,21 +186,29 @@ namespace Neliva.Security.Cryptography.Tests
 
             foreach (var packageSize in new int[] { MinPackageSize, MinPackageSize + BlockSize, MaxPackageSize })
             {
-                var content = new ArraySegment<byte>(new byte[packageSize - Overhead].Fill(7));
+                using (var protector = new PackageProtector2(16, packageSize))
+                {
+                    var content = new ArraySegment<byte>(new byte[packageSize - Overhead].Fill(7));
 
-                var package = new ArraySegment<byte>(new byte[packageSize]);
+                    var package = new ArraySegment<byte>(new byte[packageSize]);
 
-                var bytesProtected = PackageProtector.Protect(content, package, key, 5, packageSize, associatedData);
+                    var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
 
-                Assert.AreEqual<int>(packageSize, bytesProtected);
+                    Assert.AreEqual<int>(packageSize, bytesProtected);
 
-                var unprotectedContent = new ArraySegment<byte>(new byte[packageSize]);
+                    var unprotectedContent = new ArraySegment<byte>(new byte[packageSize]);
+                    var unprotectedContent2 = new ArraySegment<byte>(new byte[packageSize]);
 
-                var bytesUnprotected = PackageProtector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, packageSize, associatedData);
+                    var bytesUnprotected = PackageProtector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, packageSize, associatedData);
 
-                Assert.AreEqual<int>(content.Count, bytesUnprotected);
+                    var bytesUnprotected2 = protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent2, key, 5, associatedData);
 
-                CollectionAssert.AreEqual(content.Array, unprotectedContent.Slice(0, bytesUnprotected).ToArray());
+                    Assert.AreEqual<int>(content.Count, bytesUnprotected);
+                    Assert.AreEqual<int>(content.Count, bytesUnprotected2);
+
+                    CollectionAssert.AreEqual(content.Array, unprotectedContent.Slice(0, bytesUnprotected).ToArray());
+                    CollectionAssert.AreEqual(content.Array, unprotectedContent2.Slice(0, bytesUnprotected2).ToArray());
+                }
             }
         }
 
