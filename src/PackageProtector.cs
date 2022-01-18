@@ -42,7 +42,7 @@ namespace Neliva.Security.Cryptography
                     throw new ArgumentOutOfRangeException(nameof(ivSize));
             }
 
-            int minPackageSize = ivSize + BlockSize + HashSize;
+            int minPackageSize = ivSize + HashSize + BlockSize;
 
             const int KdfMaxPackageSize = (16 * 1024 * 1024) - BlockSize; // KDF imposes this limit.
 

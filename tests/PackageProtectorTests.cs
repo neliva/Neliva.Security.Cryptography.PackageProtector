@@ -16,12 +16,106 @@ namespace Neliva.Security.Cryptography.Tests
     {
         private const int BlockSize = 16;
         private const int HashSize = 32;
+
         private const int MinPackageSize = BlockSize + BlockSize + HashSize;
         private const int MaxPackageSize = (16 * 1024 * 1024) - BlockSize;
-        private const int MaxContentSize = MaxPackageSize - Overhead;
-        private const int Overhead = BlockSize + HashSize + 1;
 
-        private static byte[] ZeroIV = new byte[BlockSize];
+        [TestMethod]
+        [DataRow(1)]
+        [DataRow(15)]
+        [DataRow(17)]
+        [DataRow(31)]
+        [DataRow(33)]
+        [DataRow(48)]
+        public void NewPackageProtectorInvalidIvSizeFail(int ivSize)
+        {
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => new PackageProtector(ivSize: ivSize));
+
+            Assert.AreEqual<string>(nameof(ivSize), ex.ParamName);
+        }
+
+        [TestMethod]
+        [DataRow(0)]
+        [DataRow(16)]
+        [DataRow(32)]
+        public void NewPackageProtectorValidIvSizePass(int ivSize)
+        {
+            using var p = new PackageProtector(ivSize: ivSize);
+        }
+
+        [TestMethod]
+        // Zero IV
+        [DataRow(0, 0)]
+        [DataRow(0, 15)]
+        [DataRow(0, 16)]
+        [DataRow(0, 17)]
+        [DataRow(0, 32)]
+        [DataRow(0, 47)]
+        [DataRow(0, 49)]
+        [DataRow(0, 63)]
+        [DataRow(0, 65)]
+        [DataRow(0, 120)]
+        [DataRow(0, MaxPackageSize + 1)]
+        // 16 bytes IV
+        [DataRow(16, 0)]
+        [DataRow(16, 15)]
+        [DataRow(16, 16)]
+        [DataRow(16, 17)]
+        [DataRow(16, 32)]
+        [DataRow(16, 47)]
+        [DataRow(16, 49)]
+        [DataRow(16, 63)]
+        [DataRow(16, 65)]
+        [DataRow(16, 120)]
+        [DataRow(16, MaxPackageSize + 1)]
+        // 32 bytes IV
+        [DataRow(32, 0)]
+        [DataRow(32, 15)]
+        [DataRow(32, 16)]
+        [DataRow(32, 17)]
+        [DataRow(32, 32)]
+        [DataRow(32, 47)]
+        [DataRow(32, 49)]
+        [DataRow(32, 63)]
+        [DataRow(32, 65)]
+        [DataRow(32, 120)]
+        [DataRow(32, MaxPackageSize + 1)]
+        public void NewPackageProtectorInvalidPackageSizeFail(int ivSize, int packageSize)
+        {
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => new PackageProtector(ivSize: ivSize, packageSize: packageSize));
+
+            Assert.AreEqual<string>(nameof(packageSize), ex.ParamName);
+        }
+
+        [TestMethod]
+        // Zero IV
+        [DataRow(0, 48)]
+        [DataRow(0, 64)]
+        [DataRow(0, 64 * 1024)]
+        [DataRow(0, MaxPackageSize - BlockSize)]
+        // 16 bytes IV
+        [DataRow(16, 64)]
+        [DataRow(16, 80)]
+        [DataRow(16, 64 * 1024)]
+        [DataRow(16, MaxPackageSize - BlockSize)]
+        // 32 bytes IV
+        [DataRow(32, 80)]
+        [DataRow(32, 96)]
+        [DataRow(32, 64 * 1024)]
+        [DataRow(32, MaxPackageSize - BlockSize)]
+        public void NewPackageProtectorValidPackageSizePass(int ivSize, int packageSize)
+        {
+            using var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+
+            int overhead = ivSize + HashSize + 1;
+
+            int maxContentSize = packageSize - overhead;
+
+            Assert.AreEqual(packageSize, p.MaxPackageSize, nameof(p.MaxPackageSize));
+            Assert.AreEqual(maxContentSize, p.MaxContentSize, nameof(p.MaxContentSize));
+
+            Assert.AreEqual(overhead, p.MaxPackageSize - p.MaxContentSize, $"{nameof(p.MaxPackageSize)} - {nameof(p.MaxContentSize)}");
+        }
 
         /*
         [TestMethod]
@@ -231,7 +325,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using var protector = new PackageProtector(packageSize: PackageSize);
 
-            for (int contentSize = PackageSize - Overhead; contentSize >= 0; contentSize--)
+            for (int contentSize = protector.MaxContentSize; contentSize >= 0; contentSize--)
             {
                 var content = new ArraySegment<byte>(contentBuffer, 0, contentSize);
                 var package = new ArraySegment<byte>(packageBuffer);
@@ -369,9 +463,9 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
 
-            var content = new ArraySegment<byte>(new byte[MinPackageSize - Overhead - 8].Fill(9));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize - 8].Fill(9));
 
-            var package = new ArraySegment<byte>(new byte[MinPackageSize]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
 
@@ -390,9 +484,9 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
 
-            var content = new ArraySegment<byte>(new byte[MinPackageSize - Overhead - 7].Fill(9));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize - 7].Fill(9));
 
-            var package = new ArraySegment<byte>(new byte[MinPackageSize]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
 
@@ -409,9 +503,9 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
 
-            var content = new ArraySegment<byte>(new byte[MinPackageSize - Overhead - 5].Fill(9));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize - 5].Fill(9));
 
-            var package = new ArraySegment<byte>(new byte[MinPackageSize]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
 
@@ -431,9 +525,9 @@ namespace Neliva.Security.Cryptography.Tests
 
             var associatedData = new ArraySegment<byte>(new byte[13].Fill(7));
 
-            var content = new ArraySegment<byte>(new byte[MinPackageSize - Overhead - 3].Fill(9));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize - 3].Fill(9));
 
-            var package = new ArraySegment<byte>(new byte[MinPackageSize]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
 
@@ -454,9 +548,9 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
 
-            var content = new ArraySegment<byte>(new byte[MinPackageSize - Overhead].Fill(9));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize].Fill(9));
 
-            var package = new ArraySegment<byte>(new byte[MinPackageSize]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             var bytesProtected =protector.Protect(content, package, key, 5, associatedData);
 
@@ -475,14 +569,16 @@ namespace Neliva.Security.Cryptography.Tests
         [TestMethod]
         public void UnprotectGoodMacBadPadFail()
         {
+            byte[] ZeroIV = new byte[BlockSize];
+
             using var protector = new PackageProtector(packageSize: MinPackageSize);
 
             var key = new byte[32].Fill(93);
             var associatedData = new byte[13].Fill(56);
 
-            var content = new ArraySegment<byte>(new byte[MinPackageSize - Overhead].Fill(231));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize].Fill(231));
 
-            var package = new ArraySegment<byte>(new byte[MinPackageSize]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             protector.Protect(content, package, key, 5, associatedData);
 
