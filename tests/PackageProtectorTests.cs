@@ -117,90 +117,200 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.AreEqual(overhead, p.MaxPackageSize - p.MaxContentSize, $"{nameof(p.MaxPackageSize)} - {nameof(p.MaxContentSize)}");
         }
 
-        /*
         [TestMethod]
-        public void ProtectInvalidArgsFail()
+        [DataRow(0)]
+        [DataRow(16)]
+        [DataRow(31)]
+        [DataRow(65)]
+        [DataRow(128)]
+        public void ProtectInvalidKeySizeFail(int keySize)
         {
-            using var p = new PackageProtector();
+            using var p = new PackageProtector(packageSize: 128);
 
-            ArgumentException ex;
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize];
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(new byte[MaxContentSize + 1], new byte[MaxPackageSize], new byte[HashSize], 0, MaxPackageSize, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("content", ex.ParamName);
-
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(new byte[MaxContentSize], new byte[MaxPackageSize - 1], new byte[HashSize], 0, MaxPackageSize, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("package", ex.ParamName);
-
-            ex = Assert.ThrowsException<ArgumentNullException>(() => p.Protect(Array.Empty<byte>(), new byte[MinPackageSize], null, 0, MinPackageSize, ArraySegment<byte>.Empty));
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[keySize], 0, null));
             Assert.AreEqual<string>("key", ex.ParamName);
+        }
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(Array.Empty<byte>(), new byte[MinPackageSize], new byte[0], 0, MinPackageSize, ArraySegment<byte>.Empty));
+        [TestMethod]
+        [DataRow(0)]
+        [DataRow(16)]
+        [DataRow(31)]
+        [DataRow(65)]
+        [DataRow(128)]
+        public void UnprotectInvalidKeySizeFail(int keySize)
+        {
+            using var p = new PackageProtector(packageSize: 128);
+
+            var package = new byte[p.MaxPackageSize];
+
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[keySize], 0, null));
             Assert.AreEqual<string>("key", ex.ParamName);
+        }
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(Array.Empty<byte>(), new byte[MinPackageSize], new byte[31], 0, MinPackageSize, ArraySegment<byte>.Empty));
+        [TestMethod]
+        public void ProtectNullKeyFail()
+        {
+            using var p = new PackageProtector(packageSize: 128);
+
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize];
+
+            var ex = Assert.ThrowsException<ArgumentNullException>(() => p.Protect(content, package, null, 0, null));
             Assert.AreEqual<string>("key", ex.ParamName);
+        }
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(Array.Empty<byte>(), new byte[MinPackageSize], new byte[65], 0, MinPackageSize, ArraySegment<byte>.Empty));
+        [TestMethod]
+        public void UnprotectNullKeyFail()
+        {
+            using var p = new PackageProtector(packageSize: 128);
+
+            var package = new byte[p.MaxPackageSize];
+
+            var ex = Assert.ThrowsException<ArgumentNullException>(() => p.Unprotect(package, package, null, 0, null));
             Assert.AreEqual<string>("key", ex.ParamName);
+        }
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(Array.Empty<byte>(), new byte[MinPackageSize], new byte[HashSize], -1, MinPackageSize, ArraySegment<byte>.Empty));
+        [TestMethod]
+        public void ProtectInvalidPackageNumberFail()
+        {
+            using var p = new PackageProtector(packageSize: 128);
+
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize];
+
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], -1, null));
             Assert.AreEqual<string>("packageNumber", ex.ParamName);
+        }
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(Array.Empty<byte>(), new byte[MinPackageSize], new byte[HashSize], 0, MinPackageSize - 1, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("packageSize", ex.ParamName);
+        [TestMethod]
+        public void UnprotectInvalidPackageNumberFail()
+        {
+            using var p = new PackageProtector(packageSize: 128);
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(Array.Empty<byte>(), new byte[MinPackageSize], new byte[HashSize], 0, MaxPackageSize + 1, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("packageSize", ex.ParamName);
+            var package = new byte[p.MaxPackageSize];
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(Array.Empty<byte>(), new byte[MinPackageSize], new byte[HashSize], 0, MinPackageSize, new byte[BlockSize + 1]));
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[32], -1, null));
+            Assert.AreEqual<string>("packageNumber", ex.ParamName);
+        }
+
+        [TestMethod]
+        [DataRow(0, 33)]
+        [DataRow(16, 17)]
+        [DataRow(32, 1)]
+        public void ProtectInvalidAssociatedDataFail(int ivSize, int associatedDataSize)
+        {
+            using var p = new PackageProtector(ivSize: ivSize, packageSize: 128);
+
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize];
+
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], long.MaxValue, new byte[associatedDataSize]));
             Assert.AreEqual<string>("associatedData", ex.ParamName);
         }
 
         [TestMethod]
-        public void UnprotectInvalidArgsFail()
+        [DataRow(0, 33)]
+        [DataRow(16, 17)]
+        [DataRow(32, 1)]
+        public void UnprotectInvalidAssociatedDataSizeFail(int ivSize, int associatedDataSize)
         {
-            ArgumentException ex;
+            using var p = new PackageProtector(ivSize: ivSize, packageSize: 128);
 
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize - 1], new byte[HashSize], 0, MinPackageSize, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("content", ex.ParamName);
+            var package = new byte[p.MaxPackageSize];
 
-            ex = Assert.ThrowsException<ArgumentNullException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], null, 0, MinPackageSize, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], new byte[0], 0, MinPackageSize, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], new byte[31], 0, MinPackageSize, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], new byte[65], 0, MinPackageSize, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], new byte[HashSize], -1, MinPackageSize, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("packageNumber", ex.ParamName);
-
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], new byte[HashSize], 0, MinPackageSize - 1, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("packageSize", ex.ParamName);
-
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], new byte[HashSize], 0, MaxPackageSize + 1, ArraySegment<byte>.Empty));
-            Assert.AreEqual<string>("packageSize", ex.ParamName);
-
-            ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => PackageProtector.Unprotect(new byte[MinPackageSize], new byte[MinPackageSize], new byte[HashSize], 0, MinPackageSize, new byte[BlockSize + 1]));
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[32], long.MaxValue, new byte[associatedDataSize]));
             Assert.AreEqual<string>("associatedData", ex.ParamName);
-
-            var badPackageEx = Assert.ThrowsException<BadPackageException>(() => PackageProtector.Unprotect(new byte[MinPackageSize - 1], new byte[MinPackageSize], new byte[HashSize], 0, MinPackageSize, ArraySegment<byte>.Empty));
-            Assert.AreNotEqual<string>(badPackageEx.Message, new BadPackageException().Message);
-
-            badPackageEx = Assert.ThrowsException<BadPackageException>(() => PackageProtector.Unprotect(new byte[MaxPackageSize + 1], new byte[MinPackageSize], new byte[HashSize], 0, MinPackageSize, ArraySegment<byte>.Empty));
-            Assert.AreNotEqual<string>(badPackageEx.Message, new BadPackageException().Message);
-
-            badPackageEx = Assert.ThrowsException<BadPackageException>(() => PackageProtector.Unprotect(new byte[MinPackageSize * 2], new byte[MinPackageSize], new byte[HashSize], 0, MinPackageSize, ArraySegment<byte>.Empty));
-            Assert.AreNotEqual<string>(badPackageEx.Message, new BadPackageException().Message);
-
-            badPackageEx = Assert.ThrowsException<BadPackageException>(() => PackageProtector.Unprotect(new byte[MinPackageSize * 2 + 1], new byte[MinPackageSize * 2], new byte[HashSize], 0, MinPackageSize * 2, ArraySegment<byte>.Empty));
-            Assert.AreNotEqual<string>(badPackageEx.Message, new BadPackageException().Message);
         }
-        */
+
+        [TestMethod]
+        [DataRow(0, 48)]
+        [DataRow(16, 64)]
+        [DataRow(32, 80)]
+        public void ProtectInvalidPackageSizeFail(int ivSize, int packageSize)
+        {
+            using var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize - 1];
+
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], long.MaxValue, null));
+            Assert.AreEqual("package", ex.ParamName);
+            Assert.AreEqual($"Insufficient space for package output. (Parameter 'package')", ex.Message);
+        }
+
+        [TestMethod]
+        [DataRow(0, 48)]
+        [DataRow(16, 64)]
+        [DataRow(32, 80)]
+        public void ProtectInvalidContentSizeFail(int ivSize, int packageSize)
+        {
+            using var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+
+            var content = new byte[p.MaxContentSize + 1];
+            var package = new byte[p.MaxPackageSize];
+
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], long.MaxValue, null));
+            Assert.AreEqual("content", ex.ParamName);
+            Assert.AreEqual($"Content cannot be larger than '{p.MaxContentSize}' bytes. (Parameter 'content')", ex.Message);
+        }
+
+        [TestMethod]
+        [DataRow(0, 48)]
+        [DataRow(16, 64)]
+        [DataRow(32, 80)]
+        public void UnprotectInvalidContentSizeSizeFail(int ivSize, int packageSize)
+        {
+            using var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+
+            var package = new byte[p.MaxPackageSize];
+
+            var content = new byte[p.MaxPackageSize - 1];
+
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new byte[32], long.MaxValue, null));
+            Assert.AreEqual("content", ex.ParamName);
+            Assert.AreEqual("Insufficient space for content output. (Parameter 'content')", ex.Message);
+        }
+
+        [TestMethod]
+        [DataRow(0, 48, 47)]
+        [DataRow(0, 48, 49)]
+        [DataRow(16, 64, 63)]
+        [DataRow(16, 64, 65)]
+        [DataRow(32, 80, 79)]
+        [DataRow(32, 80, 81)]
+        public void UnprotectInvalidPackageSizeFail(int ivSize, int packageSize, int invalidPackageSize)
+        {
+            using var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+
+            var package = new byte[invalidPackageSize];
+
+            var content = new byte[p.MaxPackageSize];
+
+            var ex = Assert.ThrowsException<BadPackageException>(() => p.Unprotect(package, content, new byte[32], 0, null));
+            Assert.AreEqual<string>($"Package size must be {packageSize} bytes.", ex.Message);
+        }
+
+        [TestMethod]
+        [DataRow(0, 48 + 16, 48 + 16 - 1)]
+        [DataRow(0, 48 + 16, 48 + 16 + 1)]
+        [DataRow(16, 64 + 16, 64 + 16 - 1)]
+        [DataRow(16, 64 + 16, 64 + 16 + 1)]
+        [DataRow(32, 80 + 16, 80 + 16 - 1)]
+        [DataRow(32, 80 + 16, 80 + 16 + 1)]
+        public void UnprotectInvalidPackageSize2Fail(int ivSize, int packageSize, int invalidPackageSize)
+        {
+            using var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+
+            var package = new byte[invalidPackageSize];
+
+            var content = new byte[p.MaxPackageSize];
+
+            var ex = Assert.ThrowsException<BadPackageException>(() => p.Unprotect(package, content, new byte[32], 0, null));
+            Assert.AreEqual<string>($"Package size must be between {packageSize - 16} and {packageSize} bytes and aligned on a 16 byte boundary.", ex.Message);
+        }
 
         [TestMethod]
         public void ProtectNullOrDefaultContentPass()

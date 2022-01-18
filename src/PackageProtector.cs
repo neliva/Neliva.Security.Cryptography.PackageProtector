@@ -29,6 +29,18 @@ namespace Neliva.Security.Cryptography
 
         private readonly RngFillAction _rngFill;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PackageProtector"/> class.
+        /// </summary>
+        /// <param name="ivSize">
+        /// The KDF IV size in bytes.
+        /// The valid values are 0, 16 and 32 bytes.
+        /// </param>
+        /// <param name="packageSize">
+        /// The package size in bytes.
+        /// </param>
+        /// <param name="rngFill"></param>
+        /// <exception cref="ArgumentOutOfRangeException"></exception>
         public PackageProtector(int ivSize = BlockSize, int packageSize = 64 * 1024, RngFillAction rngFill = null)
         {
             switch (ivSize)
@@ -94,9 +106,6 @@ namespace Neliva.Security.Cryptography
         /// The package number in a series of packages, which must match the value
         /// provided during unprotection.
         /// </param>
-        /// <param name="packageSize">
-        /// The package size in bytes, which must match the value
-        /// provided during unprotection.</param>
         /// <param name="associatedData">
         /// Extra data associated with the <paramref name="content"/>, which must match the value
         /// provided during unprotection.
@@ -214,10 +223,6 @@ namespace Neliva.Security.Cryptography
         /// </param>
         /// <param name="packageNumber">
         /// The package number in a series of packages, which must match the value
-        /// provided during protection.
-        /// </param>
-        /// <param name="packageSize">
-        /// The package size in bytes, which must match the value
         /// provided during protection.
         /// </param>
         /// <param name="associatedData">
