@@ -14,15 +14,13 @@ namespace Neliva.Security.Cryptography
     public sealed partial class PackageProtector : IDisposable
     {
         private const int BlockSize = 16; // AES256 block size
-
         private const int HashSize = 32; // HMAC-SHA256 hash size, HMAC key size, AES256 key size.
 
-        private readonly int _MaxContentSize;
-
         private readonly int _IvSize;
+        private readonly int _IvAndHashSize;
         private readonly int _PackageSize;
         private readonly int _MinPackageSize;
-
+        private readonly int _MaxContentSize;
         private readonly int _MaxAssociatedDataSize;
 
         private readonly byte[] _AesZeroIV;
@@ -44,30 +42,31 @@ namespace Neliva.Security.Cryptography
                     throw new ArgumentOutOfRangeException(nameof(ivSize));
             }
 
-            this._IvSize = ivSize;
-
-            this._MinPackageSize = ivSize + BlockSize + HashSize;
+            int minPackageSize = ivSize + BlockSize + HashSize;
 
             const int KdfMaxPackageSize = (16 * 1024 * 1024) - BlockSize; // KDF imposes this limit.
 
-            if (packageSize < this._MinPackageSize || packageSize > KdfMaxPackageSize || IsNotAlignedBlock(packageSize))
+            if (packageSize < minPackageSize || packageSize > KdfMaxPackageSize || IsNotAlignedBlock(packageSize))
             {
                 throw new ArgumentOutOfRangeException(nameof(packageSize));
             }
 
-            this._PackageSize = packageSize;
-
             // Overhead is the minimum number of bytes added to content
             // during package protection.
-            int Overhead = ivSize + HashSize + 1; // One byte for padding.
+            int overhead = ivSize + HashSize + 1; // One byte for padding.
 
-            this._MaxContentSize = packageSize - Overhead;
-
+            this._IvSize = ivSize;
+            this._IvAndHashSize = ivSize + HashSize;
+            this._PackageSize = packageSize;
+            this._MinPackageSize = minPackageSize;
+            this._MaxContentSize = packageSize - overhead;
             this._MaxAssociatedDataSize = BlockSize + BlockSize - ivSize;
 
             this._AesZeroIV = new byte[BlockSize];
 
-            this._rngFill = rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
+            this._rngFill = ivSize == 0 ?
+                null : // No need for RNG when IV size is zero.
+                rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
 
             this._Aes = Aes.Create();
 
@@ -126,7 +125,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(content), $"Content cannot be larger than '{this._MaxContentSize}' bytes.");
             }
 
-            int outputPackageSize = this._IvSize + HashSize + AlignBlock(content.Count);
+            int outputPackageSize = this._IvAndHashSize + AlignBlock(content.Count);
 
             if (package.Count < outputPackageSize)
             {
@@ -153,10 +152,10 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
-            var data = package.Slice(this._IvSize + HashSize, outputPackageSize - this._IvSize - HashSize);  // content + padding
+            var data = package.Slice(this._IvAndHashSize, outputPackageSize - this._IvAndHashSize);  // content + padding
             var randomData = package.Slice(0, this._IvSize);
 
-            this._rngFill(randomData);
+            this._rngFill?.Invoke(randomData);
 
             // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
             if (content.Array != null)
@@ -254,7 +253,7 @@ namespace Neliva.Security.Cryptography
         /// </exception>
         public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
         {
-            bool isInvalidPackage = IsInvalidPackageSize(package.Count);
+            bool isInvalidPackage = this.IsInvalidPackageSize(package.Count);
 
             if (!isInvalidPackage && content.Count < package.Count)
             {
@@ -290,7 +289,7 @@ namespace Neliva.Security.Cryptography
                 throw new BadPackageException(badPackageMsg);
             }
 
-            var data = content.Slice(0, package.Count - this._IvSize - HashSize); // content + padding
+            var data = content.Slice(0, package.Count - this._IvAndHashSize); // content + padding
 
             Span<byte> computedHash = stackalloc byte[HashSize];
 
@@ -319,8 +318,8 @@ namespace Neliva.Security.Cryptography
                     // IV for the block comes from the previous invocation of the method.
                     dec.TransformBlock(
                         package.Array,
-                        package.Offset + this._IvSize + HashSize,
-                        package.Count - this._IvSize - HashSize,
+                        package.Offset + this._IvAndHashSize,
+                        package.Count - this._IvAndHashSize,
                         content.Array,
                         content.Offset);
                 }
@@ -367,13 +366,13 @@ namespace Neliva.Security.Cryptography
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool IsInvalidPackageSize(int value)
+        private bool IsInvalidPackageSize(int value)
         {
             return value < this._MinPackageSize || value > this._PackageSize || IsNotAlignedBlock(value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsInvalidKeySize(byte[] value)
+        private static bool IsInvalidKeySize(byte[] value)
         {
             const int MinKeySize = 32;
             const int MaxKeySize = 64;
