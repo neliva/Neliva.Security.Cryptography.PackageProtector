@@ -78,8 +78,8 @@ namespace Neliva.Security.Cryptography
 
             long totalOutputSize = 0L;
 
-            var contentBuffer = new ArraySegment<byte>(pool.Rent(this._PackageSize), 0, this._MaxContentSize);
-            var packageBuffer = new ArraySegment<byte>(pool.Rent(this._PackageSize), 0, this._PackageSize);
+            var contentBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxContentSize);
+            var packageBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxPackageSize);
 
             long packageNumber = 0L;
 
@@ -221,8 +221,8 @@ namespace Neliva.Security.Cryptography
 
             long totalOutputSize = 0L;
 
-            var packageBuffer = new ArraySegment<byte>(pool.Rent(this._PackageSize), 0, this._PackageSize);
-            var contentBuffer = new ArraySegment<byte>(pool.Rent(this._PackageSize), 0, this._PackageSize);
+            var packageBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxPackageSize);
+            var contentBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxPackageSize);
 
             long packageNumber = 0L;
 
@@ -237,7 +237,7 @@ namespace Neliva.Security.Cryptography
 
                     do
                     {
-                        bytesRead = await package.ReadAsync(packageBuffer.Slice(offset, this._PackageSize - offset), cancellationToken).ConfigureAwait(false);
+                        bytesRead = await package.ReadAsync(packageBuffer.Slice(offset, this._MaxPackageSize - offset), cancellationToken).ConfigureAwait(false);
 
                         if (bytesRead == 0)
                         {
@@ -246,7 +246,7 @@ namespace Neliva.Security.Cryptography
 
                         offset += bytesRead;
                     }
-                    while (offset < this._PackageSize);
+                    while (offset < this._MaxPackageSize);
 
                     if (offset > 0)
                     {

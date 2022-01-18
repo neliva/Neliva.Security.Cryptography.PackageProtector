@@ -18,7 +18,7 @@ namespace Neliva.Security.Cryptography
 
         private readonly int _IvSize;
         private readonly int _IvAndHashSize;
-        private readonly int _PackageSize;
+        private readonly int _MaxPackageSize;
         private readonly int _MinPackageSize;
         private readonly int _MaxContentSize;
         private readonly int _MaxAssociatedDataSize;
@@ -44,7 +44,7 @@ namespace Neliva.Security.Cryptography
 
             int minPackageSize = ivSize + HashSize + BlockSize;
 
-            const int KdfMaxPackageSize = (16 * 1024 * 1024) - BlockSize; // KDF imposes this limit.
+            const int KdfMaxPackageSize = (16 * 1024 * 1024) - BlockSize; // Our KDF imposes this limit.
 
             if (packageSize < minPackageSize || packageSize > KdfMaxPackageSize || IsNotAlignedBlock(packageSize))
             {
@@ -57,7 +57,7 @@ namespace Neliva.Security.Cryptography
 
             this._IvSize = ivSize;
             this._IvAndHashSize = ivSize + HashSize;
-            this._PackageSize = packageSize;
+            this._MaxPackageSize = packageSize;
             this._MinPackageSize = minPackageSize;
             this._MaxContentSize = packageSize - overhead;
             this._MaxAssociatedDataSize = BlockSize + BlockSize - ivSize;
@@ -76,7 +76,7 @@ namespace Neliva.Security.Cryptography
 
         public int MaxContentSize { get => this._MaxContentSize; }
 
-        public int MaxPackageSize { get => this._PackageSize; }
+        public int MaxPackageSize { get => this._MaxPackageSize; }
 
         /// <summary>
         /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.
@@ -178,7 +178,7 @@ namespace Neliva.Security.Cryptography
 
             using (var hmac = new HMACSHA256(key))
             {
-                DeriveKeys(hmac, packageNumber, this._PackageSize, randomData, associatedData, encKey, signKey);
+                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, randomData, associatedData, encKey, signKey);
 
                 hmac.Key = signKey;
 
@@ -282,9 +282,9 @@ namespace Neliva.Security.Cryptography
 
             if (isInvalidPackage)
             {
-                string badPackageMsg = this._MinPackageSize == this._PackageSize ?
+                string badPackageMsg = this._MinPackageSize == this._MaxPackageSize ?
                     $"Package size must be {this._MinPackageSize} bytes." :
-                    $"Package size must be between {this._MinPackageSize} and {this._PackageSize} bytes and aligned on a {BlockSize} byte boundary.";
+                    $"Package size must be between {this._MinPackageSize} and {this._MaxPackageSize} bytes and aligned on a {BlockSize} byte boundary.";
 
                 throw new BadPackageException(badPackageMsg);
             }
@@ -302,7 +302,7 @@ namespace Neliva.Security.Cryptography
             {
                 var randomData = package.Slice(0, this._IvSize);
 
-                DeriveKeys(hmac, packageNumber, this._PackageSize, randomData, associatedData, encKey, signKey);
+                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, randomData, associatedData, encKey, signKey);
 
                 using (var dec = this._Aes.CreateDecryptor(encKey, this._AesZeroIV))
                 {
@@ -368,7 +368,7 @@ namespace Neliva.Security.Cryptography
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsInvalidPackageSize(int value)
         {
-            return value < this._MinPackageSize || value > this._PackageSize || IsNotAlignedBlock(value);
+            return value < this._MinPackageSize || value > this._MaxPackageSize || IsNotAlignedBlock(value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
