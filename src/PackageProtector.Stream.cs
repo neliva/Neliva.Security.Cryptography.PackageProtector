@@ -64,7 +64,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
-            if (IsInvalidKeySize(key))
+            if (IsInvalidKeySize(key.Length))
             {
                 throw new ArgumentOutOfRangeException(nameof(key));
             }
@@ -207,7 +207,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
-            if (IsInvalidKeySize(key))
+            if (IsInvalidKeySize(key.Length))
             {
                 throw new ArgumentOutOfRangeException(nameof(key));
             }

@@ -137,7 +137,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
-            if (IsInvalidKeySize(key))
+            if (IsInvalidKeySize(key.Length))
             {
                 throw new ArgumentOutOfRangeException(nameof(key));
             }
@@ -265,7 +265,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
-            if (IsInvalidKeySize(key))
+            if (IsInvalidKeySize(key.Length))
             {
                 throw new ArgumentOutOfRangeException(nameof(key));
             }
@@ -372,14 +372,12 @@ namespace Neliva.Security.Cryptography
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsInvalidKeySize(byte[] value)
+        private static bool IsInvalidKeySize(int value)
         {
             const int MinKeySize = 32;
             const int MaxKeySize = 64;
 
-            var length = value.Length;
-
-            return length < MinKeySize || length > MaxKeySize;
+            return value < MinKeySize || value > MaxKeySize;
         }
 
         internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
