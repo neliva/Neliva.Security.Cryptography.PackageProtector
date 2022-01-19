@@ -3,9 +3,6 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Runtime.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Neliva.Security.Cryptography.Tests
@@ -40,36 +37,6 @@ namespace Neliva.Security.Cryptography.Tests
             ex = new BadPackageException(null, argNullEx);
             Assert.AreNotEqual(null, ex.Message);
             Assert.AreEqual(argNullEx, ex.InnerException);
-        }
-
-        [TestMethod]
-        public void BadPackageExceptionSerializePass()
-        {
-#pragma warning disable SYSLIB0011 // Type or member is obsolete
-
-            var sourceEx = new BadPackageException("My custom message for serialization.");
-
-            using (var stream = new MemoryStream())
-            {
-                try
-                {
-                    BinaryFormatter formatter = new BinaryFormatter(null, new StreamingContext(StreamingContextStates.File));
-
-                    formatter.Serialize(stream, sourceEx);
-
-                    stream.Position = 0; // rewind for reading
-
-                    var deserializedException = (BadPackageException)formatter.Deserialize(stream);
-                    throw deserializedException;
-                }
-                catch (BadPackageException ex)
-                {
-                    Assert.AreEqual(sourceEx.Message, ex.Message);
-                }
-            }
-
-
-#pragma warning restore SYSLIB0011 // Type or member is obsolete
         }
     }
 }
