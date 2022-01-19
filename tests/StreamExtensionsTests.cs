@@ -20,73 +20,116 @@ namespace Neliva.Security.Cryptography.Tests
         private const int HashSize = 32;
         private const int MinPackageSize = BlockSize + BlockSize + HashSize;
 
-        /*
         [TestMethod]
-        public async Task ProtectInvalidArgsFail()
+        public async Task ProtectContentStreamNullArgFail()
         {
-            ArgumentException ex;
+            using var protector = new PackageProtector();
 
-            ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => StreamExtensions.ProtectAsync(null, Stream.Null, new byte[32], MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("content", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => StreamExtensions.ProtectAsync(Stream.Null, null, new byte[32], MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("package", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, null, MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, new byte[0], MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, new byte[31], MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, new byte[65], MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, new byte[32], MinPackageSize - 1)).ConfigureAwait(false);
-            Assert.AreEqual<string>("packageSize", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, new byte[32], MaxPackageSize + 1)).ConfigureAwait(false);
-            Assert.AreEqual<string>("packageSize", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.ProtectAsync(Stream.Null, Stream.Null, new byte[32], MinPackageSize, new byte[BlockSize + 1])).ConfigureAwait(false);
-            Assert.AreEqual<string>("associatedData", ex.ParamName);
+            var ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => protector.ProtectAsync(null, Stream.Null, new byte[32])).ConfigureAwait(false);
+            Assert.AreEqual("content", ex.ParamName);
         }
 
         [TestMethod]
-        public async Task UnprotectInvalidArgsFail()
+        public async Task ProtectPackageStreamNullArgFail()
         {
-            ArgumentException ex;
+            using var protector = new PackageProtector();
 
-            ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => StreamExtensions.UnprotectAsync(null, Stream.Null, new byte[32], MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("package", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => StreamExtensions.UnprotectAsync(Stream.Null, null, new byte[32], MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("content", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, null, MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, new byte[0], MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, new byte[31], MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, new byte[65], MinPackageSize)).ConfigureAwait(false);
-            Assert.AreEqual<string>("key", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, new byte[32], MinPackageSize - 1)).ConfigureAwait(false);
-            Assert.AreEqual<string>("packageSize", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, new byte[32], MaxPackageSize + 1)).ConfigureAwait(false);
-            Assert.AreEqual<string>("packageSize", ex.ParamName);
-
-            ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => StreamExtensions.UnprotectAsync(Stream.Null, Stream.Null, new byte[32], MinPackageSize, new byte[BlockSize + 1])).ConfigureAwait(false);
-            Assert.AreEqual<string>("associatedData", ex.ParamName);
+            var ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => protector.ProtectAsync(Stream.Null, null, new byte[32])).ConfigureAwait(false);
+            Assert.AreEqual("package", ex.ParamName);
         }
-        */
+
+        [TestMethod]
+        public async Task UnprotectContentStreamNullArgFail()
+        {
+            using var protector = new PackageProtector();
+
+            var ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => protector.UnprotectAsync(null, Stream.Null, new byte[32])).ConfigureAwait(false);
+            Assert.AreEqual("package", ex.ParamName);
+        }
+
+        [TestMethod]
+        public async Task UnprotectPackageStreamNullArgFail()
+        {
+            using var protector = new PackageProtector();
+
+            var ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => protector.UnprotectAsync(Stream.Null, null, new byte[32])).ConfigureAwait(false);
+            Assert.AreEqual("content", ex.ParamName);
+        }
+
+        [TestMethod]
+        public async Task ProtectNullKeyFail()
+        {
+            using var protector = new PackageProtector();
+
+            var ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => protector.ProtectAsync(Stream.Null, Stream.Null, null)).ConfigureAwait(false);
+            Assert.AreEqual("key", ex.ParamName);
+        }
+
+        [TestMethod]
+        public async Task UnprotectNullKeyFail()
+        {
+            using var protector = new PackageProtector();
+
+            var ex = await Assert.ThrowsExceptionAsync<ArgumentNullException>(() => protector.UnprotectAsync(Stream.Null, Stream.Null, null)).ConfigureAwait(false);
+            Assert.AreEqual("key", ex.ParamName);
+        }
+
+        [TestMethod]
+        [DataRow(0)]
+        [DataRow(16)]
+        [DataRow(31)]
+        [DataRow(65)]
+        [DataRow(128)]
+        public async Task ProtectBadKeySizeFail(int keySize)
+        {
+            using var protector = new PackageProtector();
+
+            var ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => protector.ProtectAsync(Stream.Null, Stream.Null, new byte[keySize])).ConfigureAwait(false);
+            Assert.AreEqual("key", ex.ParamName);
+        }
+
+        [TestMethod]
+        [DataRow(0)]
+        [DataRow(16)]
+        [DataRow(31)]
+        [DataRow(65)]
+        [DataRow(128)]
+        public async Task UnprotectBadKeySizeFail(int keySize)
+        {
+            using var protector = new PackageProtector();
+
+            var ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => protector.UnprotectAsync(Stream.Null, Stream.Null, new byte[keySize])).ConfigureAwait(false);
+            Assert.AreEqual("key", ex.ParamName);
+        }
+
+        [TestMethod]
+        [DataRow(0, 33)]
+        [DataRow(16, 17)]
+        [DataRow(32, 1)]
+        public async Task ProtectBadAssociatedDataFail(int ivSize, int associatedDataSize)
+        {
+            using var p = new PackageProtector(ivSize: ivSize, packageSize: 128);
+
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize];
+
+            var ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new byte[32], new byte[associatedDataSize]));
+            Assert.AreEqual("associatedData", ex.ParamName);
+        }
+
+        [TestMethod]
+        [DataRow(0, 33)]
+        [DataRow(16, 17)]
+        [DataRow(32, 1)]
+        public async Task UnprotectBadAssociatedDataSizeFail(int ivSize, int associatedDataSize)
+        {
+            using var p = new PackageProtector(ivSize: ivSize, packageSize: 128);
+
+            var package = new byte[p.MaxPackageSize];
+
+            var ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new byte[32], new byte[associatedDataSize]));
+            Assert.AreEqual("associatedData", ex.ParamName);
+        }
 
         [TestMethod]
         public async Task UnprotectTruncatedAtPackageBoundaryFail()
@@ -104,7 +147,7 @@ namespace Neliva.Security.Cryptography.Tests
             package.SetLength(len - MinPackageSize); // completely drop last package
 
             var ex = await Assert.ThrowsExceptionAsync<InvalidDataException>(() => p.UnprotectAsync(package, Stream.Null, key)).ConfigureAwait(false);
-            Assert.AreEqual<string>("Unexpected end of stream. Stream is truncated or corrupted.", ex.Message);
+            Assert.AreEqual("Unexpected end of stream. Stream is truncated or corrupted.", ex.Message);
         }
 
         [TestMethod]
@@ -123,7 +166,7 @@ namespace Neliva.Security.Cryptography.Tests
             package.SetLength(len - (MinPackageSize / 3)); // partially drop last package
 
             var ex = await Assert.ThrowsExceptionAsync<InvalidDataException>(() => p.UnprotectAsync(package, Stream.Null, key)).ConfigureAwait(false);
-            Assert.AreEqual<string>("Unexpected stream length. Stream is truncated or corrupted.", ex.Message);
+            Assert.AreEqual("Unexpected stream length. Stream is truncated or corrupted.", ex.Message);
         }
 
         [TestMethod]
@@ -148,7 +191,7 @@ namespace Neliva.Security.Cryptography.Tests
             package.Position = 0;
 
             var ex = await Assert.ThrowsExceptionAsync<InvalidDataException>(() => p.UnprotectAsync(package, Stream.Null, key)).ConfigureAwait(false);
-            Assert.AreEqual<string>("Unexpected data after end of stream marker.", ex.Message);
+            Assert.AreEqual("Unexpected data after end of stream marker.", ex.Message);
         }
 
         [TestMethod]
@@ -169,7 +212,7 @@ namespace Neliva.Security.Cryptography.Tests
             package.GetBuffer()[MinPackageSize * 2 + BlockSize + 3] ^= 1;
 
             var ex = await Assert.ThrowsExceptionAsync<BadPackageException>(() => p.UnprotectAsync(package, Stream.Null, key)).ConfigureAwait(false);
-            Assert.AreEqual<string>("Package is invalid or corrupted.", ex.Message);
+            Assert.AreEqual("Package is invalid or corrupted.", ex.Message);
         }
 
         [TestMethod]
@@ -190,7 +233,7 @@ namespace Neliva.Security.Cryptography.Tests
             key[3] ^= 1;
 
             var ex = await Assert.ThrowsExceptionAsync<BadPackageException>(() => p.UnprotectAsync(package, Stream.Null, key)).ConfigureAwait(false);
-            Assert.AreEqual<string>("Package is invalid or corrupted.", ex.Message);
+            Assert.AreEqual("Package is invalid or corrupted.", ex.Message);
         }
 
         [TestMethod]
@@ -209,7 +252,7 @@ namespace Neliva.Security.Cryptography.Tests
             package.Position = 0; // rewind for reading
 
             var ex = await Assert.ThrowsExceptionAsync<BadPackageException>(() => p1.UnprotectAsync(package, Stream.Null, key)).ConfigureAwait(false);
-            Assert.AreEqual<string>("Package is invalid or corrupted.", ex.Message);
+            Assert.AreEqual("Package is invalid or corrupted.", ex.Message);
         }
 
         [TestMethod]
@@ -227,7 +270,7 @@ namespace Neliva.Security.Cryptography.Tests
             package.Position = 0; // rewind for reading
 
             var ex = await Assert.ThrowsExceptionAsync<BadPackageException>(() => p.UnprotectAsync(package, Stream.Null, key, new byte[1])).ConfigureAwait(false);
-            Assert.AreEqual<string>("Package is invalid or corrupted.", ex.Message);
+            Assert.AreEqual("Package is invalid or corrupted.", ex.Message);
         }
 
         [TestMethod]
@@ -246,7 +289,7 @@ namespace Neliva.Security.Cryptography.Tests
             package.Position = MinPackageSize;
 
             var ex = await Assert.ThrowsExceptionAsync<BadPackageException>(() => p.UnprotectAsync(package, Stream.Null, key)).ConfigureAwait(false);
-            Assert.AreEqual<string>("Package is invalid or corrupted.", ex.Message);
+            Assert.AreEqual("Package is invalid or corrupted.", ex.Message);
         }
 
         [TestMethod]
@@ -257,7 +300,7 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(199);
 
             var ex = await Assert.ThrowsExceptionAsync<InvalidDataException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, key)).ConfigureAwait(false);
-            Assert.AreEqual<string>("Unexpected end of stream. Stream is truncated or corrupted.", ex.Message);
+            Assert.AreEqual("Unexpected end of stream. Stream is truncated or corrupted.", ex.Message);
         }
 
         [TestMethod]
@@ -271,7 +314,7 @@ namespace Neliva.Security.Cryptography.Tests
             content.SetLength(MinPackageSize - 13);
 
             var ex = await Assert.ThrowsExceptionAsync<InvalidDataException>(() => p.UnprotectAsync(content, Stream.Null, key)).ConfigureAwait(false);
-            Assert.AreEqual<string>("Unexpected stream length. Stream is truncated or corrupted.", ex.Message);
+            Assert.AreEqual("Unexpected stream length. Stream is truncated or corrupted.", ex.Message);
         }
 
         [TestMethod]

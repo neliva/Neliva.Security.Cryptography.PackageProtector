@@ -441,7 +441,12 @@ namespace Neliva.Security.Cryptography
 
         public void Dispose()
         {
-            this._Aes?.Dispose();
+            var aes = this._Aes;
+
+            if (aes != null)
+            {
+                aes.Dispose();
+            }
         }
     }
 }

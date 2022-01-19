@@ -31,7 +31,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => new PackageProtector(ivSize: ivSize));
 
-            Assert.AreEqual<string>(nameof(ivSize), ex.ParamName);
+            Assert.AreEqual(nameof(ivSize), ex.ParamName);
         }
 
         [TestMethod]
@@ -84,7 +84,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => new PackageProtector(ivSize: ivSize, packageSize: packageSize));
 
-            Assert.AreEqual<string>(nameof(packageSize), ex.ParamName);
+            Assert.AreEqual(nameof(packageSize), ex.ParamName);
         }
 
         [TestMethod]
@@ -131,7 +131,7 @@ namespace Neliva.Security.Cryptography.Tests
             var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[keySize], 0, null));
-            Assert.AreEqual<string>("key", ex.ParamName);
+            Assert.AreEqual("key", ex.ParamName);
         }
 
         [TestMethod]
@@ -147,7 +147,7 @@ namespace Neliva.Security.Cryptography.Tests
             var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[keySize], 0, null));
-            Assert.AreEqual<string>("key", ex.ParamName);
+            Assert.AreEqual("key", ex.ParamName);
         }
 
         [TestMethod]
@@ -159,7 +159,7 @@ namespace Neliva.Security.Cryptography.Tests
             var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentNullException>(() => p.Protect(content, package, null, 0, null));
-            Assert.AreEqual<string>("key", ex.ParamName);
+            Assert.AreEqual("key", ex.ParamName);
         }
 
         [TestMethod]
@@ -170,7 +170,7 @@ namespace Neliva.Security.Cryptography.Tests
             var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentNullException>(() => p.Unprotect(package, package, null, 0, null));
-            Assert.AreEqual<string>("key", ex.ParamName);
+            Assert.AreEqual("key", ex.ParamName);
         }
 
         [TestMethod]
@@ -182,7 +182,7 @@ namespace Neliva.Security.Cryptography.Tests
             var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], -1, null));
-            Assert.AreEqual<string>("packageNumber", ex.ParamName);
+            Assert.AreEqual("packageNumber", ex.ParamName);
         }
 
         [TestMethod]
@@ -193,7 +193,7 @@ namespace Neliva.Security.Cryptography.Tests
             var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[32], -1, null));
-            Assert.AreEqual<string>("packageNumber", ex.ParamName);
+            Assert.AreEqual("packageNumber", ex.ParamName);
         }
 
         [TestMethod]
@@ -208,7 +208,7 @@ namespace Neliva.Security.Cryptography.Tests
             var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], long.MaxValue, new byte[associatedDataSize]));
-            Assert.AreEqual<string>("associatedData", ex.ParamName);
+            Assert.AreEqual("associatedData", ex.ParamName);
         }
 
         [TestMethod]
@@ -222,7 +222,7 @@ namespace Neliva.Security.Cryptography.Tests
             var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[32], long.MaxValue, new byte[associatedDataSize]));
-            Assert.AreEqual<string>("associatedData", ex.ParamName);
+            Assert.AreEqual("associatedData", ex.ParamName);
         }
 
         [TestMethod]
@@ -290,7 +290,7 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<BadPackageException>(() => p.Unprotect(package, content, new byte[32], 0, null));
-            Assert.AreEqual<string>($"Package size must be {packageSize} bytes.", ex.Message);
+            Assert.AreEqual($"Package size must be {packageSize} bytes.", ex.Message);
         }
 
         [TestMethod]
@@ -309,7 +309,7 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<BadPackageException>(() => p.Unprotect(package, content, new byte[32], 0, null));
-            Assert.AreEqual<string>($"Package size must be between {packageSize - 16} and {packageSize} bytes and aligned on a 16 byte boundary.", ex.Message);
+            Assert.AreEqual($"Package size must be between {packageSize - 16} and {packageSize} bytes and aligned on a 16 byte boundary.", ex.Message);
         }
 
         [TestMethod]
