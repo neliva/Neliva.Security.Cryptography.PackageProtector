@@ -174,6 +174,40 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [TestMethod]
+        [DataRow(0)]
+        [DataRow(16)]
+        [DataRow(32)]
+        public void ProtectRngActionCallbackPass(int ivSize)
+        {
+            byte[] rngVal = Array.Empty<byte>();
+
+            RngFillAction rng = (Span<byte> data) =>
+            {
+                if (data.Length == 0 || rngVal.Length != 0)
+                {
+                    throw new AssertFailedException("Callback is not operating properly.");
+                }
+
+                rngVal = new byte[data.Length].Fill((byte)data.Length);
+
+                rngVal.AsSpan().CopyTo(data);
+            };
+
+            using var protector = new PackageProtector(ivSize: ivSize, packageSize: 128, rngFill: rng);
+
+            var content = new byte[1].Fill(100);
+            var package = new byte[protector.MaxPackageSize];
+
+            protector.Protect(content, package, new byte[32], 0, null);
+
+            Assert.AreEqual(ivSize, rngVal.Length);
+
+            var pkgIV = new ArraySegment<byte>(package, 0, ivSize).ToArray();
+
+            CollectionAssert.AreEqual(rngVal, pkgIV);
+        }
+
+        [TestMethod]
         public void ProtectInvalidPackageNumberFail()
         {
             using var p = new PackageProtector(packageSize: 128);
