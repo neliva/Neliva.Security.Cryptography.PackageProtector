@@ -37,10 +37,21 @@ namespace Neliva.Security.Cryptography
         /// The valid values are 0, 16 and 32 bytes.
         /// </param>
         /// <param name="packageSize">
-        /// The package size in bytes.
+        /// The package size in bytes which must be a multiple of 16 bytes.
+        /// The minimum is (<paramref name="ivSize"/> + 48)
+        /// and the maximum is <c>16777206</c>.
         /// </param>
-        /// <param name="rngFill"></param>
-        /// <exception cref="ArgumentOutOfRangeException"></exception>
+        /// <param name="rngFill">
+        /// A callback to fill a span with cryptographically strong random bytes.
+        /// When not provided, a default <see cref="RandomNumberGenerator.Fill"/>
+        /// implementation is used for non-zero <paramref name="ivSize"/> value.
+        /// </param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="ivSize"/> parameter is not 0, 16 or 32 bytes.
+        /// - or -
+        /// The <paramref name="packageSize"/> parameter is less than
+        /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>16777206</c> bytes.
+        /// </exception>
         public PackageProtector(int ivSize = BlockSize, int packageSize = 64 * 1024, RngFillAction rngFill = null)
         {
             switch (ivSize)
@@ -86,8 +97,18 @@ namespace Neliva.Security.Cryptography
             this._Aes.Mode = CipherMode.CBC;
         }
 
+        /// <summary>
+        /// Gets the max number of bytes that can be protected by the
+        /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
+        /// method.
+        /// </summary>
         public int MaxContentSize { get => this._MaxContentSize; }
 
+        /// <summary>
+        /// Gets the max package size in bytes that can be produced by the
+        /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
+        /// method.
+        /// </summary>
         public int MaxPackageSize { get => this._MaxPackageSize; }
 
         /// <summary>
@@ -119,13 +140,13 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
-        /// The <paramref name="content"/> length is greater than <see cref="_MaxContentSize"/>.
+        /// The <paramref name="content"/> length is greater than <see cref="MaxContentSize"/>.
         /// - or -
         /// The <paramref name="package"/> destination space is insufficient.
         /// - or -
         /// The <paramref name="packageNumber"/> parameter is less than zero.
         /// - or -
-        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
         public int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
         {
@@ -242,18 +263,14 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="packageNumber"/> parameter is less than zero.
         /// - or -
-        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
-        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
-        /// - or -
-        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
         /// <exception cref="BadPackageException">
         /// Package is invalid or corrupted.
         /// - or -
-        /// The <paramref name="package"/> length is less than <c>64 bytes</c>,
-        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
+        /// The <paramref name="package"/> length is not correct.
         /// - or -
-        /// The <paramref name="key"/>, <paramref name="packageNumber"/>, <paramref name="packageSize"/>,
+        /// The <paramref name="key"/>, <paramref name="packageNumber"/>,
         /// or <paramref name="associatedData"/> parameter is not valid.
         /// </exception>
         public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
@@ -439,6 +456,10 @@ namespace Neliva.Security.Cryptography
             hmac.ComputeHash(data, signingKey);
         }
 
+        /// <summary>
+        /// Releases all resources used by the current instance
+        /// of the <see cref="PackageProtector"/> class.
+        /// </summary>
         public void Dispose()
         {
             var aes = this._Aes;

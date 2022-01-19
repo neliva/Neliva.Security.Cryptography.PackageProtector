@@ -13,6 +13,5 @@ namespace Neliva.Security.Cryptography
     /// <param name="data">
     /// The span to fill with cryptographically strong random bytes.
     /// </param>
-    /// <seealso cref="RandomNumberGenerator.Fill"/>
     public delegate void RngFillAction(Span<byte> data);
 }

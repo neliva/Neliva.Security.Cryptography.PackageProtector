@@ -24,9 +24,6 @@ namespace Neliva.Security.Cryptography
         /// <param name="key">
         /// The secret key used to protect the <paramref name="content"/>.
         /// </param>
-        /// <param name="packageSize">
-        /// The package size in bytes, which must match the value
-        /// provided during unprotection.</param>
         /// <param name="associatedData">
         /// Extra data associated with the <paramref name="content"/>, which must match the value
         /// provided during unprotection.
@@ -42,10 +39,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
-        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
-        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
-        /// - or -
-        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
         public async Task<long> ProtectAsync(Stream content, Stream package, byte[] key, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
@@ -153,10 +147,6 @@ namespace Neliva.Security.Cryptography
         /// <param name="key">
         /// The secret key used to unprotect the <paramref name="package"/>.
         /// </param>
-        /// <param name="packageSize">
-        /// The package size in bytes, which must match the value
-        /// provided during protection.
-        /// </param>
         /// <param name="associatedData">
         /// Extra data associated with the <paramref name="package"/>, which must match the value
         /// provided during protection.
@@ -172,10 +162,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
-        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
-        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
-        /// - or -
-        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
         /// <exception cref="InvalidDataException">
         /// Unexpected data after end of stream marker.
@@ -187,7 +174,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="BadPackageException">
         /// Package is invalid or corrupted.
         /// - or -
-        /// The <paramref name="key"/>, <paramref name="packageSize"/>,
+        /// The <paramref name="key"/>,
         /// or <paramref name="associatedData"/> parameter is not valid.
         /// </exception>
         public async Task<long> UnprotectAsync(Stream package, Stream content, byte[] key, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)

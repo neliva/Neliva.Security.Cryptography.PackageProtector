@@ -53,7 +53,7 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
 
-    <GenerateDocumentationFile>False</GenerateDocumentationFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <NoWarn>$(NoWarn);NU5105</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

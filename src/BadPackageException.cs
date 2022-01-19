@@ -10,8 +10,8 @@ namespace Neliva.Security.Cryptography
     /// <summary>
     /// The exception that is thrown when package decryption fails.
     /// </summary>
-    /// <seealso cref="StreamExtensions.UnprotectAsync(System.IO.Stream, System.IO.Stream, byte[], int, ArraySegment{byte}, System.Threading.CancellationToken)"/>
-    /// <seealso cref="PackageProtector.Unprotect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, int, ArraySegment{byte})"/>
+    /// <seealso cref="PackageProtector.UnprotectAsync(System.IO.Stream, System.IO.Stream, byte[], ArraySegment{byte}, System.Threading.CancellationToken)"/>
+    /// <seealso cref="PackageProtector.Unprotect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
     [Serializable]
     public sealed class BadPackageException : CryptographicException
     {
