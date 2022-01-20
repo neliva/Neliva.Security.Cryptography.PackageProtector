@@ -21,6 +21,22 @@ namespace Neliva.Security.Cryptography.Tests
         private const int MinPackageSize = BlockSize + BlockSize + HashSize;
 
         [TestMethod]
+        public async Task PackageProtectorUseAfterDisposeFail()
+        {
+            using var protector = new PackageProtector(packageSize: 64);
+
+            protector.Dispose();
+
+            var key = new byte[32];
+
+            var ex = await Assert.ThrowsExceptionAsync<ObjectDisposedException>(() => protector.ProtectAsync(Stream.Null, Stream.Null, key));
+            Assert.AreEqual(nameof(PackageProtector), ex.ObjectName);
+
+            ex = await Assert.ThrowsExceptionAsync<ObjectDisposedException>(() => protector.UnprotectAsync(Stream.Null, Stream.Null, key));
+            Assert.AreEqual(nameof(PackageProtector), ex.ObjectName);
+        }
+
+        [TestMethod]
         public async Task ProtectContentStreamNullArgFail()
         {
             using var protector = new PackageProtector();

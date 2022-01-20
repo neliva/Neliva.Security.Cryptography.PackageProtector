@@ -21,6 +21,25 @@ namespace Neliva.Security.Cryptography.Tests
         private const int MaxPackageSize = (16 * 1024 * 1024) - BlockSize;
 
         [TestMethod]
+        public void PackageProtectorUseAfterDisposeFail()
+        {
+            using var protector = new PackageProtector(packageSize: 64);
+
+            protector.Dispose();
+
+            var content = new byte[protector.MaxContentSize];
+            var package = new byte[protector.MaxPackageSize];
+
+            var key = new byte[32];
+
+            var ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Protect(content, package, key, 0, null));
+            Assert.AreEqual(nameof(PackageProtector), ex.ObjectName);
+
+            ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Unprotect(package, package, key, 0, null));
+            Assert.AreEqual(nameof(PackageProtector), ex.ObjectName);
+        }
+
+        [TestMethod]
         [DataRow(1)]
         [DataRow(15)]
         [DataRow(17)]
