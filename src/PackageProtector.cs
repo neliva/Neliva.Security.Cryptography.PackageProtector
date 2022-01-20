@@ -29,6 +29,8 @@ namespace Neliva.Security.Cryptography
 
         private readonly RngFillAction _rngFill;
 
+        private bool _IsDisposed;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="PackageProtector"/> class.
         /// </summary>
@@ -182,6 +184,11 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
+            if (this._IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(PackageProtector));
+            }
+
             var data = package.Slice(this._IvAndHashSize, outputPackageSize - this._IvAndHashSize);  // content + padding
             var randomData = package.Slice(0, this._IvSize);
 
@@ -300,6 +307,11 @@ namespace Neliva.Security.Cryptography
             if (associatedData.Count > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
+            }
+
+            if (this._IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(PackageProtector));
             }
 
             if (isInvalidPackage)
@@ -462,11 +474,18 @@ namespace Neliva.Security.Cryptography
         /// </summary>
         public void Dispose()
         {
-            var aes = this._Aes;
+            bool isDisposed = this._IsDisposed;
 
-            if (aes != null)
+            this._IsDisposed = true;
+
+            if (!isDisposed)
             {
-                aes.Dispose();
+                var aes = this._Aes;
+
+                if (aes != null)
+                {
+                    aes.Dispose();
+                }
             }
         }
     }

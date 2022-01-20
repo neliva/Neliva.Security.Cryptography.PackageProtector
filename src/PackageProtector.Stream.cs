@@ -68,6 +68,11 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
+            if (this._IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(PackageProtector));
+            }
+
             var pool = ArrayPool<byte>.Shared;
 
             long totalOutputSize = 0L;
@@ -202,6 +207,11 @@ namespace Neliva.Security.Cryptography
             if (associatedData.Count > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
+            }
+
+            if (this._IsDisposed)
+            {
+                throw new ObjectDisposedException(nameof(PackageProtector));
             }
 
             var pool = ArrayPool<byte>.Shared;
