@@ -16,11 +16,17 @@ Protected streams have no headers, markers or identifiers. This makes protected 
 ```C#
 // using Neliva.Security.Cryptography;
 
+// Use default values for IV and package size
+var protector = new PackageProtector();
+
 var key = new byte[32];
 RandomNumberGenerator.Fill(key);
 
-// Use default values for package size and associated data
-await srcContentStream.ProtectAsync(destProtectedStream, key);
+// Protect
+await protector.ProtectAsync(srcContentStream, destProtectedStream, key /*, associatedData */);
+
+// Unprotect
+await protector.UnrotectAsync(srcProtectedStream, destContentStream, key /*, associatedData */);
 ```
 
 ### Algorithms
