@@ -150,6 +150,9 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// The <see cref="PackageProtector"/> object has already been disposed.
+        /// </exception>
         public int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
         {
             if (content.Count > this._MaxContentSize)
@@ -279,6 +282,9 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="key"/>, <paramref name="packageNumber"/>,
         /// or <paramref name="associatedData"/> parameter is not valid.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// The <see cref="PackageProtector"/> object has already been disposed.
         /// </exception>
         public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
         {

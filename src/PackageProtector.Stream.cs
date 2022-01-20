@@ -41,6 +41,9 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// The <see cref="PackageProtector"/> object has already been disposed.
+        /// </exception>
         public async Task<long> ProtectAsync(Stream content, Stream package, byte[] key, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (content == null)
@@ -181,6 +184,9 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="key"/>,
         /// or <paramref name="associatedData"/> parameter is not valid.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// The <see cref="PackageProtector"/> object has already been disposed.
         /// </exception>
         public async Task<long> UnprotectAsync(Stream package, Stream content, byte[] key, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
