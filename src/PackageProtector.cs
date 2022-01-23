@@ -372,6 +372,7 @@ namespace Neliva.Security.Cryptography
 
             if (!CryptographicOperations.FixedTimeEquals(computedHash, packageHash))
             {
+                // TODO: clear output
                 throw new BadPackageException();
             }
 
@@ -379,6 +380,7 @@ namespace Neliva.Security.Cryptography
 
             if (padLength == -1)
             {
+                // TODO: clear output
                 throw new BadPackageException();
             }
 
