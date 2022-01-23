@@ -33,10 +33,10 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32];
 
             var ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Protect(content, package, key, 0, null));
-            Assert.AreEqual(nameof(PackageProtector), ex.ObjectName);
+            Assert.AreEqual(typeof(PackageProtector).FullName, ex.ObjectName);
 
             ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Unprotect(package, package, key, 0, null));
-            Assert.AreEqual(nameof(PackageProtector), ex.ObjectName);
+            Assert.AreEqual(typeof(PackageProtector).FullName, ex.ObjectName);
         }
 
         [TestMethod]

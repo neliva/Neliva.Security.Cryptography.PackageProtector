@@ -13,8 +13,8 @@ namespace Neliva.Security.Cryptography
     /// </summary>
     public sealed partial class PackageProtector : IDisposable
     {
-        private const int BlockSize = 16; // AES256 block size
-        private const int HashSize = 32; // HMAC-SHA256 hash size, HMAC key size, AES256 key size.
+        private const int BlockSize = 16; // AES block size.
+        private const int HashSize = 32;  // HMAC-SHA256 hash and key size, AES256 key size.
 
         private readonly int _IvSize;
         private readonly int _IvAndHashSize;
@@ -189,7 +189,7 @@ namespace Neliva.Security.Cryptography
 
             if (this._IsDisposed)
             {
-                throw new ObjectDisposedException(nameof(PackageProtector));
+                throw new ObjectDisposedException(this.GetType().FullName);
             }
 
             var data = package.Slice(this._IvAndHashSize, outputPackageSize - this._IvAndHashSize);  // content + padding
@@ -317,7 +317,7 @@ namespace Neliva.Security.Cryptography
 
             if (this._IsDisposed)
             {
-                throw new ObjectDisposedException(nameof(PackageProtector));
+                throw new ObjectDisposedException(this.GetType().FullName);
             }
 
             if (isInvalidPackage)

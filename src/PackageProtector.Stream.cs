@@ -73,7 +73,7 @@ namespace Neliva.Security.Cryptography
 
             if (this._IsDisposed)
             {
-                throw new ObjectDisposedException(nameof(PackageProtector));
+                throw new ObjectDisposedException(this.GetType().FullName);
             }
 
             var pool = ArrayPool<byte>.Shared;
@@ -217,7 +217,7 @@ namespace Neliva.Security.Cryptography
 
             if (this._IsDisposed)
             {
-                throw new ObjectDisposedException(nameof(PackageProtector));
+                throw new ObjectDisposedException(this.GetType().FullName);
             }
 
             var pool = ArrayPool<byte>.Shared;

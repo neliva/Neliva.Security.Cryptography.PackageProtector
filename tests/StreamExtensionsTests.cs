@@ -30,10 +30,10 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32];
 
             var ex = await Assert.ThrowsExceptionAsync<ObjectDisposedException>(() => protector.ProtectAsync(Stream.Null, Stream.Null, key));
-            Assert.AreEqual(nameof(PackageProtector), ex.ObjectName);
+            Assert.AreEqual(typeof(PackageProtector).FullName, ex.ObjectName);
 
             ex = await Assert.ThrowsExceptionAsync<ObjectDisposedException>(() => protector.UnprotectAsync(Stream.Null, Stream.Null, key));
-            Assert.AreEqual(nameof(PackageProtector), ex.ObjectName);
+            Assert.AreEqual(typeof(PackageProtector).FullName, ex.ObjectName);
         }
 
         [TestMethod]
