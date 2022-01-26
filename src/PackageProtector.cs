@@ -197,6 +197,8 @@ namespace Neliva.Security.Cryptography
 
             this._rngFill?.Invoke(kdfIV);
 
+            // TODO: clear output on any failure.
+
             // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
             if (content.Array != null)
             {
