@@ -104,14 +104,14 @@ namespace Neliva.Security.Cryptography
         /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
         /// method.
         /// </summary>
-        public int MaxContentSize { get => this._MaxContentSize; }
+        public int MaxContentLength { get => this._MaxContentSize; }
 
         /// <summary>
-        /// Gets the max package size in bytes that can be produced by the
+        /// Gets the max package length in bytes that can be produced by the
         /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
         /// method.
         /// </summary>
-        public int MaxPackageSize { get => this._MaxPackageSize; }
+        public int MaxPackageLength { get => this._MaxPackageSize; }
 
         /// <summary>
         /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.
@@ -142,7 +142,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
-        /// The <paramref name="content"/> length is greater than <see cref="MaxContentSize"/>.
+        /// The <paramref name="content"/> length is greater than <see cref="MaxContentLength"/>.
         /// - or -
         /// The <paramref name="package"/> destination space is insufficient.
         /// - or -
@@ -157,7 +157,7 @@ namespace Neliva.Security.Cryptography
         {
             if (content.Count > this._MaxContentSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(content), $"Content cannot be larger than '{this._MaxContentSize}' bytes.");
+                throw new ArgumentOutOfRangeException(nameof(content), "Content length is too large.");
             }
 
             int outputPackageSize = this._IvAndHashSize + AlignBlock(content.Count);
@@ -193,9 +193,9 @@ namespace Neliva.Security.Cryptography
             }
 
             var data = package.Slice(this._IvAndHashSize, outputPackageSize - this._IvAndHashSize);  // content + padding
-            var randomData = package.Slice(0, this._IvSize);
+            var kdfIV = package.Slice(0, this._IvSize);
 
-            this._rngFill?.Invoke(randomData);
+            this._rngFill?.Invoke(kdfIV);
 
             // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
             if (content.Array != null)
@@ -218,7 +218,7 @@ namespace Neliva.Security.Cryptography
 
             using (var hmac = new HMACSHA256(key))
             {
-                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, randomData, associatedData, encKey, signKey);
+                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
 
                 hmac.Key = signKey;
 
@@ -288,9 +288,9 @@ namespace Neliva.Security.Cryptography
         /// </exception>
         public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
         {
-            bool isInvalidPackage = this.IsInvalidPackageSize(package.Count);
+            bool isInvalidPackageSize = this.IsInvalidPackageSize(package.Count);
 
-            if (!isInvalidPackage && content.Count < package.Count)
+            if (!isInvalidPackageSize && content.Count < package.Count)
             {
                 throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
             }
@@ -320,13 +320,9 @@ namespace Neliva.Security.Cryptography
                 throw new ObjectDisposedException(this.GetType().FullName);
             }
 
-            if (isInvalidPackage)
+            if (isInvalidPackageSize)
             {
-                string badPackageMsg = this._MinPackageSize == this._MaxPackageSize ?
-                    $"Package size must be {this._MinPackageSize} bytes." :
-                    $"Package size must be between {this._MinPackageSize} and {this._MaxPackageSize} bytes and aligned on a {BlockSize} byte boundary.";
-
-                throw new BadPackageException(badPackageMsg);
+                throw new BadPackageException("Package length is invalid or not aligned on the required boundary.");
             }
 
             var data = content.Slice(0, package.Count - this._IvAndHashSize); // content + padding
@@ -340,9 +336,9 @@ namespace Neliva.Security.Cryptography
 
             using (var hmac = new HMACSHA256(key))
             {
-                var randomData = package.Slice(0, this._IvSize);
+                var kdfIV = package.Slice(0, this._IvSize);
 
-                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, randomData, associatedData, encKey, signKey);
+                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
 
                 using (var dec = this._Aes.CreateDecryptor(encKey, this._AesZeroIV))
                 {
@@ -398,9 +394,9 @@ namespace Neliva.Security.Cryptography
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int AlignBlock(int value)
         {
-            // Aligns the value on BlockSize byte boundary.
-            // If value is already aligned or zero,
-            // extends the value by extra BlockSize bytes.
+            // Aligns the value on the "align" byte boundary.
+            // If the value is already aligned or zero,
+            // extends the value by extra "align" bytes.
 
             const int align = BlockSize;
 

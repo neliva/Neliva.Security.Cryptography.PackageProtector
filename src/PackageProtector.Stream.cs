@@ -262,7 +262,7 @@ namespace Neliva.Security.Cryptography
 
                         if (this.IsInvalidPackageSize(offset))
                         {
-                            throw new InvalidDataException($"Unexpected stream length. Stream is truncated or corrupted.");
+                            throw new InvalidDataException("Unexpected stream length. Stream is truncated or corrupted.");
                         }
 
                         int bytesUnprotected = this.Unprotect(packageBuffer.Slice(0, offset), contentBuffer, key, packageNumber, associatedData);

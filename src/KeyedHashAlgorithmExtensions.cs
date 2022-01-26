@@ -54,14 +54,14 @@ namespace Neliva.Security.Cryptography
 
             if (((uint)label.Length + (uint)context.Length) > MaxLabelAndContextLength)
             {
-                throw new ArgumentException($"The combined length of '{nameof(label)}' and '{nameof(context)}' cannot exceed {MaxLabelAndContextLength} bytes.");
+                throw new ArgumentException($"The combined length of '{nameof(label)}' and '{nameof(context)}' is too large.");
             }
 
             const int MaxDerivedKeyLength = int.MaxValue / 4;
 
             if (derivedKey.Length == 0 || derivedKey.Length > MaxDerivedKeyLength)
             {
-                throw new ArgumentOutOfRangeException(nameof(derivedKey), $"The derived key length cannot be zero or exceed {MaxDerivedKeyLength} bytes.");
+                throw new ArgumentOutOfRangeException(nameof(derivedKey), "The derived key length is zero or too large.");
             }
 
             const int MaxStackAllocSize = 256;          
