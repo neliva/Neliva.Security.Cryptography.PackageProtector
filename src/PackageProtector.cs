@@ -104,14 +104,14 @@ namespace Neliva.Security.Cryptography
         /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
         /// method.
         /// </summary>
-        public int MaxContentLength { get => this._MaxContentSize; }
+        public int MaxContentSize { get => this._MaxContentSize; }
 
         /// <summary>
-        /// Gets the max package length in bytes that can be produced by the
+        /// Gets the max package size in bytes that can be produced by the
         /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
         /// method.
         /// </summary>
-        public int MaxPackageLength { get => this._MaxPackageSize; }
+        public int MaxPackageSize { get => this._MaxPackageSize; }
 
         /// <summary>
         /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.
@@ -142,7 +142,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
-        /// The <paramref name="content"/> length is greater than <see cref="MaxContentLength"/>.
+        /// The <paramref name="content"/> length is greater than <see cref="MaxContentSize"/>.
         /// - or -
         /// The <paramref name="package"/> destination space is insufficient.
         /// - or -
