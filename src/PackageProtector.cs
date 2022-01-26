@@ -202,7 +202,7 @@ namespace Neliva.Security.Cryptography
             // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
             if (content.Array != null)
             {
-                // Copy plain text to output buffer (after random bytes and hash).
+                // Copy plain text to output buffer (after iv and hash).
                 content.CopyTo(data);
             }
 
