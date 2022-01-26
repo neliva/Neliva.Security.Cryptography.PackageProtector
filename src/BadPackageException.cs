@@ -2,7 +2,6 @@
 // See the UNLICENSE file in the project root for more information.
 
 using System;
-using System.Runtime.Serialization;
 using System.Security.Cryptography;
 
 namespace Neliva.Security.Cryptography
@@ -10,9 +9,8 @@ namespace Neliva.Security.Cryptography
     /// <summary>
     /// The exception that is thrown when package decryption fails.
     /// </summary>
-    /// <seealso cref="StreamExtensions.UnprotectAsync(System.IO.Stream, System.IO.Stream, byte[], int, ArraySegment{byte}, System.Threading.CancellationToken)"/>
-    /// <seealso cref="PackageProtector.Unprotect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, int, ArraySegment{byte})"/>
-    [Serializable]
+    /// <seealso cref="PackageProtector.UnprotectAsync(System.IO.Stream, System.IO.Stream, byte[], ArraySegment{byte}, System.Threading.CancellationToken)"/>
+    /// <seealso cref="PackageProtector.Unprotect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
     public sealed class BadPackageException : CryptographicException
     {
         private static readonly string BadPackageMsg = "Package is invalid or corrupted.";
@@ -54,25 +52,6 @@ namespace Neliva.Security.Cryptography
         /// </param>
         public BadPackageException(string message, Exception inner)
             : base(string.IsNullOrEmpty(message) ? BadPackageMsg : message, inner)
-        {
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="BadPackageException"/> class
-        /// with serialized data.
-        /// </summary>
-        /// <param name="info">
-        /// The object that holds the serialized object data.
-        /// </param>
-        /// <param name="context">
-        /// The contextual information about the source or destination.
-        /// </param>
-        /// <remarks>
-        /// This constructor is called during deserialization to reconstitute
-        /// the exception object transmitted over a stream.
-        /// </remarks>
-        private BadPackageException(SerializationInfo info, StreamingContext context)
-            : base(info, context)
         {
         }
     }

@@ -34,7 +34,7 @@ namespace Neliva.Security.Cryptography.Tests
 
                 Assert.AreEqual("derivedKey", ex.ParamName);
 
-                Assert.AreEqual("The derived key length cannot be zero or exceed 536870911 bytes. (Parameter 'derivedKey')", ex.Message);
+                Assert.AreEqual("The derived key length is zero or too large. (Parameter 'derivedKey')", ex.Message);
             }
         }
 
@@ -58,7 +58,7 @@ namespace Neliva.Security.Cryptography.Tests
 
                 Assert.AreEqual(null, ex.ParamName);
 
-                Assert.AreEqual("The combined length of 'label' and 'context' cannot exceed 2147483638 bytes.", ex.Message);
+                Assert.AreEqual("The combined length of 'label' and 'context' is too large.", ex.Message);
             }
         }
 
@@ -98,7 +98,7 @@ namespace Neliva.Security.Cryptography.Tests
 
                 Assert.AreEqual("derivedKey", ex.ParamName);
 
-                Assert.AreEqual("The derived key length cannot be zero or exceed 536870911 bytes. (Parameter 'derivedKey')", ex.Message);
+                Assert.AreEqual("The derived key length is zero or too large. (Parameter 'derivedKey')", ex.Message);
             }
         }
 

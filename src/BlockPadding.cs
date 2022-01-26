@@ -8,7 +8,8 @@ namespace Neliva.Security.Cryptography
 {
     internal static class BlockPadding
     {
-        // Returns -1 on failure, or number of padding bytes on success.
+        // Returns -1 on failure or the number of padding bytes on success.
+        // This method verifies padding in constant time.
         public static int GetPKCS7PaddingLength(int blockSize, ReadOnlySpan<byte> buffer)
         {
             if (blockSize <= 0 || blockSize > byte.MaxValue)

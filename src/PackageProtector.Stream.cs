@@ -9,11 +9,7 @@ using System.Threading.Tasks;
 
 namespace Neliva.Security.Cryptography
 {
-    /// <summary>
-    /// Provides extension methods to protect and unprotect streams using
-    /// the underlying <see cref="PackageProtector"/> algorithm.
-    /// </summary>
-    public static class StreamExtensions
+    public sealed partial class PackageProtector
     {
         /// <summary>
         /// Protects the <paramref name="content"/> stream into the
@@ -28,9 +24,6 @@ namespace Neliva.Security.Cryptography
         /// <param name="key">
         /// The secret key used to protect the <paramref name="content"/>.
         /// </param>
-        /// <param name="packageSize">
-        /// The package size in bytes, which must match the value
-        /// provided during unprotection.</param>
         /// <param name="associatedData">
         /// Extra data associated with the <paramref name="content"/>, which must match the value
         /// provided during unprotection.
@@ -46,12 +39,12 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
-        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
-        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
-        /// - or -
-        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
-        public static async Task<long> ProtectAsync(this Stream content, Stream package, byte[] key, int packageSize = 64 * 1024, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
+        /// <exception cref="ObjectDisposedException">
+        /// The <see cref="PackageProtector"/> object has already been disposed.
+        /// </exception>
+        public async Task<long> ProtectAsync(Stream content, Stream package, byte[] key, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (content == null)
             {
@@ -68,33 +61,32 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
-            if (PackageProtector.IsInvalidKeySize(key))
+            if (IsInvalidKeySize(key.Length))
             {
                 throw new ArgumentOutOfRangeException(nameof(key));
             }
 
-            if (PackageProtector.IsInvalidPackageSize(packageSize))
-            {
-                throw new ArgumentOutOfRangeException(nameof(packageSize));
-            }
-
-            if (PackageProtector.IsInvalidAssociatedData(associatedData))
+            if (associatedData.Count > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
-            var pool = ArrayPool<byte>.Shared;            
+            if (this._IsDisposed)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
 
-            int maxContentSize = packageSize - PackageProtector.Overhead;
+            var pool = ArrayPool<byte>.Shared;
+
             long totalOutputSize = 0L;
 
-            var contentBuffer = new ArraySegment<byte>(pool.Rent(packageSize), 0, maxContentSize);
-            var packageBuffer = new ArraySegment<byte>(pool.Rent(packageSize), 0, packageSize);
+            var contentBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxContentSize);
+            var packageBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxPackageSize);
 
             long packageNumber = 0L;
 
             int bytesRead;
-            int lastPackageContentSize = maxContentSize;
+            int lastPackageContentSize = this._MaxContentSize;
 
             try
             {
@@ -104,7 +96,7 @@ namespace Neliva.Security.Cryptography
 
                     do
                     {
-                        bytesRead = await content.ReadAsync(contentBuffer.Slice(offset, maxContentSize - offset), cancellationToken).ConfigureAwait(false);
+                        bytesRead = await content.ReadAsync(contentBuffer.Slice(offset, this._MaxContentSize - offset), cancellationToken).ConfigureAwait(false);
 
                         if (bytesRead == 0)
                         {
@@ -113,11 +105,11 @@ namespace Neliva.Security.Cryptography
 
                         offset += bytesRead;
                     }
-                    while (offset < maxContentSize);
+                    while (offset < this._MaxContentSize);
 
                     if (offset > 0)
                     {
-                        int bytesProtected = PackageProtector.Protect(contentBuffer.Slice(0, offset), packageBuffer, key, packageNumber, packageSize, associatedData);
+                        int bytesProtected = this.Protect(contentBuffer.Slice(0, offset), packageBuffer, key, packageNumber, associatedData);
 
                         await package.WriteAsync(packageBuffer.Slice(0, bytesProtected), cancellationToken).ConfigureAwait(false);
 
@@ -132,9 +124,9 @@ namespace Neliva.Security.Cryptography
                 // If last package has only one padding byte,
                 // write end of stream (empty) package marker.
                 // For empty content write end of stream marker.
-                if (lastPackageContentSize == maxContentSize)
+                if (lastPackageContentSize == this._MaxContentSize)
                 {
-                    int bytesProtected = PackageProtector.Protect(default, packageBuffer, key, packageNumber, packageSize, associatedData);
+                    int bytesProtected = this.Protect(default, packageBuffer, key, packageNumber, associatedData);
 
                     await package.WriteAsync(packageBuffer.Slice(0, bytesProtected), cancellationToken).ConfigureAwait(false);
 
@@ -163,10 +155,6 @@ namespace Neliva.Security.Cryptography
         /// <param name="key">
         /// The secret key used to unprotect the <paramref name="package"/>.
         /// </param>
-        /// <param name="packageSize">
-        /// The package size in bytes, which must match the value
-        /// provided during protection.
-        /// </param>
         /// <param name="associatedData">
         /// Extra data associated with the <paramref name="package"/>, which must match the value
         /// provided during protection.
@@ -182,10 +170,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
-        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
-        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
-        /// - or -
-        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
         /// <exception cref="InvalidDataException">
         /// Unexpected data after end of stream marker.
@@ -197,10 +182,13 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="BadPackageException">
         /// Package is invalid or corrupted.
         /// - or -
-        /// The <paramref name="key"/>, <paramref name="packageSize"/>,
+        /// The <paramref name="key"/>,
         /// or <paramref name="associatedData"/> parameter is not valid.
         /// </exception>
-        public static async Task<long> UnprotectAsync(this Stream package, Stream content, byte[] key, int packageSize = 64 * 1024, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
+        /// <exception cref="ObjectDisposedException">
+        /// The <see cref="PackageProtector"/> object has already been disposed.
+        /// </exception>
+        public async Task<long> UnprotectAsync(Stream package, Stream content, byte[] key, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (package == null)
             {
@@ -217,33 +205,32 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
-            if (PackageProtector.IsInvalidKeySize(key))
+            if (IsInvalidKeySize(key.Length))
             {
                 throw new ArgumentOutOfRangeException(nameof(key));
             }
 
-            if (PackageProtector.IsInvalidPackageSize(packageSize))
-            {
-                throw new ArgumentOutOfRangeException(nameof(packageSize));
-            }
-
-            if (PackageProtector.IsInvalidAssociatedData(associatedData))
+            if (associatedData.Count > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
+            if (this._IsDisposed)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
+
             var pool = ArrayPool<byte>.Shared;
 
-            int maxContentSize = packageSize - PackageProtector.Overhead;
             long totalOutputSize = 0L;
 
-            var packageBuffer = new ArraySegment<byte>(pool.Rent(packageSize), 0, packageSize);
-            var contentBuffer = new ArraySegment<byte>(pool.Rent(packageSize), 0, packageSize);
+            var packageBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxPackageSize);
+            var contentBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxPackageSize);
 
             long packageNumber = 0L;
 
             int bytesRead;
-            int lastPackageContentSize = maxContentSize;
+            int lastPackageContentSize = this._MaxContentSize;
 
             try
             {
@@ -253,7 +240,7 @@ namespace Neliva.Security.Cryptography
 
                     do
                     {
-                        bytesRead = await package.ReadAsync(packageBuffer.Slice(offset, packageSize - offset), cancellationToken).ConfigureAwait(false);
+                        bytesRead = await package.ReadAsync(packageBuffer.Slice(offset, this._MaxPackageSize - offset), cancellationToken).ConfigureAwait(false);
 
                         if (bytesRead == 0)
                         {
@@ -262,23 +249,23 @@ namespace Neliva.Security.Cryptography
 
                         offset += bytesRead;
                     }
-                    while (offset < packageSize);
+                    while (offset < this._MaxPackageSize);
 
                     if (offset > 0)
                     {
-                        if (lastPackageContentSize < maxContentSize)
+                        if (lastPackageContentSize < this._MaxContentSize)
                         {
                             // No more packages are allowed once
                             // 'end of stream' is detected.
                             throw new InvalidDataException("Unexpected data after end of stream marker.");
                         }
 
-                        if (PackageProtector.IsInvalidPackageSize(offset))
+                        if (this.IsInvalidPackageSize(offset))
                         {
-                            throw new InvalidDataException($"Unexpected stream length. Stream is truncated or corrupted.");
+                            throw new InvalidDataException("Unexpected stream length. Stream is truncated or corrupted.");
                         }
 
-                        int bytesUnprotected = PackageProtector.Unprotect(packageBuffer.Slice(0, offset), contentBuffer, key, packageNumber, packageSize, associatedData);
+                        int bytesUnprotected = this.Unprotect(packageBuffer.Slice(0, offset), contentBuffer, key, packageNumber, associatedData);
 
                         if (bytesUnprotected != 0)
                         {
@@ -293,7 +280,7 @@ namespace Neliva.Security.Cryptography
                 }
                 while (bytesRead > 0);
 
-                if (lastPackageContentSize == maxContentSize)
+                if (lastPackageContentSize == this._MaxContentSize)
                 {
                     // Stream must always have 'end of stream' marker which
                     // is an empty package, or not fully populated package.

@@ -11,37 +11,107 @@ namespace Neliva.Security.Cryptography
     /// Represents pad-then-mac-then-encrypt chunked data protection using
     /// AES256-CBC and HMAC-SHA256 algorithms.
     /// </summary>
-    public static class PackageProtector
+    public sealed partial class PackageProtector : IDisposable
     {
-        private const int BlockSize = 16; // AES256 block size, IV size, max associated data size.
+        private const int BlockSize = 16; // AES block size.
+        private const int HashSize = 32;  // HMAC-SHA256 hash and key size, AES256 key size.
 
-        private const int HashSize = 32; // HMAC-SHA256 hash size, HMAC key size, AES256 key size.
+        private readonly int _IvSize;
+        private readonly int _IvAndHashSize;
+        private readonly int _MaxPackageSize;
+        private readonly int _MinPackageSize;
+        private readonly int _MaxContentSize;
+        private readonly int _MaxAssociatedDataSize;
+
+        private readonly byte[] _AesZeroIV;
+
+        private readonly Aes _Aes;
+
+        private readonly RngFillAction _rngFill;
+
+        private bool _IsDisposed;
 
         /// <summary>
-        /// The minimum number of bytes added to content
-        /// during package protection.
+        /// Initializes a new instance of the <see cref="PackageProtector"/> class.
         /// </summary>
-        public const int Overhead = BlockSize + HashSize + 1; // One byte for padding.
-
-        private const int MinPackageSize = BlockSize + BlockSize + HashSize;
-
-        private const int MaxPackageSize = (16 * 1024 * 1024) - BlockSize;
-
-        private const int MaxContentSize = MaxPackageSize - Overhead;
-
-        private static byte[] ZeroIV = new byte[BlockSize];
-
-        private static Aes aes = CreateAes();
-        
-        private static Aes CreateAes()
+        /// <param name="ivSize">
+        /// The KDF IV size in bytes.
+        /// The valid values are 0, 16 and 32 bytes.
+        /// </param>
+        /// <param name="packageSize">
+        /// The package size in bytes which must be a multiple of 16 bytes.
+        /// The minimum is (<paramref name="ivSize"/> + 48)
+        /// and the maximum is <c>16777206</c>.
+        /// </param>
+        /// <param name="rngFill">
+        /// A callback to fill a span with cryptographically strong random bytes.
+        /// When not provided, a default <see cref="RandomNumberGenerator.Fill"/>
+        /// implementation is used for non-zero <paramref name="ivSize"/> value.
+        /// </param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="ivSize"/> parameter is not 0, 16 or 32 bytes.
+        /// - or -
+        /// The <paramref name="packageSize"/> parameter is less than
+        /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>16777206</c> bytes.
+        /// </exception>
+        public PackageProtector(int ivSize = BlockSize, int packageSize = 64 * 1024, RngFillAction rngFill = null)
         {
-            var aes = Aes.Create();
+            switch (ivSize)
+            {
+                case 0:
+                case BlockSize:
+                case BlockSize + BlockSize:
+                    break;
 
-            aes.Padding = PaddingMode.None; // Padding is done manually.
-            aes.Mode = CipherMode.CBC;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(ivSize));
+            }
 
-            return aes;
+            int minPackageSize = ivSize + HashSize + BlockSize;
+
+            const int KdfMaxPackageSize = (16 * 1024 * 1024) - BlockSize; // Our KDF imposes this limit.
+
+            if (packageSize < minPackageSize || packageSize > KdfMaxPackageSize || IsNotAlignedBlock(packageSize))
+            {
+                throw new ArgumentOutOfRangeException(nameof(packageSize));
+            }
+
+            // Overhead is the minimum number of bytes added to content
+            // during package protection.
+            int overhead = ivSize + HashSize + 1; // One byte for padding.
+
+            this._IvSize = ivSize;
+            this._IvAndHashSize = ivSize + HashSize;
+            this._MaxPackageSize = packageSize;
+            this._MinPackageSize = minPackageSize;
+            this._MaxContentSize = packageSize - overhead;
+            this._MaxAssociatedDataSize = BlockSize + BlockSize - ivSize;
+
+            this._AesZeroIV = new byte[BlockSize];
+
+            this._rngFill = ivSize == 0 ?
+                null : // No need for RNG when IV size is zero.
+                rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
+
+            this._Aes = Aes.Create();
+
+            this._Aes.Padding = PaddingMode.None; // Padding is done manually.
+            this._Aes.Mode = CipherMode.CBC;
         }
+
+        /// <summary>
+        /// Gets the max number of bytes that can be protected by the
+        /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
+        /// method.
+        /// </summary>
+        public int MaxContentLength { get => this._MaxContentSize; }
+
+        /// <summary>
+        /// Gets the max package length in bytes that can be produced by the
+        /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
+        /// method.
+        /// </summary>
+        public int MaxPackageLength { get => this._MaxPackageSize; }
 
         /// <summary>
         /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.
@@ -59,9 +129,6 @@ namespace Neliva.Security.Cryptography
         /// The package number in a series of packages, which must match the value
         /// provided during unprotection.
         /// </param>
-        /// <param name="packageSize">
-        /// The package size in bytes, which must match the value
-        /// provided during unprotection.</param>
         /// <param name="associatedData">
         /// Extra data associated with the <paramref name="content"/>, which must match the value
         /// provided during unprotection.
@@ -75,28 +142,25 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
-        /// The <paramref name="content"/> length is greater than (<paramref name="packageSize"/> - <see cref="Overhead"/>).
+        /// The <paramref name="content"/> length is greater than <see cref="MaxContentLength"/>.
         /// - or -
         /// The <paramref name="package"/> destination space is insufficient.
         /// - or -
         /// The <paramref name="packageNumber"/> parameter is less than zero.
         /// - or -
-        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
-        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
-        /// - or -
-        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
-        public static int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, int packageSize, ArraySegment<byte> associatedData)
+        /// <exception cref="ObjectDisposedException">
+        /// The <see cref="PackageProtector"/> object has already been disposed.
+        /// </exception>
+        public int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
         {
-            bool isInvalidPackageSizeParam = IsInvalidPackageSize(packageSize);
-            int maxAllowedContentSize = isInvalidPackageSizeParam ? MaxContentSize : packageSize - Overhead;
-
-            if (content.Count > maxAllowedContentSize)
+            if (content.Count > this._MaxContentSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(content), $"Content cannot be larger than '{maxAllowedContentSize}' bytes.");
+                throw new ArgumentOutOfRangeException(nameof(content), "Content length is too large.");
             }
 
-            int outputPackageSize = BlockSize + HashSize + AlignBlock(content.Count);
+            int outputPackageSize = this._IvAndHashSize + AlignBlock(content.Count);
 
             if (package.Count < outputPackageSize)
             {
@@ -108,7 +172,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
-            if (IsInvalidKeySize(key))
+            if (IsInvalidKeySize(key.Length))
             {
                 throw new ArgumentOutOfRangeException(nameof(key));
             }
@@ -118,25 +182,27 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(packageNumber));
             }
 
-            if (isInvalidPackageSizeParam)
-            {
-                throw new ArgumentOutOfRangeException(nameof(packageSize));
-            }
-
-            if (IsInvalidAssociatedData(associatedData))
+            if (associatedData.Count > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
-            var data = package.Slice(BlockSize + HashSize, outputPackageSize - BlockSize - HashSize);  // content + padding
-            var randomData = package.Slice(0, BlockSize);
+            if (this._IsDisposed)
+            {
+                throw new ObjectDisposedException(this.GetType().FullName);
+            }
 
-            RandomNumberGenerator.Fill(randomData);
+            var data = package.Slice(this._IvAndHashSize, outputPackageSize - this._IvAndHashSize);  // content + padding
+            var kdfIV = package.Slice(0, this._IvSize);
+
+            this._rngFill?.Invoke(kdfIV);
+
+            // TODO: clear output on any failure.
 
             // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
             if (content.Array != null)
             {
-                // Copy plain text to output buffer (after random bytes and hash).
+                // Copy plain text to output buffer (after iv and hash).
                 content.CopyTo(data);
             }
 
@@ -148,29 +214,29 @@ namespace Neliva.Security.Cryptography
             {
                 data[pos] = (byte)padLength;
             }
-            
+
             byte[] encKey = new byte[HashSize];
             byte[] signKey = new byte[HashSize];
 
             using (var hmac = new HMACSHA256(key))
             {
-                DeriveKeys(hmac, packageNumber, packageSize, randomData, associatedData, encKey, signKey);
+                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
 
                 hmac.Key = signKey;
 
                 // Sign plaintext and padding, then prepend hash to padded plaintext.
-                hmac.ComputeHash(data, package.Slice(BlockSize, HashSize));
+                hmac.ComputeHash(data, package.Slice(this._IvSize, HashSize));
             }
 
-            using (var enc = aes.CreateEncryptor(encKey, ZeroIV))
+            using (var enc = this._Aes.CreateEncryptor(encKey, this._AesZeroIV))
             {
                 // Encrypt buffer in place.
                 enc.TransformBlock(
                     package.Array,
-                    package.Offset + BlockSize,
-                    outputPackageSize - BlockSize,
+                    package.Offset + this._IvSize,
+                    outputPackageSize - this._IvSize,
                     package.Array,
-                    package.Offset + BlockSize);
+                    package.Offset + this._IvSize);
             }
 
             return outputPackageSize;
@@ -192,10 +258,6 @@ namespace Neliva.Security.Cryptography
         /// The package number in a series of packages, which must match the value
         /// provided during protection.
         /// </param>
-        /// <param name="packageSize">
-        /// The package size in bytes, which must match the value
-        /// provided during protection.
-        /// </param>
         /// <param name="associatedData">
         /// Extra data associated with the <paramref name="package"/>, which must match the value
         /// provided during protection.
@@ -213,27 +275,24 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="packageNumber"/> parameter is less than zero.
         /// - or -
-        /// The <paramref name="packageSize"/> parameter is less than <c>64 bytes</c>,
-        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
-        /// - or -
-        /// The <paramref name="associatedData"/> parameter length is greater than <c>16 bytes</c>.
+        /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
         /// <exception cref="BadPackageException">
         /// Package is invalid or corrupted.
         /// - or -
-        /// The <paramref name="package"/> length is less than <c>64 bytes</c>,
-        /// or greater than <c>16MiB - 16 bytes</c>, or not a multiple of <c>16 bytes</c>.
+        /// The <paramref name="package"/> length is not correct.
         /// - or -
-        /// The <paramref name="key"/>, <paramref name="packageNumber"/>, <paramref name="packageSize"/>,
+        /// The <paramref name="key"/>, <paramref name="packageNumber"/>,
         /// or <paramref name="associatedData"/> parameter is not valid.
         /// </exception>
-        public static int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, int packageSize, ArraySegment<byte> associatedData)
+        /// <exception cref="ObjectDisposedException">
+        /// The <see cref="PackageProtector"/> object has already been disposed.
+        /// </exception>
+        public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
         {
-            bool isInvalidPackageSizeParam = IsInvalidPackageSize(packageSize);
-            bool isInvalidPackage = IsInvalidPackageSize(package.Count) || package.Count > packageSize;
+            bool isInvalidPackageSize = this.IsInvalidPackageSize(package.Count);
 
-            if ((!isInvalidPackageSizeParam && !isInvalidPackage) &&
-                content.Count < package.Count)
+            if (!isInvalidPackageSize && content.Count < package.Count)
             {
                 throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
             }
@@ -243,7 +302,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentNullException(nameof(key));
             }
 
-            if (IsInvalidKeySize(key))
+            if (IsInvalidKeySize(key.Length))
             {
                 throw new ArgumentOutOfRangeException(nameof(key));
             }
@@ -253,28 +312,22 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(packageNumber));
             }
 
-            if (isInvalidPackageSizeParam)
-            {
-                throw new ArgumentOutOfRangeException(nameof(packageSize));
-            }
-
-            if (IsInvalidAssociatedData(associatedData))
+            if (associatedData.Count > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
-            if (isInvalidPackage)
+            if (this._IsDisposed)
             {
-                int maxComputedPackageSize = Math.Min(MaxPackageSize, packageSize);
-
-                string badPackageMsg = MinPackageSize == maxComputedPackageSize ?
-                    $"Package size must be {MinPackageSize} bytes." :
-                    $"Package size must be between {MinPackageSize} and {maxComputedPackageSize} bytes and aligned on a {BlockSize} byte boundary.";
-
-                throw new BadPackageException(badPackageMsg);
+                throw new ObjectDisposedException(this.GetType().FullName);
             }
 
-            var data = content.Slice(0, package.Count - BlockSize - HashSize); // content + padding
+            if (isInvalidPackageSize)
+            {
+                throw new BadPackageException("Package length is invalid or not aligned on the required boundary.");
+            }
+
+            var data = content.Slice(0, package.Count - this._IvAndHashSize); // content + padding
 
             Span<byte> computedHash = stackalloc byte[HashSize];
 
@@ -285,16 +338,16 @@ namespace Neliva.Security.Cryptography
 
             using (var hmac = new HMACSHA256(key))
             {
-                var randomData = package.Slice(0, BlockSize);
+                var kdfIV = package.Slice(0, this._IvSize);
 
-                DeriveKeys(hmac, packageNumber, packageSize, randomData, associatedData, encKey, signKey);
+                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
 
-                using (var dec = aes.CreateDecryptor(encKey, ZeroIV))
+                using (var dec = this._Aes.CreateDecryptor(encKey, this._AesZeroIV))
                 {
                     // Decrypt package hash
                     dec.TransformBlock(
                         package.Array,
-                        package.Offset + BlockSize,
+                        package.Offset + this._IvSize,
                         HashSize,
                         packageHash,
                         0);
@@ -303,8 +356,8 @@ namespace Neliva.Security.Cryptography
                     // IV for the block comes from the previous invocation of the method.
                     dec.TransformBlock(
                         package.Array,
-                        package.Offset + BlockSize + HashSize,
-                        package.Count - BlockSize - HashSize,
+                        package.Offset + this._IvAndHashSize,
+                        package.Count - this._IvAndHashSize,
                         content.Array,
                         content.Offset);
                 }
@@ -317,6 +370,7 @@ namespace Neliva.Security.Cryptography
 
             if (!CryptographicOperations.FixedTimeEquals(computedHash, packageHash))
             {
+                // TODO: clear output
                 throw new BadPackageException();
             }
 
@@ -324,6 +378,7 @@ namespace Neliva.Security.Cryptography
 
             if (padLength == -1)
             {
+                // TODO: clear output
                 throw new BadPackageException();
             }
 
@@ -341,9 +396,9 @@ namespace Neliva.Security.Cryptography
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int AlignBlock(int value)
         {
-            // Aligns the value on BlockSize byte boundary.
-            // If value is already aligned or zero,
-            // extends the value by extra BlockSize bytes.
+            // Aligns the value on the "align" byte boundary.
+            // If the value is already aligned or zero,
+            // extends the value by extra "align" bytes.
 
             const int align = BlockSize;
 
@@ -351,26 +406,18 @@ namespace Neliva.Security.Cryptography
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsInvalidPackageSize(int value)
+        private bool IsInvalidPackageSize(int value)
         {
-            return value < MinPackageSize || value > MaxPackageSize || IsNotAlignedBlock(value);
+            return value < this._MinPackageSize || value > this._MaxPackageSize || IsNotAlignedBlock(value);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsInvalidAssociatedData(ArraySegment<byte> value)
-        {
-            return value.Count > BlockSize;
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static bool IsInvalidKeySize(byte[] value)
+        private static bool IsInvalidKeySize(int value)
         {
             const int MinKeySize = 32;
             const int MaxKeySize = 64;
 
-            var length = value.Length;
-
-            return length < MinKeySize || length > MaxKeySize;
+            return value < MinKeySize || value > MaxKeySize;
         }
 
         internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
@@ -390,7 +437,7 @@ namespace Neliva.Security.Cryptography
 
             data[4] = EncryptPurpose;
             data[5] = (byte)ivArg1.Length;
-            data[6] = (byte)ivArg2.Length;            
+            data[6] = (byte)ivArg2.Length;
 
             data[7] = 0; // SP800-108 label and context separator.
 
@@ -425,6 +472,27 @@ namespace Neliva.Security.Cryptography
             data[4] = SignPurpose;
 
             hmac.ComputeHash(data, signingKey);
+        }
+
+        /// <summary>
+        /// Releases all resources used by the current instance
+        /// of the <see cref="PackageProtector"/> class.
+        /// </summary>
+        public void Dispose()
+        {
+            bool isDisposed = this._IsDisposed;
+
+            this._IsDisposed = true;
+
+            if (!isDisposed)
+            {
+                var aes = this._Aes;
+
+                if (aes != null)
+                {
+                    aes.Dispose();
+                }
+            }
         }
     }
 }

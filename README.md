@@ -3,12 +3,12 @@
 This repository describes safe and secure data at rest protection for untrusted remote storage. The specification and the reference implementation are released into the public domain. See the [UNLICENSE](UNLICENSE.md) file.
 
 [![master](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/workflows/master/badge.svg)](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/actions?query=workflow%3Amaster)
-[![netstandard 2.1](https://img.shields.io/badge/netstandard-2.1-green)](https://docs.microsoft.com/en-us/dotnet/standard/net-standard)
+[![dotnet 6.0](https://img.shields.io/badge/dotnet-6.0-green)](https://dotnet.microsoft.com/en-us/download/dotnet/6.0)
 [![Nuget (with prereleases)](https://img.shields.io/nuget/vpre/Neliva.Security.Cryptography.PackageProtector)](https://www.nuget.org/packages/Neliva.Security.Cryptography.PackageProtector)
 
 ## Overview
 
-PackageProtector combines SP800-108 KDF (CTR), HMAC-SHA256 and AES256-CBC to form authenticated encryption. The data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated. PackageProtector is designed for secure, long term storage.
+PackageProtector combines SP800-108 CTR KDF, HMAC-SHA256 and AES256-CBC to form authenticated encryption. The data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated. PackageProtector is designed for secure, long term storage.
 
 Protected streams have no headers, markers or identifiers. This makes protected streams indistinguishable from true randomness. Without a key, it is impossible to determine if the protected stream was produced by PackageProtector or do traffic analysis.
 
@@ -16,11 +16,17 @@ Protected streams have no headers, markers or identifiers. This makes protected 
 ```C#
 // using Neliva.Security.Cryptography;
 
+// Use default values for IV and package size
+var protector = new PackageProtector();
+
 var key = new byte[32];
 RandomNumberGenerator.Fill(key);
 
-// Use default values for package size and associated data
-await srcContentStream.ProtectAsync(destProtectedStream, key);
+// Protect
+await protector.ProtectAsync(srcContentStream, destProtectedStream, key /*, associatedData */);
+
+// Unprotect
+await protector.UnprotectAsync(srcProtectedStream, destContentStream, key /*, associatedData */);
 ```
 
 ### Algorithms
@@ -85,6 +91,6 @@ Provided that the stream key and *associated data* combination is unique for eve
 * Package substitution from a different stream
 
 ## Stream limits
-Every package is protected independently by the keys derived from the data stream key and package key context. PackageProtector uses *int64* for package numbers. Given the max 9223372036854775807 *package number* and the default 64 KiB *package size*, the amount of data that can be protected is:
+Every package is protected independently by the keys derived from the data stream key and the package key context. PackageProtector uses *int64* for package numbers. Given the max 9223372036854775807 *package number* and the default 64 KiB *package size*, the amount of data that can be protected is:
 * *64 KiB - 49 bytes* of content per package
 * *~511 ZiB* of content per stream key and *associated data* combination
