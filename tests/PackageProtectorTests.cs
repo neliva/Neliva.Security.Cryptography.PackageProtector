@@ -27,8 +27,8 @@ namespace Neliva.Security.Cryptography.Tests
 
             protector.Dispose();
 
-            var content = new byte[protector.MaxContentLength];
-            var package = new byte[protector.MaxPackageLength];
+            var content = new byte[protector.MaxContentSize];
+            var package = new byte[protector.MaxPackageSize];
 
             var key = new byte[32];
 
@@ -130,10 +130,10 @@ namespace Neliva.Security.Cryptography.Tests
 
             int maxContentSize = packageSize - overhead;
 
-            Assert.AreEqual(packageSize, p.MaxPackageLength, nameof(p.MaxPackageLength));
-            Assert.AreEqual(maxContentSize, p.MaxContentLength, nameof(p.MaxContentLength));
+            Assert.AreEqual(packageSize, p.MaxPackageSize, nameof(p.MaxPackageSize));
+            Assert.AreEqual(maxContentSize, p.MaxContentSize, nameof(p.MaxContentSize));
 
-            Assert.AreEqual(overhead, p.MaxPackageLength - p.MaxContentLength, $"{nameof(p.MaxPackageLength)} - {nameof(p.MaxContentLength)}");
+            Assert.AreEqual(overhead, p.MaxPackageSize - p.MaxContentSize, $"{nameof(p.MaxPackageSize)} - {nameof(p.MaxContentSize)}");
         }
 
         [TestMethod]
@@ -146,8 +146,8 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(packageSize: 128);
 
-            var content = new byte[p.MaxContentLength];
-            var package = new byte[p.MaxPackageLength];
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[keySize], 0, null));
             Assert.AreEqual("key", ex.ParamName);
@@ -163,7 +163,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(packageSize: 128);
 
-            var package = new byte[p.MaxPackageLength];
+            var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[keySize], 0, null));
             Assert.AreEqual("key", ex.ParamName);
@@ -174,8 +174,8 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(packageSize: 128);
 
-            var content = new byte[p.MaxContentLength];
-            var package = new byte[p.MaxPackageLength];
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentNullException>(() => p.Protect(content, package, null, 0, null));
             Assert.AreEqual("key", ex.ParamName);
@@ -186,7 +186,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(packageSize: 128);
 
-            var package = new byte[p.MaxPackageLength];
+            var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentNullException>(() => p.Unprotect(package, package, null, 0, null));
             Assert.AreEqual("key", ex.ParamName);
@@ -215,7 +215,7 @@ namespace Neliva.Security.Cryptography.Tests
             using var protector = new PackageProtector(ivSize: ivSize, packageSize: 128, rngFill: rng);
 
             var content = new byte[1].Fill(100);
-            var package = new byte[protector.MaxPackageLength];
+            var package = new byte[protector.MaxPackageSize];
 
             protector.Protect(content, package, new byte[32].Fill(32), 0, null);
 
@@ -227,12 +227,51 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [TestMethod]
+        [DataRow(16)]
+        [DataRow(32)]
+        public void ProtectClearOutputOnFailurePass(int ivSize)
+        {
+            const string exStr = "CRNG FAILED";
+            byte[] rngVal = Array.Empty<byte>();
+
+            RngFillAction rng = (Span<byte> data) =>
+            {
+                if (data.Length == 0 || rngVal.Length != 0)
+                {
+                    throw new AssertFailedException("Callback is not operating properly.");
+                }
+
+                rngVal = new byte[data.Length].Fill((byte)data.Length);
+
+                rngVal.AsSpan().CopyTo(data);
+
+                throw new Exception(exStr);
+            };
+
+            using var protector = new PackageProtector(ivSize: ivSize, packageSize: 80, rngFill: rng);
+
+            var content = new byte[1].Fill(100);
+            var package = new byte[protector.MaxPackageSize];
+
+            var ex = Assert.ThrowsException<Exception>(() => protector.Protect(content, package, new byte[32].Fill(32), 0, null));
+            Assert.AreEqual(exStr, ex.Message);
+
+            Assert.AreEqual(ivSize, rngVal.Length);
+
+            var pkgIV = new ArraySegment<byte>(package, 0, ivSize);
+
+            Assert.IsTrue(pkgIV.IsAllZeros(), "Destination not cleared on Protect() failure.");
+
+            CollectionAssert.AreNotEqual(rngVal, pkgIV.ToArray());
+        }
+
+        [TestMethod]
         public void ProtectInvalidPackageNumberFail()
         {
             using var p = new PackageProtector(packageSize: 128);
 
-            var content = new byte[p.MaxContentLength];
-            var package = new byte[p.MaxPackageLength];
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], -1, null));
             Assert.AreEqual("packageNumber", ex.ParamName);
@@ -243,7 +282,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(packageSize: 128);
 
-            var package = new byte[p.MaxPackageLength];
+            var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[32], -1, null));
             Assert.AreEqual("packageNumber", ex.ParamName);
@@ -257,8 +296,8 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(ivSize: ivSize, packageSize: 128);
 
-            var content = new byte[p.MaxContentLength];
-            var package = new byte[p.MaxPackageLength];
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], long.MaxValue, new byte[associatedDataSize]));
             Assert.AreEqual("associatedData", ex.ParamName);
@@ -272,7 +311,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(ivSize: ivSize, packageSize: 128);
 
-            var package = new byte[p.MaxPackageLength];
+            var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[32], long.MaxValue, new byte[associatedDataSize]));
             Assert.AreEqual("associatedData", ex.ParamName);
@@ -286,8 +325,8 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
 
-            var content = new byte[p.MaxContentLength];
-            var package = new byte[p.MaxPackageLength - 1];
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize - 1];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], long.MaxValue, null));
             Assert.AreEqual("package", ex.ParamName);
@@ -302,8 +341,8 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
 
-            var content = new byte[p.MaxContentLength + 1];
-            var package = new byte[p.MaxPackageLength];
+            var content = new byte[p.MaxContentSize + 1];
+            var package = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], long.MaxValue, null));
             Assert.AreEqual("content", ex.ParamName);
@@ -318,9 +357,9 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
 
-            var package = new byte[p.MaxPackageLength];
+            var package = new byte[p.MaxPackageSize];
 
-            var content = new byte[p.MaxPackageLength - 1];
+            var content = new byte[p.MaxPackageSize - 1];
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new byte[32], long.MaxValue, null));
             Assert.AreEqual("content", ex.ParamName);
@@ -340,7 +379,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[invalidPackageSize];
 
-            var content = new byte[p.MaxPackageLength];
+            var content = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<BadPackageException>(() => p.Unprotect(package, content, new byte[32], 0, null));
             Assert.AreEqual("Package length is invalid or not aligned on the required boundary.", ex.Message);
@@ -359,7 +398,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[invalidPackageSize];
 
-            var content = new byte[p.MaxPackageLength];
+            var content = new byte[p.MaxPackageSize];
 
             var ex = Assert.ThrowsException<BadPackageException>(() => p.Unprotect(package, content, new byte[32], 0, null));
             Assert.AreEqual("Package length is invalid or not aligned on the required boundary.", ex.Message);
@@ -427,7 +466,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var protector = new PackageProtector(ivSize, packageSize))
             {
-                var content = new ArraySegment<byte>(new byte[protector.MaxContentLength].Fill(7));
+                var content = new ArraySegment<byte>(new byte[protector.MaxContentSize].Fill(7));
 
                 var package = new ArraySegment<byte>(new byte[packageSize]);
 
@@ -488,7 +527,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using var protector = new PackageProtector(packageSize: PackageSize);
 
-            for (int contentSize = protector.MaxContentLength; contentSize >= 0; contentSize--)
+            for (int contentSize = protector.MaxContentSize; contentSize >= 0; contentSize--)
             {
                 var content = new ArraySegment<byte>(contentBuffer, 0, contentSize);
                 var package = new ArraySegment<byte>(packageBuffer);
@@ -626,9 +665,9 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
 
-            var content = new ArraySegment<byte>(new byte[protector.MaxContentLength - 8].Fill(9));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize - 8].Fill(9));
 
-            var package = new ArraySegment<byte>(new byte[protector.MaxPackageLength]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
 
@@ -637,6 +676,8 @@ namespace Neliva.Security.Cryptography.Tests
             key[31] ^= 1; // make wrong key
 
             Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
         [TestMethod]
@@ -647,15 +688,17 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
 
-            var content = new ArraySegment<byte>(new byte[protector.MaxContentLength - 7].Fill(9));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize - 7].Fill(9));
 
-            var package = new ArraySegment<byte>(new byte[protector.MaxPackageLength]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
 
             var unprotectedContent = new ArraySegment<byte>(new byte[MinPackageSize]);
 
             Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 6, associatedData));
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
         [TestMethod]
@@ -666,9 +709,9 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
 
-            var content = new ArraySegment<byte>(new byte[protector.MaxContentLength - 5].Fill(9));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize - 5].Fill(9));
 
-            var package = new ArraySegment<byte>(new byte[protector.MaxPackageLength]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
 
@@ -677,6 +720,8 @@ namespace Neliva.Security.Cryptography.Tests
             using var protector1 = new PackageProtector(packageSize: MinPackageSize + BlockSize);
 
             Assert.ThrowsException<BadPackageException>(() => protector1.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
         [TestMethod]
@@ -688,9 +733,9 @@ namespace Neliva.Security.Cryptography.Tests
 
             var associatedData = new ArraySegment<byte>(new byte[13].Fill(7));
 
-            var content = new ArraySegment<byte>(new byte[protector.MaxContentLength - 3].Fill(9));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize - 3].Fill(9));
 
-            var package = new ArraySegment<byte>(new byte[protector.MaxPackageLength]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
 
@@ -699,8 +744,12 @@ namespace Neliva.Security.Cryptography.Tests
             // wrong length test
             Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData.Slice(1)));
 
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
+
             associatedData[0] ^= 1; // produce wrong associated data
             Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
         [TestMethod]
@@ -711,9 +760,9 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
 
-            var content = new ArraySegment<byte>(new byte[protector.MaxContentLength].Fill(9));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize].Fill(9));
 
-            var package = new ArraySegment<byte>(new byte[protector.MaxPackageLength]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             var bytesProtected =protector.Protect(content, package, key, 5, associatedData);
 
@@ -724,6 +773,8 @@ namespace Neliva.Security.Cryptography.Tests
                 package[i] ^= 1;
 
                 Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData), "Didn't throw for byte index '{0}'.", i);
+
+                Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
 
                 package[i] ^= 1;
             }
@@ -739,9 +790,9 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(93);
             var associatedData = new byte[13].Fill(56);
 
-            var content = new ArraySegment<byte>(new byte[protector.MaxContentLength].Fill(231));
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize].Fill(231));
 
-            var package = new ArraySegment<byte>(new byte[protector.MaxPackageLength]);
+            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
 
             protector.Protect(content, package, key, 5, associatedData);
 
@@ -789,6 +840,8 @@ namespace Neliva.Security.Cryptography.Tests
             var unprotectedContent = new ArraySegment<byte>(new byte[MinPackageSize]);
 
             Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package, unprotectedContent, key, 5, associatedData));
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
         private static byte[] DeriveKey32(byte[] masterKey, bool encrypt, long packageNumber, int packageSize, ReadOnlySpan<byte> kdfIV, ReadOnlySpan<byte> associatedData)

@@ -20,5 +20,18 @@ namespace Neliva.Security.Cryptography.Tests
 
             return array;
         }
+
+        public static bool IsAllZeros(this ArraySegment<byte> array)
+        {
+            foreach (byte val in array)
+            {
+                if (val != 0)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 }

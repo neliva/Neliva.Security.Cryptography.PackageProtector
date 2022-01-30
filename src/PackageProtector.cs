@@ -104,14 +104,14 @@ namespace Neliva.Security.Cryptography
         /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
         /// method.
         /// </summary>
-        public int MaxContentLength { get => this._MaxContentSize; }
+        public int MaxContentSize { get => this._MaxContentSize; }
 
         /// <summary>
-        /// Gets the max package length in bytes that can be produced by the
+        /// Gets the max package size in bytes that can be produced by the
         /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
         /// method.
         /// </summary>
-        public int MaxPackageLength { get => this._MaxPackageSize; }
+        public int MaxPackageSize { get => this._MaxPackageSize; }
 
         /// <summary>
         /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.
@@ -142,7 +142,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
-        /// The <paramref name="content"/> length is greater than <see cref="MaxContentLength"/>.
+        /// The <paramref name="content"/> length is greater than <see cref="MaxContentSize"/>.
         /// - or -
         /// The <paramref name="package"/> destination space is insufficient.
         /// - or -
@@ -195,51 +195,58 @@ namespace Neliva.Security.Cryptography
             var data = package.Slice(this._IvAndHashSize, outputPackageSize - this._IvAndHashSize);  // content + padding
             var kdfIV = package.Slice(0, this._IvSize);
 
-            this._rngFill?.Invoke(kdfIV);
-
-            // TODO: clear output on any failure.
-
-            // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
-            if (content.Array != null)
+            try
             {
-                // Copy plain text to output buffer (after iv and hash).
-                content.CopyTo(data);
-            }
+                this._rngFill?.Invoke(kdfIV);
 
-            // Pad data using PKCS7 scheme.
-            for (int pos = content.Count,
-                padLength = BlockSize - (pos % BlockSize),
-                padEnd = pos + padLength
-                ; pos < padEnd; pos++)
+                // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
+                if (content.Array != null)
+                {
+                    // Copy plain text to output buffer (after iv and hash).
+                    content.CopyTo(data);
+                }
+
+                // Pad data using PKCS7 scheme.
+                for (int pos = content.Count,
+                    padLength = BlockSize - (pos % BlockSize),
+                    padEnd = pos + padLength
+                    ; pos < padEnd; pos++)
+                {
+                    data[pos] = (byte)padLength;
+                }
+
+                byte[] encKey = new byte[HashSize];
+                byte[] signKey = new byte[HashSize];
+
+                using (var hmac = new HMACSHA256(key))
+                {
+                    DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
+
+                    hmac.Key = signKey;
+
+                    // Sign plaintext and padding, then prepend hash to padded plaintext.
+                    hmac.ComputeHash(data, package.Slice(this._IvSize, HashSize));
+                }
+
+                using (var enc = this._Aes.CreateEncryptor(encKey, this._AesZeroIV))
+                {
+                    // Encrypt buffer in place.
+                    enc.TransformBlock(
+                        package.Array,
+                        package.Offset + this._IvSize,
+                        outputPackageSize - this._IvSize,
+                        package.Array,
+                        package.Offset + this._IvSize);
+                }
+
+                return outputPackageSize;
+            }
+            catch
             {
-                data[pos] = (byte)padLength;
+                Array.Clear(package.Array, package.Offset, outputPackageSize);
+
+                throw;
             }
-
-            byte[] encKey = new byte[HashSize];
-            byte[] signKey = new byte[HashSize];
-
-            using (var hmac = new HMACSHA256(key))
-            {
-                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
-
-                hmac.Key = signKey;
-
-                // Sign plaintext and padding, then prepend hash to padded plaintext.
-                hmac.ComputeHash(data, package.Slice(this._IvSize, HashSize));
-            }
-
-            using (var enc = this._Aes.CreateEncryptor(encKey, this._AesZeroIV))
-            {
-                // Encrypt buffer in place.
-                enc.TransformBlock(
-                    package.Array,
-                    package.Offset + this._IvSize,
-                    outputPackageSize - this._IvSize,
-                    package.Array,
-                    package.Offset + this._IvSize);
-            }
-
-            return outputPackageSize;
         }
 
         /// <summary>
@@ -336,53 +343,60 @@ namespace Neliva.Security.Cryptography
 
             byte[] packageHash = new byte[HashSize];
 
-            using (var hmac = new HMACSHA256(key))
+            try
             {
-                var kdfIV = package.Slice(0, this._IvSize);
-
-                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
-
-                using (var dec = this._Aes.CreateDecryptor(encKey, this._AesZeroIV))
+                using (var hmac = new HMACSHA256(key))
                 {
-                    // Decrypt package hash
-                    dec.TransformBlock(
-                        package.Array,
-                        package.Offset + this._IvSize,
-                        HashSize,
-                        packageHash,
-                        0);
+                    var kdfIV = package.Slice(0, this._IvSize);
 
-                    // Decrypt (content + padding) directly into output.
-                    // IV for the block comes from the previous invocation of the method.
-                    dec.TransformBlock(
-                        package.Array,
-                        package.Offset + this._IvAndHashSize,
-                        package.Count - this._IvAndHashSize,
-                        content.Array,
-                        content.Offset);
+                    DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
+
+                    using (var dec = this._Aes.CreateDecryptor(encKey, this._AesZeroIV))
+                    {
+                        // Decrypt package hash
+                        dec.TransformBlock(
+                            package.Array,
+                            package.Offset + this._IvSize,
+                            HashSize,
+                            packageHash,
+                            0);
+
+                        // Decrypt (content + padding) directly into output.
+                        // IV for the block comes from the previous invocation of the method.
+                        dec.TransformBlock(
+                            package.Array,
+                            package.Offset + this._IvAndHashSize,
+                            package.Count - this._IvAndHashSize,
+                            content.Array,
+                            content.Offset);
+                    }
+
+                    hmac.Key = signKey;
+
+                    // Sign plaintext and padding.
+                    hmac.ComputeHash(data, computedHash);
                 }
 
-                hmac.Key = signKey;
+                if (!CryptographicOperations.FixedTimeEquals(computedHash, packageHash))
+                {
+                    throw new BadPackageException();
+                }
 
-                // Sign plaintext and padding.
-                hmac.ComputeHash(data, computedHash);
+                int padLength = BlockPadding.GetPKCS7PaddingLength(BlockSize, data);
+
+                if (padLength == -1)
+                {
+                    throw new BadPackageException();
+                }
+
+                return data.Count - padLength;
             }
-
-            if (!CryptographicOperations.FixedTimeEquals(computedHash, packageHash))
+            catch
             {
-                // TODO: clear output
-                throw new BadPackageException();
+                Array.Clear(data.Array, data.Offset, data.Count);
+
+                throw;
             }
-
-            int padLength = BlockPadding.GetPKCS7PaddingLength(BlockSize, data);
-
-            if (padLength == -1)
-            {
-                // TODO: clear output
-                throw new BadPackageException();
-            }
-
-            return data.Count - padLength;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

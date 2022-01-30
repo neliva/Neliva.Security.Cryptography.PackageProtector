@@ -126,8 +126,8 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(ivSize: ivSize, packageSize: 128);
 
-            var content = new byte[p.MaxContentLength];
-            var package = new byte[p.MaxPackageLength];
+            var content = new byte[p.MaxContentSize];
+            var package = new byte[p.MaxPackageSize];
 
             var ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new byte[32], new byte[associatedDataSize]));
             Assert.AreEqual("associatedData", ex.ParamName);
@@ -141,7 +141,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var p = new PackageProtector(ivSize: ivSize, packageSize: 128);
 
-            var package = new byte[p.MaxPackageLength];
+            var package = new byte[p.MaxPackageSize];
 
             var ex = await Assert.ThrowsExceptionAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new byte[32], new byte[associatedDataSize]));
             Assert.AreEqual("associatedData", ex.ParamName);
@@ -155,7 +155,7 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[64].Fill(33);
 
             var package = new MemoryStream();
-            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageLength - p.MaxContentLength)]);
+            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
 
             var len = await p.ProtectAsync(content, package, key).ConfigureAwait(false);
 
@@ -174,7 +174,7 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(183);
 
             var package = new MemoryStream();
-            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageLength - p.MaxContentLength)]);
+            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
 
             var len = await p.ProtectAsync(content, package, key).ConfigureAwait(false);
 
@@ -193,14 +193,14 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(203);
 
             var package = new MemoryStream();
-            var content = new MemoryStream(new byte[MinPackageSize * 6 - (p.MaxPackageLength - p.MaxContentLength)]);
+            var content = new MemoryStream(new byte[MinPackageSize * 6 - (p.MaxPackageSize - p.MaxContentSize)]);
 
             var len = await p.ProtectAsync(content, package, key).ConfigureAwait(false);
 
             package.Position = 0; // rewind for reading
             package.SetLength(len - MinPackageSize); // drop last package.
 
-            content.Position = MinPackageSize * 3 - (p.MaxPackageLength - p.MaxContentLength); // reduce content to be protected
+            content.Position = MinPackageSize * 3 - (p.MaxPackageSize - p.MaxContentSize); // reduce content to be protected
 
             len = await p.ProtectAsync(content, package, key).ConfigureAwait(false); // overwrite existing stream with shorter stream
 
@@ -218,7 +218,7 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(249);
 
             var package = new MemoryStream();
-            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageLength - p.MaxContentLength)]);
+            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
 
             var len = await p.ProtectAsync(content, package, key).ConfigureAwait(false);
 
@@ -239,7 +239,7 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(239);
 
             var package = new MemoryStream();
-            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageLength - p.MaxContentLength)]);
+            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
 
             var len = await p.ProtectAsync(content, package, key).ConfigureAwait(false);
 
@@ -261,7 +261,7 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(200);
 
             var package = new MemoryStream();
-            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageLength - p.MaxContentLength)]);
+            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
 
             var len = await p.ProtectAsync(content, package, key).ConfigureAwait(false);
 
@@ -279,7 +279,7 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[64].Fill(199);
 
             var package = new MemoryStream();
-            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageLength - p.MaxContentLength)]);
+            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
 
             var len = await p.ProtectAsync(content, package, key).ConfigureAwait(false);
 
@@ -297,7 +297,7 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(199);
 
             var package = new MemoryStream();
-            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageLength - p.MaxContentLength)]);
+            var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
 
             var len = await p.ProtectAsync(content, package, key).ConfigureAwait(false);
 
@@ -362,7 +362,7 @@ namespace Neliva.Security.Cryptography.Tests
                 CreateArray(1024, 7),
                 CreateArray(1025, 79),
                 CreateArray(1026, 159),
-                CreateArray(256 - (p.MaxPackageLength - p.MaxContentLength), 3),
+                CreateArray(256 - (p.MaxPackageSize - p.MaxContentSize), 3),
             };
 
             foreach (var d in data)
