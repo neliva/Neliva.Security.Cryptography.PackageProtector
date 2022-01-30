@@ -336,53 +336,60 @@ namespace Neliva.Security.Cryptography
 
             byte[] packageHash = new byte[HashSize];
 
-            using (var hmac = new HMACSHA256(key))
+            try
             {
-                var kdfIV = package.Slice(0, this._IvSize);
-
-                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
-
-                using (var dec = this._Aes.CreateDecryptor(encKey, this._AesZeroIV))
+                using (var hmac = new HMACSHA256(key))
                 {
-                    // Decrypt package hash
-                    dec.TransformBlock(
-                        package.Array,
-                        package.Offset + this._IvSize,
-                        HashSize,
-                        packageHash,
-                        0);
+                    var kdfIV = package.Slice(0, this._IvSize);
 
-                    // Decrypt (content + padding) directly into output.
-                    // IV for the block comes from the previous invocation of the method.
-                    dec.TransformBlock(
-                        package.Array,
-                        package.Offset + this._IvAndHashSize,
-                        package.Count - this._IvAndHashSize,
-                        content.Array,
-                        content.Offset);
+                    DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
+
+                    using (var dec = this._Aes.CreateDecryptor(encKey, this._AesZeroIV))
+                    {
+                        // Decrypt package hash
+                        dec.TransformBlock(
+                            package.Array,
+                            package.Offset + this._IvSize,
+                            HashSize,
+                            packageHash,
+                            0);
+
+                        // Decrypt (content + padding) directly into output.
+                        // IV for the block comes from the previous invocation of the method.
+                        dec.TransformBlock(
+                            package.Array,
+                            package.Offset + this._IvAndHashSize,
+                            package.Count - this._IvAndHashSize,
+                            content.Array,
+                            content.Offset);
+                    }
+
+                    hmac.Key = signKey;
+
+                    // Sign plaintext and padding.
+                    hmac.ComputeHash(data, computedHash);
                 }
 
-                hmac.Key = signKey;
+                if (!CryptographicOperations.FixedTimeEquals(computedHash, packageHash))
+                {
+                    throw new BadPackageException();
+                }
 
-                // Sign plaintext and padding.
-                hmac.ComputeHash(data, computedHash);
+                int padLength = BlockPadding.GetPKCS7PaddingLength(BlockSize, data);
+
+                if (padLength == -1)
+                {
+                    throw new BadPackageException();
+                }
+
+                return data.Count - padLength;
             }
-
-            if (!CryptographicOperations.FixedTimeEquals(computedHash, packageHash))
+            catch
             {
-                // TODO: clear output
-                throw new BadPackageException();
+                Array.Clear(data.Array, data.Offset, data.Count);
+
+                throw;
             }
-
-            int padLength = BlockPadding.GetPKCS7PaddingLength(BlockSize, data);
-
-            if (padLength == -1)
-            {
-                // TODO: clear output
-                throw new BadPackageException();
-            }
-
-            return data.Count - padLength;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

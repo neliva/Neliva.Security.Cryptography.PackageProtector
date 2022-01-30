@@ -637,6 +637,8 @@ namespace Neliva.Security.Cryptography.Tests
             key[31] ^= 1; // make wrong key
 
             Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
         [TestMethod]
@@ -656,6 +658,8 @@ namespace Neliva.Security.Cryptography.Tests
             var unprotectedContent = new ArraySegment<byte>(new byte[MinPackageSize]);
 
             Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 6, associatedData));
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
         [TestMethod]
@@ -677,6 +681,8 @@ namespace Neliva.Security.Cryptography.Tests
             using var protector1 = new PackageProtector(packageSize: MinPackageSize + BlockSize);
 
             Assert.ThrowsException<BadPackageException>(() => protector1.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
         [TestMethod]
@@ -699,8 +705,12 @@ namespace Neliva.Security.Cryptography.Tests
             // wrong length test
             Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData.Slice(1)));
 
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
+
             associatedData[0] ^= 1; // produce wrong associated data
             Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
         [TestMethod]
@@ -724,6 +734,8 @@ namespace Neliva.Security.Cryptography.Tests
                 package[i] ^= 1;
 
                 Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData), "Didn't throw for byte index '{0}'.", i);
+
+                Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
 
                 package[i] ^= 1;
             }
@@ -789,6 +801,8 @@ namespace Neliva.Security.Cryptography.Tests
             var unprotectedContent = new ArraySegment<byte>(new byte[MinPackageSize]);
 
             Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package, unprotectedContent, key, 5, associatedData));
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
         private static byte[] DeriveKey32(byte[] masterKey, bool encrypt, long packageNumber, int packageSize, ReadOnlySpan<byte> kdfIV, ReadOnlySpan<byte> associatedData)
