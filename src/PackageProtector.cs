@@ -195,51 +195,58 @@ namespace Neliva.Security.Cryptography
             var data = package.Slice(this._IvAndHashSize, outputPackageSize - this._IvAndHashSize);  // content + padding
             var kdfIV = package.Slice(0, this._IvSize);
 
-            this._rngFill?.Invoke(kdfIV);
-
-            // TODO: clear output on any failure.
-
-            // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
-            if (content.Array != null)
+            try
             {
-                // Copy plain text to output buffer (after iv and hash).
-                content.CopyTo(data);
-            }
+                this._rngFill?.Invoke(kdfIV);
 
-            // Pad data using PKCS7 scheme.
-            for (int pos = content.Count,
-                padLength = BlockSize - (pos % BlockSize),
-                padEnd = pos + padLength
-                ; pos < padEnd; pos++)
+                // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
+                if (content.Array != null)
+                {
+                    // Copy plain text to output buffer (after iv and hash).
+                    content.CopyTo(data);
+                }
+
+                // Pad data using PKCS7 scheme.
+                for (int pos = content.Count,
+                    padLength = BlockSize - (pos % BlockSize),
+                    padEnd = pos + padLength
+                    ; pos < padEnd; pos++)
+                {
+                    data[pos] = (byte)padLength;
+                }
+
+                byte[] encKey = new byte[HashSize];
+                byte[] signKey = new byte[HashSize];
+
+                using (var hmac = new HMACSHA256(key))
+                {
+                    DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
+
+                    hmac.Key = signKey;
+
+                    // Sign plaintext and padding, then prepend hash to padded plaintext.
+                    hmac.ComputeHash(data, package.Slice(this._IvSize, HashSize));
+                }
+
+                using (var enc = this._Aes.CreateEncryptor(encKey, this._AesZeroIV))
+                {
+                    // Encrypt buffer in place.
+                    enc.TransformBlock(
+                        package.Array,
+                        package.Offset + this._IvSize,
+                        outputPackageSize - this._IvSize,
+                        package.Array,
+                        package.Offset + this._IvSize);
+                }
+
+                return outputPackageSize;
+            }
+            catch
             {
-                data[pos] = (byte)padLength;
+                Array.Clear(package.Array, package.Offset, outputPackageSize);
+
+                throw;
             }
-
-            byte[] encKey = new byte[HashSize];
-            byte[] signKey = new byte[HashSize];
-
-            using (var hmac = new HMACSHA256(key))
-            {
-                DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
-
-                hmac.Key = signKey;
-
-                // Sign plaintext and padding, then prepend hash to padded plaintext.
-                hmac.ComputeHash(data, package.Slice(this._IvSize, HashSize));
-            }
-
-            using (var enc = this._Aes.CreateEncryptor(encKey, this._AesZeroIV))
-            {
-                // Encrypt buffer in place.
-                enc.TransformBlock(
-                    package.Array,
-                    package.Offset + this._IvSize,
-                    outputPackageSize - this._IvSize,
-                    package.Array,
-                    package.Offset + this._IvSize);
-            }
-
-            return outputPackageSize;
         }
 
         /// <summary>

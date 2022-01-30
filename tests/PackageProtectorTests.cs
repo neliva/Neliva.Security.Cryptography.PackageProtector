@@ -227,6 +227,45 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [TestMethod]
+        [DataRow(16)]
+        [DataRow(32)]
+        public void ProtectClearOutputOnFailurePass(int ivSize)
+        {
+            const string exStr = "CRNG FAILED";
+            byte[] rngVal = Array.Empty<byte>();
+
+            RngFillAction rng = (Span<byte> data) =>
+            {
+                if (data.Length == 0 || rngVal.Length != 0)
+                {
+                    throw new AssertFailedException("Callback is not operating properly.");
+                }
+
+                rngVal = new byte[data.Length].Fill((byte)data.Length);
+
+                rngVal.AsSpan().CopyTo(data);
+
+                throw new Exception(exStr);
+            };
+
+            using var protector = new PackageProtector(ivSize: ivSize, packageSize: 80, rngFill: rng);
+
+            var content = new byte[1].Fill(100);
+            var package = new byte[protector.MaxPackageSize];
+
+            var ex = Assert.ThrowsException<Exception>(() => protector.Protect(content, package, new byte[32].Fill(32), 0, null));
+            Assert.AreEqual(exStr, ex.Message);
+
+            Assert.AreEqual(ivSize, rngVal.Length);
+
+            var pkgIV = new ArraySegment<byte>(package, 0, ivSize);
+
+            Assert.IsTrue(pkgIV.IsAllZeros(), "Destination not cleared on Protect() failure.");
+
+            CollectionAssert.AreNotEqual(rngVal, pkgIV.ToArray());
+        }
+
+        [TestMethod]
         public void ProtectInvalidPackageNumberFail()
         {
             using var p = new PackageProtector(packageSize: 128);
