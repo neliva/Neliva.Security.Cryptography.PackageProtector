@@ -100,7 +100,7 @@ namespace Neliva.Security.Cryptography
         }
 
         /// <summary>
-        /// Gets the max number of bytes that can be protected by the
+        /// Gets the max content length in bytes that can be protected by the
         /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
         /// method.
         /// </summary>

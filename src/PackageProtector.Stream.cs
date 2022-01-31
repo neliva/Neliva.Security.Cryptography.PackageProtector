@@ -28,7 +28,9 @@ namespace Neliva.Security.Cryptography
         /// Extra data associated with the <paramref name="content"/>, which must match the value
         /// provided during unprotection.
         /// </param>
-        /// <param name="cancellationToken"></param>
+        /// <param name="cancellationToken">
+        /// The token to monitor for cancellation requests.
+        /// </param>
         /// <returns>
         /// The number of bytes written to the <paramref name="package"/> destination.
         /// </returns>
@@ -136,7 +138,7 @@ namespace Neliva.Security.Cryptography
             finally
             {
                 pool.Return(contentBuffer.Array, true);
-                pool.Return(packageBuffer.Array, true);
+                pool.Return(packageBuffer.Array);
             }
 
             return totalOutputSize;
@@ -159,7 +161,9 @@ namespace Neliva.Security.Cryptography
         /// Extra data associated with the <paramref name="package"/>, which must match the value
         /// provided during protection.
         /// </param>
-        /// <param name="cancellationToken"></param>
+        /// <param name="cancellationToken">
+        /// The token to monitor for cancellation requests.
+        /// </param>
         /// <returns>
         /// The number of bytes written to the <paramref name="content"/> destination.
         /// </returns>
