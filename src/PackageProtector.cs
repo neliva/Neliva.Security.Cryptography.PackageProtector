@@ -107,7 +107,7 @@ namespace Neliva.Security.Cryptography
         public int MaxContentSize { get => this._MaxContentSize; }
 
         /// <summary>
-        /// Gets the max package size in bytes that can be produced by the
+        /// Gets the max package length in bytes that can be produced by the
         /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
         /// method.
         /// </summary>
@@ -130,7 +130,7 @@ namespace Neliva.Security.Cryptography
         /// provided during unprotection.
         /// </param>
         /// <param name="associatedData">
-        /// Extra data associated with the <paramref name="content"/>, which must match the value
+        /// The extra data associated with the <paramref name="content"/>, which must match the value
         /// provided during unprotection.
         /// </param>
         /// <returns>
@@ -266,7 +266,7 @@ namespace Neliva.Security.Cryptography
         /// provided during protection.
         /// </param>
         /// <param name="associatedData">
-        /// Extra data associated with the <paramref name="package"/>, which must match the value
+        /// The extra data associated with the <paramref name="package"/>, which must match the value
         /// provided during protection.
         /// </param>
         /// <returns>
