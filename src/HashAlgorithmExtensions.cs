@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 namespace Neliva.Security.Cryptography
 {
     /// <summary>
-    /// Provides extension methods for <see cref="HashAlgorithm"/> implementations.
+    /// Provides extension methods for the <see cref="HashAlgorithm"/> implementations.
     /// </summary>
     public static class HashAlgorithmExtensions
     {

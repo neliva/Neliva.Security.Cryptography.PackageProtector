@@ -25,7 +25,7 @@ namespace Neliva.Security.Cryptography
         /// The secret key used to protect the <paramref name="content"/>.
         /// </param>
         /// <param name="associatedData">
-        /// Extra data associated with the <paramref name="content"/>, which must match the value
+        /// The extra data associated with the <paramref name="content"/>, which must match the value
         /// provided during unprotection.
         /// </param>
         /// <param name="cancellationToken">
@@ -158,7 +158,7 @@ namespace Neliva.Security.Cryptography
         /// The secret key used to unprotect the <paramref name="package"/>.
         /// </param>
         /// <param name="associatedData">
-        /// Extra data associated with the <paramref name="package"/>, which must match the value
+        /// The extra data associated with the <paramref name="package"/>, which must match the value
         /// provided during protection.
         /// </param>
         /// <param name="cancellationToken">

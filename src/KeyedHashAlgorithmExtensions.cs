@@ -33,11 +33,11 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="alg"/> parameter is a <c>null</c> reference.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// The combined length of <paramref name="label"/> and <paramref name="context"/>
-        /// exceeds 2147483638 bytes.
+        /// The combined length of the <paramref name="label"/> and <paramref name="context"/>
+        /// exceeds <c>2147483638</c> bytes.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// The <paramref name="derivedKey"/> length is zero or exceeds 536870911 bytes.
+        /// The <paramref name="derivedKey"/> length is zero or exceeds <c>536870911</c> bytes.
         /// </exception>
         public static void DeriveKey(this KeyedHashAlgorithm alg, ReadOnlySpan<byte> label, ReadOnlySpan<byte> context, Span<byte> derivedKey)
         {
