@@ -21,6 +21,40 @@ namespace Neliva.Security.Cryptography.Tests
         private const int MaxPackageSize = (16 * 1024 * 1024) - BlockSize;
 
         [TestMethod]
+        public void ProtectOverlapFail()
+        {
+            using var protector = new PackageProtector(packageSize: 64);
+
+            var buf = new byte[protector.MaxPackageSize * 2];
+
+            var content = new ArraySegment<byte>(buf, 1, protector.MaxContentSize);
+
+            var package = new ArraySegment<byte>(buf, protector.MaxContentSize, protector.MaxPackageSize);
+
+            var key = new byte[32];
+
+            var ex = Assert.ThrowsException<InvalidOperationException>(() => protector.Protect(content, package, key, 0, null));
+            Assert.AreEqual("The 'package' must not overlap in memory with the 'content'.", ex.Message);
+        }
+
+        [TestMethod]
+        public void UnprotectOverlapFail()
+        {
+            using var protector = new PackageProtector(packageSize: 64);
+
+            var buf = new byte[protector.MaxPackageSize * 2];
+
+            var package = new ArraySegment<byte>(buf, protector.MaxContentSize, protector.MaxPackageSize);
+
+            var content = new ArraySegment<byte>(buf, 1, protector.MaxPackageSize);
+
+            var key = new byte[32];
+
+            var ex = Assert.ThrowsException<InvalidOperationException>(() => protector.Unprotect(package, content, key, 0, null));
+            Assert.AreEqual("The 'content' must not overlap in memory with the 'package'.", ex.Message);
+        }
+
+        [TestMethod]
         public void PackageProtectorUseAfterDisposeFail()
         {
             using var protector = new PackageProtector(packageSize: 64);
