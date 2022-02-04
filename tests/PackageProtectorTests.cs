@@ -38,6 +38,22 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [TestMethod]
+        public void ProtectNoOverlapPass()
+        {
+            using var protector = new PackageProtector(packageSize: 64);
+
+            var buf = new byte[protector.MaxPackageSize * 2];
+
+            var content = new ArraySegment<byte>(buf, protector.MaxPackageSize, protector.MaxContentSize);
+
+            var package = new ArraySegment<byte>(buf);
+
+            var key = new byte[32];
+
+            Assert.AreEqual(protector.MaxPackageSize, protector.Protect(content, package, key, 0, null));
+        }
+
+        [TestMethod]
         public void UnprotectOverlapFail()
         {
             using var protector = new PackageProtector(packageSize: 64);
@@ -52,6 +68,25 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = Assert.ThrowsException<InvalidOperationException>(() => protector.Unprotect(package, content, key, 0, null));
             Assert.AreEqual("The 'content' must not overlap in memory with the 'package'.", ex.Message);
+        }
+
+        [TestMethod]
+        public void UnprotectNoOverlapPass()
+        {
+            using var protector = new PackageProtector(packageSize: 64);
+
+            var buf = new byte[protector.MaxPackageSize * 2];
+
+            // var package = new ArraySegment<byte>(buf, protector.MaxContentSize + 1, protector.MaxPackageSize);
+            var package = new ArraySegment<byte>(buf, protector.MaxPackageSize, protector.MaxPackageSize);
+
+            var content = new ArraySegment<byte>(buf);
+
+            var key = new byte[32];
+
+            protector.Protect(content.Slice(0, protector.MaxContentSize), package, key, 0, null);
+
+            Assert.AreEqual(protector.MaxContentSize, protector.Unprotect(package, content, key, 0, null));
         }
 
         [TestMethod]
