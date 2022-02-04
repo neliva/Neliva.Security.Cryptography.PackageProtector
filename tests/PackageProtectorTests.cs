@@ -30,12 +30,14 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[protector.MaxContentSize];
             var package = new byte[protector.MaxPackageSize];
 
+            var package2 = new byte[protector.MaxPackageSize];
+
             var key = new byte[32];
 
             var ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Protect(content, package, key, 0, null));
             Assert.AreEqual(typeof(PackageProtector).FullName, ex.ObjectName);
 
-            ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Unprotect(package, package, key, 0, null));
+            ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Unprotect(package, package2, key, 0, null));
             Assert.AreEqual(typeof(PackageProtector).FullName, ex.ObjectName);
         }
 

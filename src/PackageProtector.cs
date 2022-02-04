@@ -150,6 +150,9 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
+        /// </exception>
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="PackageProtector"/> object has already been disposed.
         /// </exception>
@@ -296,6 +299,9 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="key"/>, <paramref name="packageNumber"/>,
         /// or <paramref name="associatedData"/> parameter is not valid.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// The <paramref name="package"/> and <paramref name="content"/> overlap in memory.
         /// </exception>
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="PackageProtector"/> object has already been disposed.
