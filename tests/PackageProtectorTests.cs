@@ -424,7 +424,7 @@ namespace Neliva.Security.Cryptography.Tests
         [DataRow(0, 48)]
         [DataRow(16, 64)]
         [DataRow(32, 80)]
-        public void UnprotectInvalidContentSizeSizeFail(int ivSize, int packageSize)
+        public void UnprotectInvalidContentSizeFail(int ivSize, int packageSize)
         {
             using var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
 

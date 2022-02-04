@@ -308,9 +308,14 @@ namespace Neliva.Security.Cryptography
         /// </exception>
         public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
         {
-            bool isInvalidPackageSize = this.IsInvalidPackageSize(package.Count);
+            if (this.IsInvalidPackageSize(package.Count))
+            {
+                throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned on the required boundary.");
+            }
 
-            if (!isInvalidPackageSize && content.Count < package.Count)
+            int dataLength = package.Count - this._IvAndHashSize;
+
+            if (content.Count < dataLength)
             {
                 throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
             }
@@ -335,7 +340,9 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
-            if (MemoryExtensions.Overlaps<byte>(package, content.Slice(0, package.Count))) // package.Count - this._IvAndHashSize
+            var data = content.Slice(0, dataLength); // content + padding
+
+            if (MemoryExtensions.Overlaps<byte>(package, data))
             {
                 throw new InvalidOperationException($"The '{nameof(content)}' must not overlap in memory with the '{nameof(package)}'.");
             }
@@ -344,13 +351,6 @@ namespace Neliva.Security.Cryptography
             {
                 throw new ObjectDisposedException(this.GetType().FullName);
             }
-
-            if (isInvalidPackageSize)
-            {
-                throw new BadPackageException("Package length is invalid or not aligned on the required boundary.");
-            }
-
-            var data = content.Slice(0, package.Count - this._IvAndHashSize); // content + padding
 
             Span<byte> computedHash = stackalloc byte[HashSize];
 
