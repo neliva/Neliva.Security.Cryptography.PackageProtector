@@ -187,6 +187,11 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
+            if (MemoryExtensions.Overlaps<byte>(content, package))
+            {
+                throw new InvalidOperationException($"The '{nameof(package)}' must not overlap in memory with the '{nameof(content)}'.");
+            }
+
             if (this._IsDisposed)
             {
                 throw new ObjectDisposedException(this.GetType().FullName);
@@ -322,6 +327,11 @@ namespace Neliva.Security.Cryptography
             if (associatedData.Count > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
+            }
+
+            if (MemoryExtensions.Overlaps<byte>(package, content))
+            {
+                throw new InvalidOperationException($"The '{nameof(content)}' must not overlap in memory with the '{nameof(package)}'.");
             }
 
             if (this._IsDisposed)
