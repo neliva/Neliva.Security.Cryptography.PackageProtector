@@ -146,9 +146,9 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="package"/> destination space is insufficient.
         /// - or -
-        /// The <paramref name="packageNumber"/> parameter is less than zero.
+        /// The <paramref name="packageNumber"/> is less than zero.
         /// - or -
-        /// The <paramref name="associatedData"/> parameter length is too large.
+        /// The <paramref name="associatedData"/> length is too large.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
@@ -284,21 +284,15 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="key"/> parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="package"/> length is not correct.
+        /// - or -
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
         /// The <paramref name="content"/> destination space is insufficient.
         /// - or -
-        /// The <paramref name="packageNumber"/> parameter is less than zero.
+        /// The <paramref name="packageNumber"/> is less than zero.
         /// - or -
-        /// The <paramref name="associatedData"/> parameter length is too large.
-        /// </exception>
-        /// <exception cref="BadPackageException">
-        /// Package is invalid or corrupted.
-        /// - or -
-        /// The <paramref name="package"/> length is not correct.
-        /// - or -
-        /// The <paramref name="key"/>, <paramref name="packageNumber"/>,
-        /// or <paramref name="associatedData"/> parameter is not valid.
+        /// The <paramref name="associatedData"/> length is too large.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="package"/> and <paramref name="content"/> overlap in memory.
@@ -306,6 +300,17 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="PackageProtector"/> object has already been disposed.
         /// </exception>
+        /// <exception cref="BadPackageException">
+        /// Package is invalid or corrupted.
+        /// - or -
+        /// The <paramref name="key"/>, <paramref name="packageNumber"/>,
+        /// or <paramref name="associatedData"/> parameter is not valid
+        /// for the provided <paramref name="package"/>.
+        /// </exception>
+        /// <remarks>
+        /// If the <paramref name="package"/> cannot be validated
+        /// then the <paramref name="content"/> is cleared.
+        /// </remarks>
         public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
         {
             if (this.IsInvalidPackageSize(package.Count))
