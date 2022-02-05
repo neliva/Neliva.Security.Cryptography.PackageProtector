@@ -430,7 +430,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[p.MaxPackageSize];
 
-            var content = new byte[p.MaxPackageSize - 1];
+            var content = new byte[p.MaxContentSize]; // Valid content buffer must be (MaxContentSize + 1)
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new byte[32], long.MaxValue, null));
             Assert.AreEqual("content", ex.ParamName);
@@ -450,10 +450,11 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[invalidPackageSize];
 
-            var content = new byte[p.MaxPackageSize];
+            var content = new byte[p.MaxContentSize + 1];
 
-            var ex = Assert.ThrowsException<BadPackageException>(() => p.Unprotect(package, content, new byte[32], 0, null));
-            Assert.AreEqual("Package length is invalid or not aligned on the required boundary.", ex.Message);
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new byte[32], 0, null));
+            Assert.AreEqual("package", ex.ParamName);
+            Assert.AreEqual("Package length is invalid or not aligned on the required boundary. (Parameter 'package')", ex.Message);
         }
 
         [TestMethod]
@@ -469,10 +470,11 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[invalidPackageSize];
 
-            var content = new byte[p.MaxPackageSize];
+            var content = new byte[p.MaxContentSize + 1];
 
-            var ex = Assert.ThrowsException<BadPackageException>(() => p.Unprotect(package, content, new byte[32], 0, null));
-            Assert.AreEqual("Package length is invalid or not aligned on the required boundary.", ex.Message);
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new byte[32], 0, null));
+            Assert.AreEqual("package", ex.ParamName);
+            Assert.AreEqual("Package length is invalid or not aligned on the required boundary. (Parameter 'package')", ex.Message);
         }
 
         [TestMethod]
