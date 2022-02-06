@@ -146,14 +146,17 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="package"/> destination space is insufficient.
         /// - or -
-        /// The <paramref name="packageNumber"/> parameter is less than zero.
+        /// The <paramref name="packageNumber"/> is less than zero.
         /// - or -
-        /// The <paramref name="associatedData"/> parameter length is too large.
+        /// The <paramref name="associatedData"/> length is too large.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
         /// </exception>
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="PackageProtector"/> object has already been disposed.
         /// </exception>
-        public int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
+        public int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, ArraySegment<byte> associatedData = default)
         {
             if (content.Count > this._MaxContentSize)
             {
@@ -185,6 +188,11 @@ namespace Neliva.Security.Cryptography
             if (associatedData.Count > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
+            }
+
+            if (MemoryExtensions.Overlaps<byte>(content, package.Slice(0, outputPackageSize)))
+            {
+                throw new InvalidOperationException($"The '{nameof(package)}' must not overlap in memory with the '{nameof(content)}'.");
             }
 
             if (this._IsDisposed)
@@ -276,30 +284,43 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="key"/> parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="package"/> length is not correct.
+        /// - or -
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
         /// The <paramref name="content"/> destination space is insufficient.
         /// - or -
-        /// The <paramref name="packageNumber"/> parameter is less than zero.
+        /// The <paramref name="packageNumber"/> is less than zero.
         /// - or -
-        /// The <paramref name="associatedData"/> parameter length is too large.
+        /// The <paramref name="associatedData"/> length is too large.
         /// </exception>
-        /// <exception cref="BadPackageException">
-        /// Package is invalid or corrupted.
-        /// - or -
-        /// The <paramref name="package"/> length is not correct.
-        /// - or -
-        /// The <paramref name="key"/>, <paramref name="packageNumber"/>,
-        /// or <paramref name="associatedData"/> parameter is not valid.
+        /// <exception cref="InvalidOperationException">
+        /// The <paramref name="package"/> and <paramref name="content"/> overlap in memory.
         /// </exception>
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="PackageProtector"/> object has already been disposed.
         /// </exception>
-        public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
+        /// <exception cref="BadPackageException">
+        /// Package is invalid or corrupted.
+        /// - or -
+        /// The <paramref name="key"/>, <paramref name="packageNumber"/>,
+        /// or <paramref name="associatedData"/> parameter is not valid
+        /// for the provided <paramref name="package"/>.
+        /// </exception>
+        /// <remarks>
+        /// If the <paramref name="package"/> cannot be validated
+        /// then the <paramref name="content"/> is cleared.
+        /// </remarks>
+        public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData = default)
         {
-            bool isInvalidPackageSize = this.IsInvalidPackageSize(package.Count);
+            if (this.IsInvalidPackageSize(package.Count))
+            {
+                throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned on the required boundary.");
+            }
 
-            if (!isInvalidPackageSize && content.Count < package.Count)
+            int dataLength = package.Count - this._IvAndHashSize;
+
+            if (content.Count < dataLength)
             {
                 throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
             }
@@ -324,17 +345,17 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
+            var data = content.Slice(0, dataLength); // content + padding
+
+            if (MemoryExtensions.Overlaps<byte>(package, data))
+            {
+                throw new InvalidOperationException($"The '{nameof(content)}' must not overlap in memory with the '{nameof(package)}'.");
+            }
+
             if (this._IsDisposed)
             {
                 throw new ObjectDisposedException(this.GetType().FullName);
             }
-
-            if (isInvalidPackageSize)
-            {
-                throw new BadPackageException("Package length is invalid or not aligned on the required boundary.");
-            }
-
-            var data = content.Slice(0, package.Count - this._IvAndHashSize); // content + padding
 
             Span<byte> computedHash = stackalloc byte[HashSize];
 

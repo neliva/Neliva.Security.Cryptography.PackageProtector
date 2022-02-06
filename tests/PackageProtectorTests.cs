@@ -21,6 +21,75 @@ namespace Neliva.Security.Cryptography.Tests
         private const int MaxPackageSize = (16 * 1024 * 1024) - BlockSize;
 
         [TestMethod]
+        public void ProtectOverlapFail()
+        {
+            using var protector = new PackageProtector(packageSize: 64);
+
+            var buf = new byte[protector.MaxPackageSize * 2];
+
+            var content = new ArraySegment<byte>(buf, 1, protector.MaxContentSize);
+
+            var package = new ArraySegment<byte>(buf, protector.MaxContentSize, protector.MaxPackageSize);
+
+            var key = new byte[32];
+
+            var ex = Assert.ThrowsException<InvalidOperationException>(() => protector.Protect(content, package, key, 0, null));
+            Assert.AreEqual("The 'package' must not overlap in memory with the 'content'.", ex.Message);
+        }
+
+        [TestMethod]
+        public void ProtectNoOverlapPass()
+        {
+            using var protector = new PackageProtector(packageSize: 64);
+
+            var buf = new byte[protector.MaxPackageSize * 2];
+
+            var content = new ArraySegment<byte>(buf, protector.MaxPackageSize, protector.MaxContentSize);
+
+            var package = new ArraySegment<byte>(buf);
+
+            var key = new byte[32];
+
+            Assert.AreEqual(protector.MaxPackageSize, protector.Protect(content, package, key, 0, null));
+        }
+
+        [TestMethod]
+        public void UnprotectOverlapFail()
+        {
+            using var protector = new PackageProtector(packageSize: 64);
+
+            var buf = new byte[protector.MaxPackageSize * 2];
+
+            var package = new ArraySegment<byte>(buf, protector.MaxContentSize, protector.MaxPackageSize);
+
+            var content = new ArraySegment<byte>(buf, 1, protector.MaxPackageSize);
+
+            var key = new byte[32];
+
+            var ex = Assert.ThrowsException<InvalidOperationException>(() => protector.Unprotect(package, content, key, 0, null));
+            Assert.AreEqual("The 'content' must not overlap in memory with the 'package'.", ex.Message);
+        }
+
+        [TestMethod]
+        public void UnprotectNoOverlapPass()
+        {
+            using var protector = new PackageProtector(packageSize: 64);
+
+            var buf = new byte[protector.MaxPackageSize * 2];
+
+            // var package = new ArraySegment<byte>(buf, protector.MaxContentSize + 1, protector.MaxPackageSize);
+            var package = new ArraySegment<byte>(buf, protector.MaxPackageSize, protector.MaxPackageSize);
+
+            var content = new ArraySegment<byte>(buf);
+
+            var key = new byte[32];
+
+            protector.Protect(content.Slice(0, protector.MaxContentSize), package, key, 0, null);
+
+            Assert.AreEqual(protector.MaxContentSize, protector.Unprotect(package, content, key, 0, null));
+        }
+
+        [TestMethod]
         public void PackageProtectorUseAfterDisposeFail()
         {
             using var protector = new PackageProtector(packageSize: 64);
@@ -30,12 +99,14 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[protector.MaxContentSize];
             var package = new byte[protector.MaxPackageSize];
 
+            var package2 = new byte[protector.MaxPackageSize];
+
             var key = new byte[32];
 
             var ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Protect(content, package, key, 0, null));
             Assert.AreEqual(typeof(PackageProtector).FullName, ex.ObjectName);
 
-            ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Unprotect(package, package, key, 0, null));
+            ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Unprotect(package, package2, key, 0, null));
             Assert.AreEqual(typeof(PackageProtector).FullName, ex.ObjectName);
         }
 
@@ -353,13 +424,13 @@ namespace Neliva.Security.Cryptography.Tests
         [DataRow(0, 48)]
         [DataRow(16, 64)]
         [DataRow(32, 80)]
-        public void UnprotectInvalidContentSizeSizeFail(int ivSize, int packageSize)
+        public void UnprotectInvalidContentSizeFail(int ivSize, int packageSize)
         {
             using var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
 
             var package = new byte[p.MaxPackageSize];
 
-            var content = new byte[p.MaxPackageSize - 1];
+            var content = new byte[p.MaxContentSize]; // Valid content buffer must be (MaxContentSize + 1)
 
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new byte[32], long.MaxValue, null));
             Assert.AreEqual("content", ex.ParamName);
@@ -379,10 +450,11 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[invalidPackageSize];
 
-            var content = new byte[p.MaxPackageSize];
+            var content = new byte[p.MaxContentSize + 1];
 
-            var ex = Assert.ThrowsException<BadPackageException>(() => p.Unprotect(package, content, new byte[32], 0, null));
-            Assert.AreEqual("Package length is invalid or not aligned on the required boundary.", ex.Message);
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new byte[32], 0, null));
+            Assert.AreEqual("package", ex.ParamName);
+            Assert.AreEqual("Package length is invalid or not aligned on the required boundary. (Parameter 'package')", ex.Message);
         }
 
         [TestMethod]
@@ -398,10 +470,11 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[invalidPackageSize];
 
-            var content = new byte[p.MaxPackageSize];
+            var content = new byte[p.MaxContentSize + 1];
 
-            var ex = Assert.ThrowsException<BadPackageException>(() => p.Unprotect(package, content, new byte[32], 0, null));
-            Assert.AreEqual("Package length is invalid or not aligned on the required boundary.", ex.Message);
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new byte[32], 0, null));
+            Assert.AreEqual("package", ex.ParamName);
+            Assert.AreEqual("Package length is invalid or not aligned on the required boundary. (Parameter 'package')", ex.Message);
         }
 
         [TestMethod]
