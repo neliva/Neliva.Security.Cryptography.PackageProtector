@@ -156,7 +156,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="PackageProtector"/> object has already been disposed.
         /// </exception>
-        public int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
+        public int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, ArraySegment<byte> associatedData = default)
         {
             if (content.Count > this._MaxContentSize)
             {
@@ -311,7 +311,7 @@ namespace Neliva.Security.Cryptography
         /// If the <paramref name="package"/> cannot be validated
         /// then the <paramref name="content"/> is cleared.
         /// </remarks>
-        public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData)
+        public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData = default)
         {
             if (this.IsInvalidPackageSize(package.Count))
             {
