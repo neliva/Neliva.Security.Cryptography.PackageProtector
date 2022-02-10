@@ -41,6 +41,14 @@ namespace Neliva.ProtectedStorage
 
         private bool _IsDisposed;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="KeyProtector"/> class.
+        /// </summary>
+        /// <param name="rngFill">
+        /// A callback to fill a span with cryptographically strong random bytes.
+        /// When not provided, a default <see cref="RandomNumberGenerator.Fill"/>
+        /// implementation is used.
+        /// </param>
         public KeyProtector(RngFillAction rngFill = null)
         {
             this._rngFill = rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
@@ -52,8 +60,42 @@ namespace Neliva.ProtectedStorage
 
         private static ReadOnlySpan<byte> ZeroIV => new byte[BlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
+        /// <summary>
+        /// Gets the number of bytes added to content during protection.
+        /// </summary>
         public int Overhead => OverheadSize;
 
+        /// <summary>
+        /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.
+        /// </summary>
+        /// <param name="content">
+        /// The content to protect.
+        /// </param>
+        /// <param name="package">
+        /// The destination to receive the protected <paramref name="content"/>.
+        /// </param>
+        /// <param name="password">
+        /// The password used to protect the <paramref name="content"/>.
+        /// </param>
+        /// <param name="iterations">
+        /// The number of iterations for a key derivation operation.
+        /// </param>
+        /// <returns>
+        /// The number of bytes written to the <paramref name="package"/> destination.
+        /// </returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="content"/> length is too large.
+        /// - or -
+        /// The <paramref name="package"/> destination space is insufficient.
+        /// - or -
+        /// The <paramref name="iterations"/> is not a positive value.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// The <see cref="KeyProtector"/> object has already been disposed.
+        /// </exception>
         public int Protect(ReadOnlySpan<byte> content, Span<byte> package, ReadOnlySpan<char> password, int iterations)
         {
             if (content.Length < MinContentSize || content.Length > MaxContentSize || (content.Length % BlockSize) != 0)
@@ -144,6 +186,42 @@ namespace Neliva.ProtectedStorage
             }
         }
 
+        /// <summary>
+        /// Unprotects the <paramref name="package"/> into the <paramref name="content"/> destination.
+        /// </summary>
+        /// <param name="package">
+        /// The package to unprotect.
+        /// </param>
+        /// <param name="content">
+        /// The destination to receive the unprotected <paramref name="package"/>.
+        /// </param>
+        /// <param name="password">
+        /// The password used to unprotect the <paramref name="package"/>.
+        /// </param>
+        /// <returns>
+        /// The number of bytes written to the <paramref name="content"/> destination.
+        /// </returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="package"/> length is not correct.
+        /// - or -
+        /// The <paramref name="content"/> destination space is insufficient.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// The <paramref name="package"/> and <paramref name="content"/> overlap in memory.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        /// The <see cref="KeyProtector"/> object has already been disposed.
+        /// </exception>
+        /// <exception cref="BadPackageException">
+        /// The <paramref name="package"/> version is invalid.
+        /// - or -
+        /// The <paramref name="package"/> iterations count is invalid.
+        /// - or -
+        /// The <paramref name="package"/> checksum is invalid.
+        /// </exception>
+        /// <exception cref="CryptographicException">
+        /// The provided <paramref name="password"/> is incorrect.
+        /// </exception>
         public int Unprotect(ReadOnlySpan<byte> package, Span<byte> content, ReadOnlySpan<char> password)
         {
             if (package.Length < MinPackageSize || package.Length > MaxPackageSize || (package.Length % BlockSize) != 0)
@@ -243,6 +321,10 @@ namespace Neliva.ProtectedStorage
             }
         }
 
+        /// <summary>
+        /// Releases all resources used by the current instance
+        /// of the <see cref="KeyProtector"/> class.
+        /// </summary>
         public void Dispose()
         {
             this._IsDisposed = true;
