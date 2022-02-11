@@ -4,9 +4,8 @@
 using System;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
-using Neliva.Security.Cryptography;
 
-namespace Neliva.ProtectedStorage
+namespace Neliva.Security.Cryptography
 {
     /// <summary>
     /// Provides support to wrap keys with the PBKDF2-HMAC-SHA512 password protection.
