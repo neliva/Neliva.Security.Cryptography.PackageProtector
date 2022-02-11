@@ -34,7 +34,7 @@ namespace Neliva.Security.Cryptography
         private const int MinPackageSize = MinContentSize + OverheadSize;
         private const int MaxPackageSize = MaxContentSize + OverheadSize;
 
-        private const uint Version = ((uint)'p' << 24) | ((uint)'b' << 16) | ((uint)'2' << 8) | (uint)'k';
+        private const uint Version = ((uint)'P' << 24) | ((uint)'B' << 16) | ((uint)'2' << 8) | (uint)'K';
 
         private readonly RngFillAction _rngFill;
 
