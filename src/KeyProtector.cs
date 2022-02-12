@@ -252,9 +252,9 @@ namespace Neliva.Security.Cryptography
                 throw new BadPackageException("The package version is invalid.");
             }
 
-            uint iterations = BinaryPrimitives.ReadUInt32BigEndian(package.Slice(VersionSize));
+            int iterations = (int)BinaryPrimitives.ReadUInt32BigEndian(package.Slice(VersionSize));
 
-            if (iterations > int.MaxValue)
+            if (iterations <= 0)
             {
                 throw new BadPackageException("The package iterations count is invalid.");
             }
@@ -276,7 +276,7 @@ namespace Neliva.Security.Cryptography
 
             try
             {
-                Rfc2898DeriveBytes.Pbkdf2(password, package.Slice(VersionSize + IterCounterSize, SaltSize), tmp64Span, (int)iterations, HashAlgorithmName.SHA512);
+                Rfc2898DeriveBytes.Pbkdf2(password, package.Slice(VersionSize + IterCounterSize, SaltSize), tmp64Span, iterations, HashAlgorithmName.SHA512);
 
                 using (var hmac = new HMACSHA512(tmp64))
                 {
