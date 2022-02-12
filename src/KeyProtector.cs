@@ -15,7 +15,7 @@ namespace Neliva.Security.Cryptography
     /// +-----------+--------------+--------+--------+-------------+------------+
     /// |  Version  |  Iterations  |  Salt  |  HMAC  |  Key Data   |  Checksum  |
     /// +-----------+--------------+--------+--------+-------------+------------+
-    /// |  4        |  4           |  40    |  32    |  32..65439  |  16        |
+    /// |  4        |  4           |  40    |  32    |  32..65424  |  16        |
     /// +-----------+--------------+--------+--------+-------------+------------+
     /// |                                   |      encrypted       |            |    
     /// </code>
@@ -30,7 +30,7 @@ namespace Neliva.Security.Cryptography
         private const int ChecksumSize = 16;
         private const int OverheadSize = VersionSize + IterCounterSize + SaltSize + MacSize + ChecksumSize;
         private const int MinContentSize = 32;
-        private const int MaxContentSize = ushort.MaxValue - OverheadSize;
+        private const int MaxContentSize = ((ushort.MaxValue - OverheadSize) / BlockSize) * BlockSize;
         private const int MinPackageSize = MinContentSize + OverheadSize;
         private const int MaxPackageSize = MaxContentSize + OverheadSize;
 
@@ -68,7 +68,7 @@ namespace Neliva.Security.Cryptography
         /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.
         /// </summary>
         /// <param name="content">
-        /// The content to protect.
+        /// The content to protect. Max content length is 65424 bytes.
         /// </param>
         /// <param name="package">
         /// The destination to receive the protected <paramref name="content"/>.

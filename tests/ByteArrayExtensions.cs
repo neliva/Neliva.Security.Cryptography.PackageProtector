@@ -21,22 +21,37 @@ namespace Neliva.Security.Cryptography.Tests
             return array;
         }
 
-        public static bool IsAllZeros(this byte[] array)
+        public static bool IsAllSameValue(this ReadOnlySpan<byte> span, byte value)
         {
-            return IsAllZeros((ArraySegment<byte>)array);
-        }
-
-        public static bool IsAllZeros(this ArraySegment<byte> array)
-        {
-            foreach (byte val in array)
+            foreach (byte b in span)
             {
-                if (val != 0)
+                if (b != value)
                 {
                     return false;
                 }
             }
 
             return true;
+        }
+
+        public static bool IsAllSameValue(this Span<byte> span, byte value)
+        {
+            return IsAllSameValue((ReadOnlySpan<byte>)span, value);
+        }
+
+        public static bool IsAllZeros(this ReadOnlySpan<byte> span)
+        {
+            return IsAllSameValue(span, 0);
+        }
+
+        public static bool IsAllZeros(this byte[] array)
+        {
+            return IsAllSameValue((ReadOnlySpan<byte>)array, 0);
+        }
+
+        public static bool IsAllZeros(this ArraySegment<byte> array)
+        {
+            return IsAllSameValue((ReadOnlySpan<byte>)array, 0);
         }
     }
 }
