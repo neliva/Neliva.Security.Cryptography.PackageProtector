@@ -99,7 +99,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             SHA512.HashData(packageSpan.Slice(0, checksumOffset), checksumHash);
 
-            Assert.AreEqual(true, packageSpan.Slice(checksumOffset).SequenceEqual(checksumHash.Slice(0, ChecksumSize)));
+            Assert.IsTrue(packageSpan.Slice(checksumOffset).SequenceEqual(checksumHash.Slice(0, ChecksumSize)), "Checksum doesn't match.");
 
             var encoder = new UTF8Encoding(false, true);
 
