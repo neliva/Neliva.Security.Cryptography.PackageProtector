@@ -185,7 +185,7 @@ namespace Neliva.Security.Cryptography.Tests
         [DataRow(31)] // min content length - 1
         [DataRow(33)]
         [DataRow(47)]
-        [DataRow(MaxContentSize + 1)] // max content length + 1
+        [DataRow(MaxContentSize + 1)]
         public void ProtectBadContentSizeFails(int contentLength)
         {
             var password = "user-password";
@@ -418,6 +418,119 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.AreEqual("The provided password is incorrect.", ex.Message);
 
             Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
+        }
+
+        [TestMethod]
+        public void UnprotectClearOutputOnBadPasswordPass()
+        {
+            const string password = "user-password";
+            const string badPassword = "user-Password";
+
+            var iterations = 1;
+
+            RngFillAction rng = (Span<byte> data) =>
+            {
+                data.Fill((byte)data.Length);
+            };
+
+            using var protector = new KeyProtector(rng);
+
+            var content = new byte[32].Fill(242);
+            var package = new byte[32 + protector.Overhead];
+
+            var packageSpan = package.AsSpan();
+
+            protector.Protect(content, package, password, iterations);
+
+            var unprotectedContent = new byte[content.Length].Fill(byte.MaxValue);
+
+            var ex = Assert.ThrowsException<CryptographicException>(() => protector.Unprotect(package, unprotectedContent, badPassword));
+            Assert.AreEqual("The provided password is incorrect.", ex.Message);
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() bad password.");
+        }
+
+        [TestMethod]
+        [DataRow(int.MinValue)]
+        [DataRow(-1)]
+        [DataRow(0)]
+        public void UnprotectBadIterationsFails(int iterations)
+        {
+            const string password = "user-password";
+            const string badPassword = "user-Password";
+
+            RngFillAction rng = (Span<byte> data) => data.Fill(97);
+
+            using var protector = new KeyProtector(rng);
+
+            var content = new byte[32].Fill(242);
+            var package = new byte[32 + protector.Overhead];
+
+            var packageSpan = package.AsSpan();
+
+            protector.Protect(content, package, password, 1);
+
+            BinaryPrimitives.WriteUInt32BigEndian(packageSpan.Slice(4, 4), (uint)iterations);
+
+            var ex = Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
+            Assert.AreEqual("The package iterations count is invalid.", ex.Message);
+        }
+
+        [TestMethod]
+        public void UnprotectVersionFails()
+        {
+            const string password = "user-password";
+            const string badPassword = "user-Password";
+
+            RngFillAction rng = (Span<byte> data) => data.Fill(97);
+
+            using var protector = new KeyProtector(rng);
+
+            var content = new byte[32].Fill(242);
+            var package = new byte[32 + protector.Overhead];
+
+            var packageSpan = package.AsSpan();
+
+            protector.Protect(content, package, password, 1);
+
+            // Write lowercase header version which is invalid.
+            BinaryPrimitives.WriteUInt32BigEndian(packageSpan.Slice(0, 4), ((uint)'p' << 24) | ((uint)'b' << 16) | ((uint)'2' << 8) | (uint)'k');
+
+            var ex = Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
+            Assert.AreEqual("The package version is invalid.", ex.Message);
+        }
+
+        [TestMethod]
+        public void UnprotectBadChecksumFails()
+        {
+            const string password = "user-password";
+            const string badPassword = "user-Password";
+
+            RngFillAction rng = (Span<byte> data) => data.Fill(97);
+
+            using var protector = new KeyProtector(rng);
+
+            var content = new byte[32].Fill(242);
+            var package = new byte[32 + protector.Overhead];
+
+            var packageSpan = package.AsSpan();
+
+            protector.Protect(content, package, password, 1);
+
+            // Corrupt last byte of package/checksum
+            package[^1] ^= 1;
+
+            var ex = Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
+            Assert.AreEqual("The package checksum is invalid.", ex.Message);
+
+            // Revert previous corruption.
+            package[^1] ^= 1;
+
+            // Corrupt first byte of salt.
+            package[8] ^= 1;
+
+            ex = Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
+            Assert.AreEqual("The package checksum is invalid.", ex.Message);
         }
     }
 }
