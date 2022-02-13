@@ -93,13 +93,13 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.IsTrue(salt.IsAllSameValue(fillByte));
 
-            int hashOffset = protectedLength - ChecksumSize;
+            int checksumOffset = protectedLength - ChecksumSize;
 
             Span<byte> checksumHash = new byte[64];
 
-            SHA512.HashData(packageSpan.Slice(0, hashOffset), checksumHash);
+            SHA512.HashData(packageSpan.Slice(0, checksumOffset), checksumHash);
 
-            Assert.AreEqual(true, packageSpan.Slice(hashOffset).SequenceEqual(checksumHash.Slice(0, ChecksumSize)));
+            Assert.AreEqual(true, packageSpan.Slice(checksumOffset).SequenceEqual(checksumHash.Slice(0, ChecksumSize)));
 
             var encoder = new UTF8Encoding(false, true);
 
@@ -363,20 +363,10 @@ namespace Neliva.Security.Cryptography.Tests
             var iterations = 1;
 
             const string exStr = "CRNG FAILED";
-            byte[] rngVal = Array.Empty<byte>();
 
             RngFillAction rng = (Span<byte> data) =>
             {
-                if (data.Length == 0 || rngVal.Length != 0)
-                {
-                    throw new AssertFailedException("Callback is not operating properly.");
-                }
-
-                Assert.AreEqual(40, data.Length);
-
-                rngVal = new byte[data.Length].Fill((byte)data.Length);
-
-                rngVal.AsSpan().CopyTo(data);
+                data.Fill((byte)data.Length);
 
                 throw new Exception(exStr);
             };
@@ -390,6 +380,44 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.AreEqual(exStr, ex.Message);
 
             Assert.IsTrue(package.IsAllZeros(), "Destination not cleared on Protect() failure.");
+        }
+
+        [TestMethod]
+        public void UnprotectClearOutputOnFailurePass()
+        {
+            var password = "user-password";
+            var iterations = 1;
+
+            RngFillAction rng = (Span<byte> data) =>
+            {
+                data.Fill((byte)data.Length);
+            };
+
+            using var protector = new KeyProtector(rng);
+
+            var content = new byte[32].Fill(242);
+            var package = new byte[32 + protector.Overhead];
+
+            var packageSpan = package.AsSpan();
+
+            protector.Protect(content, package, password, iterations);
+
+            int checksumOffset = package.Length - ChecksumSize;
+
+            package[checksumOffset - 1] ^= 1; // Intentionally corrupt last byte of encrypted payload
+
+            Span<byte> checksumHash = new byte[64];
+
+            SHA512.HashData(packageSpan.Slice(0, checksumOffset), checksumHash); // Recompute checksum over corrupted payload.
+
+            checksumHash.Slice(0, ChecksumSize).CopyTo(packageSpan.Slice(checksumOffset));  // Replace checksum.
+
+            var unprotectedContent = new byte[content.Length].Fill(byte.MaxValue);
+
+            var ex = Assert.ThrowsException<CryptographicException>(() => protector.Unprotect(package, unprotectedContent, password));
+            Assert.AreEqual("The provided password is incorrect.", ex.Message);
+
+            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
     }
 }
