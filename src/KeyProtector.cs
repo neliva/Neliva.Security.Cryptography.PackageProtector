@@ -144,8 +144,8 @@ namespace Neliva.Security.Cryptography
 
                 using (var hmac = new HMACSHA512(tmp64))
                 {
-                    hmac.DeriveKey(EncLabel, null, tmp32);
-                    hmac.DeriveKey(MacLabel, null, tmp64Span);
+                    hmac.DeriveKey(tmp32, EncLabel);
+                    hmac.DeriveKey(tmp64Span, MacLabel);
 
                     hmac.Key = tmp64;
 
@@ -280,8 +280,8 @@ namespace Neliva.Security.Cryptography
 
                 using (var hmac = new HMACSHA512(tmp64))
                 {
-                    hmac.DeriveKey(EncLabel, null, tmp32);
-                    hmac.DeriveKey(MacLabel, null, tmp64Span);
+                    hmac.DeriveKey(tmp32, EncLabel);
+                    hmac.DeriveKey(tmp64Span, MacLabel);
 
                     using (var aes = Aes.Create())
                     {

@@ -18,7 +18,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var keyOut = new byte[32];
 
-            var ex = Assert.ThrowsException<ArgumentNullException>(() => KeyedHashAlgorithmExtensions.DeriveKey(null, Span<byte>.Empty, Span<byte>.Empty, keyOut));
+            var ex = Assert.ThrowsException<ArgumentNullException>(() => KeyedHashAlgorithmExtensions.DeriveKey(null, keyOut, Span<byte>.Empty, Span<byte>.Empty));
 
             Assert.AreEqual("alg", ex.ParamName);
         }
@@ -30,7 +30,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA256())
             {
-                var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, Span<byte>.Empty, Span<byte>.Empty, keyOut));
+                var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, keyOut, Span<byte>.Empty, Span<byte>.Empty));
 
                 Assert.AreEqual("derivedKey", ex.ParamName);
 
@@ -54,7 +54,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA256())
             {
-                var ex = Assert.ThrowsException<ArgumentException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, new ReadOnlySpan<byte>((void*)0, labelLength), new ReadOnlySpan<byte>((void*)0, contextLength), keyOut));
+                var ex = Assert.ThrowsException<ArgumentException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, keyOut, new ReadOnlySpan<byte>((void*)0, labelLength), new ReadOnlySpan<byte>((void*)0, contextLength)));
 
                 Assert.AreEqual(null, ex.ParamName);
 
@@ -80,7 +80,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA256(masterKey))
             {
-                KeyedHashAlgorithmExtensions.DeriveKey(hmac, label, context, derivedKey);
+                KeyedHashAlgorithmExtensions.DeriveKey(hmac, derivedKey, label, context);
             }
         }
 
@@ -94,7 +94,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA256())
             {
-                var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, Span<byte>.Empty, Span<byte>.Empty, new Span<byte>((void*)0, derivedKeyLength)));
+                var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, new Span<byte>((void*)0, derivedKeyLength), Span<byte>.Empty, Span<byte>.Empty));
 
                 Assert.AreEqual("derivedKey", ex.ParamName);
 
@@ -118,7 +118,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA512(masterKey))
             {
-                hmac.DeriveKey(label, context, derivedKey);
+                hmac.DeriveKey(derivedKey, label, context);
             }
 
             string actual = Convert.ToBase64String(derivedKey);
@@ -147,7 +147,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA512(masterKey))
             {
-                hmac.DeriveKey(label, context, derivedKey);
+                hmac.DeriveKey(derivedKey, label, context);
             }
 
             string actual = Convert.ToBase64String(derivedKey);

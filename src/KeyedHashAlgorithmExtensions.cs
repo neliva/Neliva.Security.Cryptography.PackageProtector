@@ -12,10 +12,13 @@ namespace Neliva.Security.Cryptography
     public static class KeyedHashAlgorithmExtensions
     {
         /// <summary>
-        /// Derives a key using the KDF in Counter Mode as described in SP800-108.
+        /// Derives a key using the SP800-108 KDF in Counter Mode.
         /// </summary>
         /// <param name="alg">
         /// The <see cref="KeyedHashAlgorithm "/> instance that is already initialized with a master key.
+        /// </param>
+        /// <param name="derivedKey">
+        /// A span that receives the keying material output from the key derivation function.
         /// </param>
         /// <param name="label">
         /// A span that identifies the purpose for the derived keying material.
@@ -26,24 +29,28 @@ namespace Neliva.Security.Cryptography
         /// derived keying material and, optionally, a nonce known by the parties who derive
         /// the keys.
         /// </param>
-        /// <param name="derivedKey">
-        /// A span that receives the keying material output from the key derivation function.
-        /// </param>
         /// <exception cref="ArgumentNullException">
         /// The <paramref name="alg"/> parameter is a <c>null</c> reference.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="derivedKey"/> length is zero or exceeds <c>536870911</c> bytes.
         /// </exception>
         /// <exception cref="ArgumentException">
         /// The combined length of the <paramref name="label"/> and <paramref name="context"/>
         /// exceeds <c>2147483638</c> bytes.
         /// </exception>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// The <paramref name="derivedKey"/> length is zero or exceeds <c>536870911</c> bytes.
-        /// </exception>
-        public static void DeriveKey(this KeyedHashAlgorithm alg, ReadOnlySpan<byte> label, ReadOnlySpan<byte> context, Span<byte> derivedKey)
+        public static void DeriveKey(this KeyedHashAlgorithm alg, Span<byte> derivedKey, ReadOnlySpan<byte> label, ReadOnlySpan<byte> context = default)
         {
             if (alg == null)
             {
                 throw new ArgumentNullException(nameof(alg));
+            }
+
+            const int MaxDerivedKeyLength = int.MaxValue / 4;
+
+            if (derivedKey.Length == 0 || derivedKey.Length > MaxDerivedKeyLength)
+            {
+                throw new ArgumentOutOfRangeException(nameof(derivedKey), "The derived key length is zero or too large.");
             }
 
             const int CounterSpaceSize = sizeof(uint);
@@ -55,13 +62,6 @@ namespace Neliva.Security.Cryptography
             if (((uint)label.Length + (uint)context.Length) > MaxLabelAndContextLength)
             {
                 throw new ArgumentException($"The combined length of '{nameof(label)}' and '{nameof(context)}' is too large.");
-            }
-
-            const int MaxDerivedKeyLength = int.MaxValue / 4;
-
-            if (derivedKey.Length == 0 || derivedKey.Length > MaxDerivedKeyLength)
-            {
-                throw new ArgumentOutOfRangeException(nameof(derivedKey), "The derived key length is zero or too large.");
             }
 
             const int MaxStackAllocSize = 256;          
