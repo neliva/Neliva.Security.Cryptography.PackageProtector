@@ -301,6 +301,27 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [TestMethod]
+        public void UnprotectOverlapFails()
+        {
+            var password = "user-password";
+
+            using var protector = new KeyProtector();
+
+            var ex = Assert.ThrowsException<InvalidOperationException>(() =>
+            {
+                Span<byte> buf = new byte[32 + protector.Overhead + 32];
+
+                var content = buf.Slice(32 + protector.Overhead, 32);
+
+                var package = buf.Slice(1, 32 + protector.Overhead);
+
+                protector.Unprotect(package, content, password);
+            });
+
+            Assert.AreEqual("The 'content' must not overlap in memory with the 'package'.", ex.Message);
+        }
+
+        [TestMethod]
         public void ProtectUseAfterDisposeFail()
         {
             using var protector = new KeyProtector();
