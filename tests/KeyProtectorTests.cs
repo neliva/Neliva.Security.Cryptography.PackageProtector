@@ -23,7 +23,7 @@ namespace Neliva.Security.Cryptography.Tests
         [TestMethod]
         [DataRow(32)]
         [DataRow(64)]
-        [DataRow(MaxContentSize)] // max content length
+        [DataRow(MaxContentSize)]
         public void RoundTripPass(int contentLength)
         {
             var password = "user-password#3";
@@ -50,9 +50,10 @@ namespace Neliva.Security.Cryptography.Tests
 
         [TestMethod]
         [DataRow(32, (byte)3)] // min content length
+        [DataRow(48, (byte)1)]
         [DataRow(64, (byte)5)]
         [DataRow(192, (byte)8)]
-        [DataRow(MaxContentSize, (byte)2)] // max content length
+        [DataRow(MaxContentSize, (byte)2)]
         public void ProtectProducesCorrectFormatPass(int contentLength, byte iterations)
         {
             var password = "user-password";
@@ -203,6 +204,28 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [TestMethod]
+        [DataRow(0)]
+        [DataRow(32 + Overhead - 1)]
+        [DataRow(32 + Overhead + 1)]
+        [DataRow(MaxContentSize + Overhead - 1)]
+        [DataRow(MaxContentSize + Overhead + 1)]
+        public void UnprotectBadPackageSizeFails(int packageSize)
+        {
+            var password = "user-password";
+
+            using var protector = new KeyProtector();
+
+            var package = new byte[packageSize];
+
+            var content = new byte[packageSize];
+
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Unprotect(package, content, password));
+
+            Assert.AreEqual("package", ex.ParamName);
+            Assert.AreEqual("Package length is invalid or not aligned on the required boundary. (Parameter 'package')", ex.Message);
+        }
+
+        [TestMethod]
         public void ProtectBadPackageSpaceFails()
         {
             var password = "user-password";
@@ -218,6 +241,23 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.AreEqual("package", ex.ParamName);
             Assert.AreEqual("Insufficient space for package output. (Parameter 'package')", ex.Message);
+        }
+
+        [TestMethod]
+        public void UnprotectBadContentSpaceFails()
+        {
+            var password = "user-password";
+
+            using var protector = new KeyProtector();
+
+            var package = new byte[32 + protector.Overhead];
+
+            var context = new byte[package.Length - protector.Overhead - 1];
+
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Unprotect(package, context, password));
+
+            Assert.AreEqual("content", ex.ParamName);
+            Assert.AreEqual("Insufficient space for content output. (Parameter 'content')", ex.Message);
         }
 
         [TestMethod]
