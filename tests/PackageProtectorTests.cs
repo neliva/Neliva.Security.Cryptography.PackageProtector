@@ -940,7 +940,7 @@ namespace Neliva.Security.Cryptography.Tests
                 context[context.Length - 2] = (byte)(packageSize >> 8);
                 context[context.Length - 1] = (byte)packageSize;
 
-                hmac.DeriveKey(label, context, derivedKey);
+                hmac.DeriveKey(derivedKey, label, context);
 
                 return derivedKey;
             }

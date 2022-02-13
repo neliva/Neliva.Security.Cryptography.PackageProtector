@@ -115,12 +115,12 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA512(derivedKey))
             {
-                hmac.DeriveKey(encLabel, null,  encKey);
+                hmac.DeriveKey(encKey, encLabel, null);
             }
 
             using (var hmac = new HMACSHA512(derivedKey))
             {
-                hmac.DeriveKey(macLabel, null, macKey);
+                hmac.DeriveKey(macKey, macLabel, null);
             }
 
             ReadOnlySpan<byte> expectedContentHash = null;
