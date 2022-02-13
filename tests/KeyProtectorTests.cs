@@ -340,6 +340,23 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [TestMethod]
+        public void UnprotectUseAfterDisposeFail()
+        {
+            using var protector = new KeyProtector();
+
+            protector.Dispose();
+
+            var password = "user-password";
+
+            var content = new byte[32];
+
+            var package = new byte[content.Length + protector.Overhead];
+
+            var ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Unprotect(package, content, password));
+            Assert.AreEqual(typeof(KeyProtector).FullName, ex.ObjectName);
+        }
+
+        [TestMethod]
         public void ProtectClearOutputOnFailurePass()
         {
             var password = "user-password";
