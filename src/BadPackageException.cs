@@ -7,7 +7,8 @@ using System.Security.Cryptography;
 namespace Neliva.Security.Cryptography
 {
     /// <summary>
-    /// The exception that is thrown when package decryption fails.
+    /// The exception that is thrown when package is invalid or
+    /// corrupted, or when decryption fails due to invalid key.
     /// </summary>
     /// <seealso cref="PackageProtector.UnprotectAsync(System.IO.Stream, System.IO.Stream, byte[], ArraySegment{byte}, System.Threading.CancellationToken)"/>
     /// <seealso cref="PackageProtector.Unprotect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
