@@ -108,7 +108,7 @@ namespace Neliva.Security.Cryptography.Tests
             byte[] derivedKey = Rfc2898DeriveBytes.Pbkdf2(passBytes, salt, iter, HashAlgorithmName.SHA512, 64);
 
             byte[] encLabel = encoder.GetBytes("AES256-CBC");
-            byte[] macLabel = encoder.GetBytes("HMAC-SHA512");
+            byte[] macLabel = encoder.GetBytes("HMAC-SHA512-256"); // HMAC-SHA512 hash truncated to first 256 bits
 
             byte[] encKey = new byte[32];
             byte[] macKey = new byte[64];
