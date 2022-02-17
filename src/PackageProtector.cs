@@ -9,8 +9,26 @@ namespace Neliva.Security.Cryptography
 {
     /// <summary>
     /// Represents pad-then-mac-then-encrypt chunked data protection using
-    /// AES256-CBC and HMAC-SHA256 algorithms.
+    /// HMAC-SHA256 and AES256-CBC algorithms.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="PackageProtector"/> allows 0, 16, or 32 byte IVs. Max content size
+    /// per package depends on the IV size.
+    /// </para>
+    /// <para>
+    /// For the 16 byte IV, the package layout is the following:
+    /// <code>
+    /// |                   package, 64 bytes - (16MiB - 16 bytes)                           |
+    /// +------------------------------------------------------------------------------------+
+    /// | KDF IV      | MAC(content || pad)    | chunk content             | PKCS7 pad       |
+    /// +-------------+------------------------+---------------------------+-----------------+
+    /// | 16 bytes    | 32 bytes               | 0 - (16MiB - 65 bytes)    | 1 - 16 bytes    |
+    /// +-------------+----------------------------------------------------------------------+
+    /// |             |                       encrypted (no padding)                         |
+    /// </code>
+    /// </para>
+    /// </remarks>
     public sealed partial class PackageProtector : IDisposable
     {
         private const int BlockSize = 16; // AES block size.
