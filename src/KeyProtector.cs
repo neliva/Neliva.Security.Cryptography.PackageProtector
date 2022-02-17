@@ -55,7 +55,7 @@ namespace Neliva.Security.Cryptography
 
         private static ReadOnlySpan<byte> EncLabel => new byte[] { (byte)'A', (byte)'E', (byte)'S', (byte)'2', (byte)'5', (byte)'6', (byte)'-', (byte)'C', (byte)'B', (byte)'C' };
 
-        private static ReadOnlySpan<byte> MacLabel => new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2' };
+        private static ReadOnlySpan<byte> MacLabel => new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2', (byte)'-', (byte)'2', (byte)'5', (byte)'6' };
 
         private static ReadOnlySpan<byte> ZeroIV => new byte[BlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
@@ -139,12 +139,13 @@ namespace Neliva.Security.Cryptography
                 byte[] tmp32 = new byte[32];
 
                 Span<byte> tmp64Span = tmp64;
+                Span<byte> tmp32Span = tmp32;
 
                 Rfc2898DeriveBytes.Pbkdf2(password, salt, tmp64Span, iterations, HashAlgorithmName.SHA512);
 
                 using (var hmac = new HMACSHA512(tmp64))
                 {
-                    hmac.DeriveKey(tmp32, EncLabel);
+                    hmac.DeriveKey(tmp32Span, EncLabel);
                     hmac.DeriveKey(tmp64Span, MacLabel);
 
                     hmac.Key = tmp64;
@@ -280,7 +281,7 @@ namespace Neliva.Security.Cryptography
 
                 using (var hmac = new HMACSHA512(tmp64))
                 {
-                    hmac.DeriveKey(tmp32, EncLabel);
+                    hmac.DeriveKey(tmp32Span, EncLabel);
                     hmac.DeriveKey(tmp64Span, MacLabel);
 
                     using (var aes = Aes.Create())
