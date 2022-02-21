@@ -229,7 +229,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned on the required boundary.");
             }
 
-            int outputContentSize = package.Length - Overhead;
+            int outputContentSize = package.Length - OverheadSize;
 
             if (content.Length < outputContentSize)
             {
