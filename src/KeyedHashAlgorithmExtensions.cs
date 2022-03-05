@@ -65,8 +65,8 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentException($"The combined length of '{nameof(label)}' and '{nameof(context)}' is too large.");
             }
 
-            // counter + label + separator + context + derivedKeyInBits
-            int inputDataSize = CounterSpaceSize + label.Length + SeparatorSpaceSize + context.Length + KeySpaceSize;
+            // [counter + label + separator + context + derivedKeyInBits]
+            int inputDataSize = label.Length + context.Length + (CounterSpaceSize + SeparatorSpaceSize + KeySpaceSize);
 
             int hashSize = alg.HashSize / 8;
             int bufferSize = hashSize + inputDataSize;
@@ -83,12 +83,12 @@ namespace Neliva.Security.Cryptography
             try
             {
                 label.CopyTo(inputData.Slice(CounterSpaceSize));
-                inputData[CounterSpaceSize + label.Length] = 0x00; // zero byte separator
-                context.CopyTo(inputData.Slice(CounterSpaceSize + label.Length + SeparatorSpaceSize));
+                inputData[label.Length + CounterSpaceSize] = 0x00; // zero byte separator
+                context.CopyTo(inputData.Slice(label.Length + (CounterSpaceSize + SeparatorSpaceSize)));
 
-                Span<byte> derivedKeyInBits = inputData.Slice(inputData.Length - KeySpaceSize);
-
-                BinaryPrimitives.WriteUInt32BigEndian(derivedKeyInBits, (uint)derivedKey.Length * 8); // length of the derived key in bits
+                BinaryPrimitives.WriteUInt32BigEndian(
+                    inputData.Slice(inputDataSize - KeySpaceSize),
+                    (uint)derivedKey.Length * 8); // length of the derived key in bits
 
                 for (uint counter = 1; ; counter++)
                 {
@@ -96,7 +96,7 @@ namespace Neliva.Security.Cryptography
 
                     alg.ComputeHash(inputData, hash);
 
-                    int length = Math.Min(derivedKey.Length, hash.Length);
+                    int length = Math.Min(derivedKey.Length, hashSize);
 
                     var fragment = hash.Slice(0, length);
 
