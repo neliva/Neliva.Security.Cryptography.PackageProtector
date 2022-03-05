@@ -244,11 +244,14 @@ namespace Neliva.Security.Cryptography
                 byte[] encKey = new byte[HashSize];
                 byte[] signKey = new byte[HashSize];
 
+                Span<byte> encKeySpan = encKey;
+                Span<byte> signKeySpan = signKey;
+
                 try
                 {
                     using (var hmac = new HMACSHA256(key))
                     {
-                        DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
+                        DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKeySpan, signKeySpan);
 
                         hmac.Key = signKey;
 
@@ -271,8 +274,8 @@ namespace Neliva.Security.Cryptography
                 }
                 finally
                 {
-                    CryptographicOperations.ZeroMemory(encKey);
-                    CryptographicOperations.ZeroMemory(signKey);
+                    CryptographicOperations.ZeroMemory(encKeySpan);
+                    CryptographicOperations.ZeroMemory(signKeySpan);
                 }
             }
             catch
@@ -386,6 +389,9 @@ namespace Neliva.Security.Cryptography
             byte[] tmpA = new byte[HashSize]; // Used for encKey and decrypted hash
             byte[] tmpB = new byte[HashSize]; // Used for signKey and computed hash
 
+            Span<byte> tmpASpan = tmpA;
+            Span<byte> tmpBSpan = tmpB;
+
             try
             {
                 try
@@ -394,7 +400,7 @@ namespace Neliva.Security.Cryptography
                     {
                         var kdfIV = package.Slice(0, this._IvSize);
 
-                        DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmpA, tmpB);
+                        DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmpASpan, tmpBSpan);
 
                         using (var dec = this._Aes.CreateDecryptor(tmpA, this._AesZeroIV))
                         {
@@ -419,10 +425,10 @@ namespace Neliva.Security.Cryptography
                         hmac.Key = tmpB;
 
                         // Sign plaintext and padding.
-                        hmac.ComputeHash(data, tmpB);
+                        hmac.ComputeHash(data, tmpBSpan);
                     }
 
-                    if (!CryptographicOperations.FixedTimeEquals(tmpA, tmpB))
+                    if (!CryptographicOperations.FixedTimeEquals(tmpASpan, tmpBSpan))
                     {
                         throw new BadPackageException();
                     }
@@ -438,8 +444,8 @@ namespace Neliva.Security.Cryptography
                 }
                 finally
                 {
-                    CryptographicOperations.ZeroMemory(tmpA);
-                    CryptographicOperations.ZeroMemory(tmpB);
+                    CryptographicOperations.ZeroMemory(tmpASpan);
+                    CryptographicOperations.ZeroMemory(tmpBSpan);
                 }
             }
             catch
