@@ -3,6 +3,7 @@
 
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 
 namespace Neliva.Security.Cryptography
@@ -87,19 +88,11 @@ namespace Neliva.Security.Cryptography
 
                 Span<byte> derivedKeyInBits = inputData.Slice(inputData.Length - KeySpaceSize);
 
-                uint lengthBits = (uint)derivedKey.Length * 8; // length of the derived key in bits
-
-                derivedKeyInBits[0] = (byte)(lengthBits >> 24);
-                derivedKeyInBits[1] = (byte)(lengthBits >> 16);
-                derivedKeyInBits[2] = (byte)(lengthBits >> 8);
-                derivedKeyInBits[3] = (byte)lengthBits;
+                BinaryPrimitives.WriteUInt32BigEndian(derivedKeyInBits, (uint)derivedKey.Length * 8); // length of the derived key in bits
 
                 for (uint counter = 1; ; counter++)
                 {
-                    inputData[0] = (byte)(counter >> 24);
-                    inputData[1] = (byte)(counter >> 16);
-                    inputData[2] = (byte)(counter >> 8);
-                    inputData[3] = (byte)counter;
+                    BinaryPrimitives.WriteUInt32BigEndian(inputData, counter);
 
                     alg.ComputeHash(inputData, hash);
 
