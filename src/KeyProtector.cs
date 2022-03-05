@@ -141,33 +141,41 @@ namespace Neliva.Security.Cryptography
                 Span<byte> tmp64Span = tmp64;
                 Span<byte> tmp32Span = tmp32;
 
-                Rfc2898DeriveBytes.Pbkdf2(password, salt, tmp64Span, iterations, HashAlgorithmName.SHA512);
-
-                using (var hmac = new HMACSHA512(tmp64))
+                try
                 {
-                    hmac.DeriveKey(tmp32Span, EncLabel);
-                    hmac.DeriveKey(tmp64Span, MacLabel);
+                    Rfc2898DeriveBytes.Pbkdf2(password, salt, tmp64Span, iterations, HashAlgorithmName.SHA512);
 
-                    hmac.Key = tmp64;
+                    using (var hmac = new HMACSHA512(tmp64))
+                    {
+                        hmac.DeriveKey(tmp32Span, EncLabel);
+                        hmac.DeriveKey(tmp64Span, MacLabel);
 
-                    hmac.ComputeHash(content, tmp64Span);
+                        hmac.Key = tmp64;
+
+                        hmac.ComputeHash(content, tmp64Span);
+                    }
+
+                    using (var aes = Aes.Create())
+                    {
+                        aes.Key = tmp32;
+
+                        aes.EncryptCbc(
+                            tmp64Span.Slice(0, MacSize),
+                            ZeroIV,
+                            output.Slice(VersionSize + IterCounterSize + SaltSize),
+                            PaddingMode.None);
+
+                        aes.EncryptCbc(
+                            content,
+                            output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
+                            output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize),
+                            PaddingMode.None);
+                    }
                 }
-
-                using (var aes = Aes.Create())
+                finally
                 {
-                    aes.Key = tmp32;
-
-                    aes.EncryptCbc(
-                        tmp64Span.Slice(0, MacSize),
-                        ZeroIV,
-                        output.Slice(VersionSize + IterCounterSize + SaltSize),
-                        PaddingMode.None);
-
-                    aes.EncryptCbc(
-                        content,
-                        output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
-                        output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize),
-                        PaddingMode.None);
+                    CryptographicOperations.ZeroMemory(tmp64Span);
+                    CryptographicOperations.ZeroMemory(tmp32Span);
                 }
 
                 int checksumOffset = outputPackageSize - ChecksumSize;
@@ -277,41 +285,49 @@ namespace Neliva.Security.Cryptography
 
             try
             {
-                Rfc2898DeriveBytes.Pbkdf2(password, package.Slice(VersionSize + IterCounterSize, SaltSize), tmp64Span, iterations, HashAlgorithmName.SHA512);
-
-                using (var hmac = new HMACSHA512(tmp64))
+                try
                 {
-                    hmac.DeriveKey(tmp32Span, EncLabel);
-                    hmac.DeriveKey(tmp64Span, MacLabel);
+                    Rfc2898DeriveBytes.Pbkdf2(password, package.Slice(VersionSize + IterCounterSize, SaltSize), tmp64Span, iterations, HashAlgorithmName.SHA512);
 
-                    using (var aes = Aes.Create())
+                    using (var hmac = new HMACSHA512(tmp64))
                     {
-                        aes.Key = tmp32;
+                        hmac.DeriveKey(tmp32Span, EncLabel);
+                        hmac.DeriveKey(tmp64Span, MacLabel);
 
-                        aes.DecryptCbc(
-                            package.Slice(VersionSize + IterCounterSize + SaltSize, MacSize),
-                            ZeroIV,
-                            tmp32Span,
-                            PaddingMode.None);
+                        using (var aes = Aes.Create())
+                        {
+                            aes.Key = tmp32;
 
-                        aes.DecryptCbc(
-                            package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize, outputContentSize),
-                            package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
-                            output,
-                            PaddingMode.None);
+                            aes.DecryptCbc(
+                                package.Slice(VersionSize + IterCounterSize + SaltSize, MacSize),
+                                ZeroIV,
+                                tmp32Span,
+                                PaddingMode.None);
+
+                            aes.DecryptCbc(
+                                package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize, outputContentSize),
+                                package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
+                                output,
+                                PaddingMode.None);
+                        }
+
+                        hmac.Key = tmp64;
+
+                        hmac.ComputeHash(output, tmp64Span);
                     }
 
-                    hmac.Key = tmp64;
+                    if (!CryptographicOperations.FixedTimeEquals(tmp64Span.Slice(0, MacSize), tmp32Span))
+                    {
+                        throw new CryptographicException("The provided password is incorrect.");
+                    }
 
-                    hmac.ComputeHash(output, tmp64Span);
+                    return outputContentSize;
                 }
-
-                if (!CryptographicOperations.FixedTimeEquals(tmp64Span.Slice(0, MacSize), tmp32Span))
+                finally
                 {
-                    throw new CryptographicException("The provided password is incorrect.");
+                    CryptographicOperations.ZeroMemory(tmp64Span);
+                    CryptographicOperations.ZeroMemory(tmp32Span);
                 }
-
-                return outputContentSize;
             }
             catch
             {
