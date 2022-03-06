@@ -10,7 +10,7 @@
 
     <Copyright>This is free and unencumbered software released into the public domain.</Copyright>
 
-    <PackageTags>encryption hashing aes256 aes-256 sha256 sha-256 hmac cbc sp800-108 dataprotector dataprotection aead</PackageTags>
+    <PackageTags>encryption hashing aes256 aes-256 sha256 sha-256 hmac cbc sp800-108 dataprotector dataprotection aead key wrap</PackageTags>
 
     <PackageProjectUrl>https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector</PackageProjectUrl>
 
