@@ -11,6 +11,12 @@ namespace Neliva.Security.Cryptography
     /// Provides support to wrap keys with the PBKDF2-HMAC-SHA512 password protection.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <see cref="KeyProtector"/> uses HMAC-SHA512 AND AES256-CBC to sign-then-encrypt
+    /// the provided key data.
+    /// </para>
+    /// <para>
+    /// The package layout for the protected key data is the following:
     /// <code>
     /// +-----------+--------------+--------+--------+-------------+------------+
     /// |  Version  |  Iterations  |  Salt  |  HMAC  |  Key Data   |  Checksum  |
@@ -19,6 +25,7 @@ namespace Neliva.Security.Cryptography
     /// +-----------+--------------+--------+--------+-------------+------------+
     /// |                                   |      encrypted       |            |    
     /// </code>
+    /// </para>
     /// </remarks>
     public sealed class KeyProtector : IDisposable
     {
