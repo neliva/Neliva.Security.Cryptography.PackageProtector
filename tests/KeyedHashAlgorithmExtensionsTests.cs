@@ -64,10 +64,10 @@ namespace Neliva.Security.Cryptography.Tests
 
         [TestMethod]
         [DataRow(1, 1)]
-        [DataRow(247, 0)]
-        [DataRow(0, 247)]
-        [DataRow(247, 1)]
-        [DataRow(1, 247)]
+        [DataRow(311, 0)]
+        [DataRow(0, 311)]
+        [DataRow(311, 1)]
+        [DataRow(1, 311)]
         public void LabelOrContextVariousLengthPass(int labelLength, int contextLength)
         {
             var masterKey = new byte[32].Fill(11);
