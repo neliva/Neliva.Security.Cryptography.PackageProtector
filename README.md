@@ -2,7 +2,7 @@
 
 This repository describes safe and secure data at rest protection for untrusted remote storage. The specification and the reference implementation are released into the public domain. See the [UNLICENSE](UNLICENSE.md) file.
 
-[![master](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/workflows/master/badge.svg)](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/actions?query=workflow%3Amaster)
+[![main](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/actions/workflows/main.yml/badge.svg)](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/actions/workflows/main.yml)
 [![dotnet 6.0](https://img.shields.io/badge/dotnet-6.0-green)](https://dotnet.microsoft.com/en-us/download/dotnet/6.0)
 [![Nuget (with prereleases)](https://img.shields.io/nuget/vpre/Neliva.Security.Cryptography.PackageProtector)](https://www.nuget.org/packages/Neliva.Security.Cryptography.PackageProtector)
 
