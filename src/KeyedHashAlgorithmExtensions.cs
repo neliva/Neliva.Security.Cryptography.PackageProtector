@@ -2,6 +2,8 @@
 // See the UNLICENSE file in the project root for more information.
 
 using System;
+using System.Buffers;
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 
 namespace Neliva.Security.Cryptography
@@ -41,65 +43,60 @@ namespace Neliva.Security.Cryptography
         /// </exception>
         public static void DeriveKey(this KeyedHashAlgorithm alg, Span<byte> derivedKey, ReadOnlySpan<byte> label, ReadOnlySpan<byte> context = default)
         {
+            const int MaxDerivedKeyLength = int.MaxValue / 4;
+            const int CounterSpaceSize = sizeof(uint);
+            const int SeparatorSpaceSize = 1; // 0x00 separator
+            const int KeySpaceSize = sizeof(uint);
+            const uint MaxLabelAndContextLength = int.MaxValue - CounterSpaceSize - SeparatorSpaceSize - KeySpaceSize;
+            const int MaxStackAllocSize = 320;
+
             if (alg == null)
             {
                 throw new ArgumentNullException(nameof(alg));
             }
-
-            const int MaxDerivedKeyLength = int.MaxValue / 4;
 
             if (derivedKey.Length == 0 || derivedKey.Length > MaxDerivedKeyLength)
             {
                 throw new ArgumentOutOfRangeException(nameof(derivedKey), "The derived key length is zero or too large.");
             }
 
-            const int CounterSpaceSize = sizeof(uint);
-            const int SeparatorSpaceSize = 1; // 0x00 separator
-            const int KeySpaceSize = sizeof(uint);
-
-            const uint MaxLabelAndContextLength = int.MaxValue - CounterSpaceSize - SeparatorSpaceSize - KeySpaceSize;
-
             if (((uint)label.Length + (uint)context.Length) > MaxLabelAndContextLength)
             {
                 throw new ArgumentException($"The combined length of '{nameof(label)}' and '{nameof(context)}' is too large.");
             }
 
-            const int MaxStackAllocSize = 256;          
+            // [counter + label + separator + context + derivedKeyInBits]
+            int inputDataSize = label.Length + context.Length + (CounterSpaceSize + SeparatorSpaceSize + KeySpaceSize);
 
-            // counter + label + separator + context + derivedKeyInBits
-            int inputDataSize = CounterSpaceSize + label.Length + SeparatorSpaceSize + context.Length + KeySpaceSize;
+            int hashSize = alg.HashSize / 8;
+            int bufferSize = hashSize + inputDataSize;
 
-            Span<byte> inputData = (inputDataSize <= MaxStackAllocSize) ?
-                stackalloc byte[inputDataSize] :
-                new byte[inputDataSize];
+            byte[] rented = null;
 
-            label.CopyTo(inputData.Slice(CounterSpaceSize));
-            inputData[CounterSpaceSize + label.Length] = 0x00; // zero byte separator
-            context.CopyTo(inputData.Slice(CounterSpaceSize + label.Length + SeparatorSpaceSize));
+            Span<byte> buffer = (bufferSize <= MaxStackAllocSize) ?
+                stackalloc byte[bufferSize] :
+                (rented = ArrayPool<byte>.Shared.Rent(bufferSize));
 
-            Span<byte> derivedKeyInBits = inputData.Slice(inputData.Length - KeySpaceSize);
-
-            uint lengthBits = (uint)derivedKey.Length * 8; // length of the derived key in bits
-
-            derivedKeyInBits[0] = (byte)(lengthBits >> 24);
-            derivedKeyInBits[1] = (byte)(lengthBits >> 16);
-            derivedKeyInBits[2] = (byte)(lengthBits >> 8);
-            derivedKeyInBits[3] = (byte)lengthBits;
-
-            Span<byte> hash = stackalloc byte[alg.HashSize / 8];
+            Span<byte> hash = buffer.Slice(0, hashSize);
+            Span<byte> inputData = buffer.Slice(hashSize);
 
             try
             {
+                label.CopyTo(inputData.Slice(CounterSpaceSize));
+                inputData[label.Length + CounterSpaceSize] = 0x00; // zero byte separator
+                context.CopyTo(inputData.Slice(label.Length + (CounterSpaceSize + SeparatorSpaceSize)));
+
+                BinaryPrimitives.WriteUInt32BigEndian(
+                    inputData.Slice(inputDataSize - KeySpaceSize),
+                    (uint)derivedKey.Length * 8); // length of the derived key in bits
+
                 for (uint counter = 1; ; counter++)
                 {
-                    inputData[0] = (byte)(counter >> 24);
-                    inputData[1] = (byte)(counter >> 16);
-                    inputData[2] = (byte)(counter >> 8);
-                    inputData[3] = (byte)counter;
+                    BinaryPrimitives.WriteUInt32BigEndian(inputData, counter);
 
                     alg.ComputeHash(inputData, hash);
 
-                    int length = Math.Min(derivedKey.Length, hash.Length);
+                    int length = Math.Min(derivedKey.Length, hashSize);
 
                     var fragment = hash.Slice(0, length);
 
@@ -116,6 +113,11 @@ namespace Neliva.Security.Cryptography
             finally
             {
                 CryptographicOperations.ZeroMemory(hash);
+
+                if (rented != null)
+                {
+                    ArrayPool<byte>.Shared.Return(rented);
+                }
             }
         }
     }
