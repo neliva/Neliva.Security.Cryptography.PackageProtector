@@ -1,4 +1,4 @@
-## PackageProtector (aka DataProtector)
+## PackageProtector
 
 This repository describes safe and secure data at rest protection for untrusted remote storage. The specification and the reference implementation are released into the public domain. See the [UNLICENSE](UNLICENSE.md) file.
 
@@ -39,8 +39,9 @@ Block ciphers have their own issues such as padding oracle attacks. PackageProte
 
 ## Stream format
 
-PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package**. Package size is configurable and must be a multiple of 16 bytes. The minimum package **overhead is 49 bytes**.
+PackageProtector splits an arbitrary data stream into chunks. The chunk **content** is wrapped in a **package**. Package size is configurable and must be a multiple of 16 bytes. PackageProtector allows 0, 16, or 32 byte KDF IVs. Max content size per package depends on the KDF IV size.
 
+For the 16 byte KDF IV, the package layout is the following:
 ```
 |                   package, 64 bytes - (16MiB - 16 bytes)                            |
 +-------------------------------------------------------------------------------------+
@@ -50,9 +51,9 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 +-------------+-----------------------------------------------------------------------+
               |                       encrypted (no padding)                          |
 ```
-The KDF **IV** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. The MAC placed before chunk content, in addition, acts as synthetic IV for CBC mode.
+The KDF **IV** is cryptographically strong random bytes generated for every package. When package is updated, new random bytes must be generated. The MAC placed before chunk content, in addition, acts as synthetic IV for the CBC mode. When the KDF IV size is zero, the content is encrypted deterministically.
 
-All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length *content* and produces a 64 byte *package*.
+All packages, including the last one that may be incomplete, have the same format. *End of stream* is represented by an incomplete or empty package. An incomplete package has more than one padding byte. An empty package has zero length *content*.
 
 *Package size* is used to control the amount of data held in memory during protection and unprotection of a single package. The default recommended size is 64 KiB but can be changed based on the application requirements.
 
@@ -64,8 +65,8 @@ The KDF takes into account the following **derived key context**:
 * Key purpose (encrypt or sign)
 * **Package number** (64 bit int, starts from 0 and sequentially increases)
 * **Package size** (24 bit uint, same value for all stream packages)
-* KDF IV (16 bytes, randomly generated for each package)
-* Stream **associated data** (0 - 16 bytes, user provided)
+* KDF IV (0/16/32 bytes, randomly generated for each package)
+* Stream **associated data** (0 - 32 bytes, user provided)
 
 ```
   32 - 64 bytes                        32 bytes
@@ -79,9 +80,9 @@ The KDF takes into account the following **derived key context**:
   55 bytes                             32 bytes
 ```
 
-The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. PackageProtector restricts the master key size to 32 - 64 bytes to provide adequate security. **The recommended key size is 64 bytes**. 
+The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. PackageProtector restricts the master key size to 32 - 64 bytes to provide adequate security. **The recommended key size is 64 bytes**.
 
-Data streams can have optional *associated data* context (up to 16 bytes) that is used by the KDF. The same value must be provided to unprotect the stream. There is no overhead in using *associated data*.
+Data streams can have optional *associated data* context (up to 32 bytes) that is used by the KDF. The same value must be provided to unprotect the stream. There is no overhead in using *associated data*, but the combined size of the KDF IV and the associated data cannot be larger than 32 bytes.
 
 ## Stream security
 Provided that the stream key and *associated data* combination is unique for every data stream, PackageProtector guarantees to detect:
@@ -91,6 +92,6 @@ Provided that the stream key and *associated data* combination is unique for eve
 * Package substitution from a different stream
 
 ## Stream limits
-Every package is protected independently by the keys derived from the data stream key and the package key context. PackageProtector uses *int64* for package numbers. Given the max 9223372036854775807 *package number* and the default 64 KiB *package size*, the amount of data that can be protected is:
+Every package is protected independently by the keys derived from the data stream key and the package key context. PackageProtector uses *int64* for package numbers. Given the max 9223372036854775807 *package number*, the default 64 KiB *package size*, and 16 byte KDF IV, the amount of data that can be protected is:
 * *64 KiB - 49 bytes* of content per package
 * *~511 ZiB* of content per stream key and *associated data* combination
