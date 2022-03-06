@@ -88,7 +88,7 @@ namespace Neliva.Security.Cryptography
 
                 BinaryPrimitives.WriteUInt32BigEndian(
                     inputData.Slice(inputDataSize - KeySpaceSize),
-                    (uint)derivedKey.Length * 8); // length of the derived key in bits
+                    (uint)derivedKey.Length * 8u); // length of the derived key in bits
 
                 for (uint counter = 1; ; counter++)
                 {
