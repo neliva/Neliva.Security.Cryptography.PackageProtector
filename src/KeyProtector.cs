@@ -2,8 +2,10 @@
 // See the UNLICENSE file in the project root for more information.
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace Neliva.Security.Cryptography
 {
@@ -40,8 +42,11 @@ namespace Neliva.Security.Cryptography
         private const int MaxContentSize = ((ushort.MaxValue - OverheadSize) / BlockSize) * BlockSize;
         private const int MinPackageSize = MinContentSize + OverheadSize;
         private const int MaxPackageSize = MaxContentSize + OverheadSize;
+        private const int MaxAssociatedDataSize = 64;
 
         private const uint Version = ((uint)'P' << 24) | ((uint)'B' << 16) | ((uint)'2' << 8) | (uint)'K';
+
+        private static readonly UTF8Encoding SafeEncoding = new UTF8Encoding(false, true);
 
         private readonly RngFillAction _rngFill;
 
@@ -86,6 +91,10 @@ namespace Neliva.Security.Cryptography
         /// <param name="iterations">
         /// The number of iterations for a key derivation operation.
         /// </param>
+        /// <param name="associatedData">
+        /// The extra data associated with the <paramref name="content"/>, which must match the value
+        /// provided during unprotection.
+        /// </param>
         /// <returns>
         /// The number of bytes written to the <paramref name="package"/> destination.
         /// </returns>
@@ -95,6 +104,8 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="package"/> destination space is insufficient.
         /// - or -
         /// The <paramref name="iterations"/> is not a positive value.
+        /// - or -
+        /// The <paramref name="associatedData"/> length is too large.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
@@ -102,7 +113,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="KeyProtector"/> object has already been disposed.
         /// </exception>
-        public int Protect(ReadOnlySpan<byte> content, Span<byte> package, ReadOnlySpan<char> password, int iterations)
+        public int Protect(ReadOnlySpan<byte> content, Span<byte> package, ReadOnlySpan<char> password, int iterations, ReadOnlySpan<byte> associatedData = default)
         {
             if (content.Length < MinContentSize || content.Length > MaxContentSize || (content.Length % BlockSize) != 0)
             {
@@ -119,6 +130,11 @@ namespace Neliva.Security.Cryptography
             if (iterations <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(iterations));
+            }
+
+            if (associatedData.Length > MaxAssociatedDataSize)
+            {
+                throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
             var output = package.Slice(0, outputPackageSize);
@@ -150,7 +166,9 @@ namespace Neliva.Security.Cryptography
 
                 try
                 {
-                    Rfc2898DeriveBytes.Pbkdf2(password, salt, tmp64Span, iterations, HashAlgorithmName.SHA512);
+                    PrehashPassword(password, output.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
+
+                    Pbkdf2(tmp64Span, iterations, tmp64Span);
 
                     using (var hmac = new HMACSHA512(tmp64))
                     {
@@ -213,6 +231,10 @@ namespace Neliva.Security.Cryptography
         /// <param name="password">
         /// The password used to unprotect the <paramref name="package"/>.
         /// </param>
+        /// <param name="associatedData">
+        /// The extra data associated with the <paramref name="package"/>, which must match the value
+        /// provided during protection.
+        /// </param>
         /// <returns>
         /// The number of bytes written to the <paramref name="content"/> destination.
         /// </returns>
@@ -220,6 +242,8 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="package"/> length is not correct.
         /// - or -
         /// The <paramref name="content"/> destination space is insufficient.
+        /// - or -
+        /// The <paramref name="associatedData"/> length is too large.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="package"/> and <paramref name="content"/> overlap in memory.
@@ -237,7 +261,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="CryptographicException">
         /// The provided <paramref name="password"/> is incorrect.
         /// </exception>
-        public int Unprotect(ReadOnlySpan<byte> package, Span<byte> content, ReadOnlySpan<char> password)
+        public int Unprotect(ReadOnlySpan<byte> package, Span<byte> content, ReadOnlySpan<char> password, ReadOnlySpan<byte> associatedData = default)
         {
             if (package.Length < MinPackageSize || package.Length > MaxPackageSize || (package.Length % BlockSize) != 0)
             {
@@ -249,6 +273,11 @@ namespace Neliva.Security.Cryptography
             if (content.Length < outputContentSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
+            }
+
+            if (associatedData.Length > MaxAssociatedDataSize)
+            {
+                throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
             var output = content.Slice(0, outputContentSize);
@@ -294,7 +323,9 @@ namespace Neliva.Security.Cryptography
             {
                 try
                 {
-                    Rfc2898DeriveBytes.Pbkdf2(password, package.Slice(VersionSize + IterCounterSize, SaltSize), tmp64Span, iterations, HashAlgorithmName.SHA512);
+                    PrehashPassword(password, package.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
+
+                    Pbkdf2(tmp64Span, iterations, tmp64Span);
 
                     using (var hmac = new HMACSHA512(tmp64))
                     {
@@ -351,6 +382,52 @@ namespace Neliva.Security.Cryptography
         public void Dispose()
         {
             this._IsDisposed = true;
+        }
+
+        private static void PrehashPassword(ReadOnlySpan<char> password, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> associatedData, Span<byte> destination)
+        {
+            const int HMACSHA512_BLOCK_SIZE = 128;
+            const int HMACSHA512_HASH_SIZE = 64;
+
+            int pswBytesCapacity = SafeEncoding.GetMaxByteCount(password.Length);
+
+            int bufSize = HMACSHA512_BLOCK_SIZE + HMACSHA512_HASH_SIZE + pswBytesCapacity;
+
+            var bufArray = ArrayPool<byte>.Shared.Rent(bufSize);
+
+            var buf = (Span<byte>)bufArray;
+
+            try
+            {
+                int pswBytesCount = SafeEncoding.GetBytes(password, buf.Slice(HMACSHA512_BLOCK_SIZE + HMACSHA512_HASH_SIZE));
+
+                var key = buf.Slice(0, HMACSHA512_BLOCK_SIZE);
+
+                key.Clear();
+
+                key[0] = 1; // format version
+                key[1] = 0; // reserved
+                key[2] = (byte)salt.Length;
+                key[3] = (byte)associatedData.Length;
+
+                salt.CopyTo(key.Slice(sizeof(uint)));
+                associatedData.CopyTo(key.Slice(sizeof(uint) + salt.Length));
+
+                HMACSHA512.HashData(key, buf.Slice(HMACSHA512_BLOCK_SIZE + HMACSHA512_HASH_SIZE, pswBytesCount), buf.Slice(HMACSHA512_BLOCK_SIZE, HMACSHA512_HASH_SIZE));
+
+                HMACSHA512.HashData(key, buf.Slice(HMACSHA512_BLOCK_SIZE, HMACSHA512_HASH_SIZE + pswBytesCount), destination);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(buf);
+
+                ArrayPool<byte>.Shared.Return(bufArray);
+            }
+        }
+
+        private static void Pbkdf2(ReadOnlySpan<byte> prehashedPassword, int iterations, Span<byte> destination)
+        {
+            Rfc2898DeriveBytes.Pbkdf2(prehashedPassword, salt: default, destination, iterations, HashAlgorithmName.SHA512);
         }
     }
 }
