@@ -168,7 +168,7 @@ namespace Neliva.Security.Cryptography
                 {
                     PrehashPassword(password, output.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
 
-                    PrehashedPbkdf2(tmp64Span, iterations, tmp64Span);
+                    PrehashedPbkdf2(tmp64Span, tmp64Span, iterations);
 
                     using (var hmac = new HMACSHA512(tmp64))
                     {
@@ -325,7 +325,7 @@ namespace Neliva.Security.Cryptography
                 {
                     PrehashPassword(password, package.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
 
-                    PrehashedPbkdf2(tmp64Span, iterations, tmp64Span);
+                    PrehashedPbkdf2(tmp64Span, tmp64Span, iterations);
 
                     using (var hmac = new HMACSHA512(tmp64))
                     {
@@ -426,7 +426,7 @@ namespace Neliva.Security.Cryptography
             }
         }
 
-        private static void PrehashedPbkdf2(ReadOnlySpan<byte> prehashedPassword, int iterations, Span<byte> destination)
+        private static void PrehashedPbkdf2(ReadOnlySpan<byte> prehashedPassword, Span<byte> destination, int iterations)
         {
             // PREHASHED PASSWORD ALREADY INCLUDES SALT AND ASSOCIATED DATA
             ReadOnlySpan<byte> salt = new byte[60]
