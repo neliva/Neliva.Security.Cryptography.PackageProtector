@@ -168,7 +168,7 @@ namespace Neliva.Security.Cryptography
                 {
                     PrehashPassword(password, output.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
 
-                    Pbkdf2(tmp64Span, iterations, tmp64Span);
+                    PrehashedPbkdf2(tmp64Span, iterations, tmp64Span);
 
                     using (var hmac = new HMACSHA512(tmp64))
                     {
@@ -325,7 +325,7 @@ namespace Neliva.Security.Cryptography
                 {
                     PrehashPassword(password, package.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
 
-                    Pbkdf2(tmp64Span, iterations, tmp64Span);
+                    PrehashedPbkdf2(tmp64Span, iterations, tmp64Span);
 
                     using (var hmac = new HMACSHA512(tmp64))
                     {
@@ -386,22 +386,23 @@ namespace Neliva.Security.Cryptography
 
         private static void PrehashPassword(ReadOnlySpan<char> password, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> associatedData, Span<byte> destination)
         {
-            const int HMACSHA512_BLOCK_SIZE = 128;
-            const int HMACSHA512_HASH_SIZE = 64;
+            const int BLOCK_SIZE = 128; // HMACSHA512
+            const int HASH_SIZE = 64; // HMACSHA512
 
             int pswBytesCapacity = SafeEncoding.GetMaxByteCount(password.Length);
+            int bufSize = BLOCK_SIZE + HASH_SIZE + pswBytesCapacity;
 
-            int bufSize = HMACSHA512_BLOCK_SIZE + HMACSHA512_HASH_SIZE + pswBytesCapacity;
+            byte[] bufArray = ArrayPool<byte>.Shared.Rent(bufSize);
 
-            var bufArray = ArrayPool<byte>.Shared.Rent(bufSize);
-
-            var buf = (Span<byte>)bufArray;
+            Span<byte> buf = bufArray;
 
             try
             {
-                int pswBytesCount = SafeEncoding.GetBytes(password, buf.Slice(HMACSHA512_BLOCK_SIZE + HMACSHA512_HASH_SIZE));
+                int pswBytesCount = SafeEncoding.GetBytes(password, buf.Slice(BLOCK_SIZE + HASH_SIZE));
 
-                var key = buf.Slice(0, HMACSHA512_BLOCK_SIZE);
+                buf = buf.Slice(0, BLOCK_SIZE + HASH_SIZE + pswBytesCount);
+
+                var key = buf.Slice(0, BLOCK_SIZE);
 
                 key.Clear();
 
@@ -413,9 +414,9 @@ namespace Neliva.Security.Cryptography
                 salt.CopyTo(key.Slice(sizeof(uint)));
                 associatedData.CopyTo(key.Slice(sizeof(uint) + salt.Length));
 
-                HMACSHA512.HashData(key, buf.Slice(HMACSHA512_BLOCK_SIZE + HMACSHA512_HASH_SIZE, pswBytesCount), buf.Slice(HMACSHA512_BLOCK_SIZE, HMACSHA512_HASH_SIZE));
+                HMACSHA512.HashData(key, buf.Slice(BLOCK_SIZE + HASH_SIZE, pswBytesCount), buf.Slice(BLOCK_SIZE, HASH_SIZE));
 
-                HMACSHA512.HashData(key, buf.Slice(HMACSHA512_BLOCK_SIZE, HMACSHA512_HASH_SIZE + pswBytesCount), destination);
+                HMACSHA512.HashData(key, buf.Slice(BLOCK_SIZE, HASH_SIZE + pswBytesCount), destination);
             }
             finally
             {
@@ -425,9 +426,20 @@ namespace Neliva.Security.Cryptography
             }
         }
 
-        private static void Pbkdf2(ReadOnlySpan<byte> prehashedPassword, int iterations, Span<byte> destination)
+        private static void PrehashedPbkdf2(ReadOnlySpan<byte> prehashedPassword, int iterations, Span<byte> destination)
         {
-            Rfc2898DeriveBytes.Pbkdf2(prehashedPassword, salt: default, destination, iterations, HashAlgorithmName.SHA512);
+            // PREHASHED PASSWORD ALREADY INCLUDES SALT AND ASSOCIATED DATA
+            ReadOnlySpan<byte> salt = new byte[60]
+            {
+                (byte)'P', (byte)'R', (byte)'E', (byte)'H', (byte)'A', (byte)'S', (byte)'H', (byte)'E', (byte)'D', (byte)' ',
+                (byte)'P', (byte)'A', (byte)'S', (byte)'S', (byte)'W', (byte)'O', (byte)'R', (byte)'D', (byte)' ', (byte)'A',
+                (byte)'L', (byte)'R', (byte)'E', (byte)'A', (byte)'D', (byte)'Y', (byte)' ', (byte)'I', (byte)'N', (byte)'C',
+                (byte)'L', (byte)'U', (byte)'D', (byte)'E', (byte)'S', (byte)' ', (byte)'S', (byte)'A', (byte)'L', (byte)'T',
+                (byte)' ', (byte)'A', (byte)'N', (byte)'D', (byte)' ', (byte)'A', (byte)'S', (byte)'S', (byte)'O', (byte)'C',
+                (byte)'I', (byte)'A', (byte)'T', (byte)'E', (byte)'D', (byte)' ', (byte)'D', (byte)'A', (byte)'T', (byte)'A'
+            };
+
+            Rfc2898DeriveBytes.Pbkdf2(prehashedPassword, salt, destination, iterations, HashAlgorithmName.SHA512);
         }
     }
 }

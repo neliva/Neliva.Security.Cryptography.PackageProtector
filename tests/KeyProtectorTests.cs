@@ -49,14 +49,16 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [TestMethod]
-        [DataRow(32, (byte)3)] // min content length
-        [DataRow(48, (byte)1)]
-        [DataRow(64, (byte)5)]
-        [DataRow(192, (byte)8)]
-        [DataRow(MaxContentSize, (byte)2)]
-        public void ProtectProducesCorrectFormatPass(int contentLength, byte iterations)
+        [DataRow(32, (byte)3, 0)] // min content length
+        [DataRow(48, (byte)1, 1)]
+        [DataRow(64, (byte)5, 32)]
+        [DataRow(192, (byte)8, 63)]
+        [DataRow(MaxContentSize, (byte)2, 64)]
+        public void ProtectProducesCorrectFormatPass(int contentLength, byte iterations, int associatedDataLength)
         {
             var password = "user-password";
+
+            var associatedData = (ReadOnlySpan<byte>)new byte[associatedDataLength].Fill((byte)(10 + iterations));
 
             ReadOnlySpan<byte> iterSpanExpected = stackalloc byte[4] { 0, 0, 0, iterations };
 
@@ -76,7 +78,7 @@ namespace Neliva.Security.Cryptography.Tests
             byte[] package = new byte[content.Length + protector.Overhead];
             Span<byte> packageSpan = package;
 
-            int protectedLength = protector.Protect(content, packageSpan, password, iterations);
+            int protectedLength = protector.Protect(content, packageSpan, password, iterations, associatedData);
 
             Assert.AreEqual(packageSpan.Length, protectedLength);
 
@@ -89,7 +91,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.IsTrue(iterSpan.SequenceEqual(iterSpanExpected));
 
-            var salt = packageSpan.Slice(8, 40);
+            var salt = (ReadOnlySpan<byte>)packageSpan.Slice(8, 40);
 
             Assert.IsTrue(salt.IsAllSameValue(fillByte));
 
@@ -101,11 +103,32 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.IsTrue(packageSpan.Slice(checksumOffset).SequenceEqual(checksumHash.Slice(0, ChecksumSize)), "Checksum doesn't match.");
 
+            var key = (Span<byte>)new byte[128];
+            var keySalt = packageSpan.Slice(0, 48);
+
+            key[0] = 1; // format version
+            key[1] = 0; // reserved
+            key[2] = (byte)keySalt.Length; // salt size
+            key[3] = (byte)associatedDataLength; // associated data size
+
+            keySalt.CopyTo(key.Slice(4));
+            associatedData.CopyTo(key.Slice(4 + keySalt.Length));
+
             var encoder = new UTF8Encoding(false, true);
 
-            byte[] passBytes = encoder.GetBytes(password);
+            var passBytes = (ReadOnlySpan<byte>)encoder.GetBytes(password);
+            var hashAndPassBytesBuf = new byte[64 + passBytes.Length];
+            Span<byte> hashAndPassBytes = hashAndPassBytesBuf;
+            passBytes.CopyTo(hashAndPassBytes.Slice(64));
 
-            byte[] derivedKey = Rfc2898DeriveBytes.Pbkdf2(passBytes, salt, iter, HashAlgorithmName.SHA512, 64);
+            var prehashedPass = new byte[64];
+
+            HMACSHA512.HashData(key, passBytes, hashAndPassBytes);
+            HMACSHA512.HashData(key, hashAndPassBytes, prehashedPass);
+
+            var pbkdf2Salt = encoder.GetBytes("PREHASHED PASSWORD ALREADY INCLUDES SALT AND ASSOCIATED DATA");
+
+            byte[] derivedKey = Rfc2898DeriveBytes.Pbkdf2((Span<byte>)prehashedPass, pbkdf2Salt, iter, HashAlgorithmName.SHA512, 64);
 
             byte[] encLabel = encoder.GetBytes("AES256-CBC");
             byte[] macLabel = encoder.GetBytes("HMAC-SHA512-256"); // HMAC-SHA512 hash truncated to first 256 bits
@@ -277,6 +300,44 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, iterations));
 
             Assert.AreEqual("iterations", ex.ParamName);
+        }
+
+        [TestMethod]
+        [DataRow(65)]
+        public unsafe void ProtectBadAssociatedDataTooLargeFails(int associatedDataLength)
+        {
+            var password = "user-password";
+
+            var ad = new byte[associatedDataLength];
+
+            using var protector = new KeyProtector();
+
+            var content = new byte[32];
+
+            var package = new byte[content.Length + protector.Overhead];
+
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, 1, ad));
+
+            Assert.AreEqual("associatedData", ex.ParamName);
+        }
+
+        [TestMethod]
+        [DataRow(65)]
+        public unsafe void UnprotectBadAssociatedDataTooLargeFails(int associatedDataLength)
+        {
+            var password = "user-password";
+
+            var ad = new byte[associatedDataLength];
+
+            using var protector = new KeyProtector();
+
+            var content = new byte[32];
+
+            var package = new byte[content.Length + protector.Overhead];
+
+            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Unprotect(package, content, password, ad));
+
+            Assert.AreEqual("associatedData", ex.ParamName);
         }
 
         [TestMethod]
