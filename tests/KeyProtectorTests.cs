@@ -111,7 +111,7 @@ namespace Neliva.Security.Cryptography.Tests
             var keySalt = packageSpan.Slice(0, 48);
 
             key[0] = 1; // format version
-            key[1] = 0; // reserved
+            key[1] = 64; // output hash size
             key[2] = (byte)keySalt.Length; // salt size
             key[3] = (byte)associatedDataLength; // associated data size
 

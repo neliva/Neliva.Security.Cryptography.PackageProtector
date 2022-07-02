@@ -389,8 +389,8 @@ namespace Neliva.Security.Cryptography
 
         private static void PrehashPassword(ReadOnlySpan<char> password, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> associatedData, Span<byte> destination)
         {
-            const int BLOCK_SIZE = 128; // HMACSHA512
-            const int HASH_SIZE = 64; // HMACSHA512
+            const byte BLOCK_SIZE = 128; // HMACSHA512, recommended key size
+            const byte HASH_SIZE = 64; // HMACSHA512
 
             int pswBytesCapacity = SafeEncoding.GetMaxByteCount(password.Length);
             int bufSize = BLOCK_SIZE + HASH_SIZE + pswBytesCapacity;
@@ -403,7 +403,7 @@ namespace Neliva.Security.Cryptography
             {
                 int pswBytesCount = SafeEncoding.GetBytes(password, buf.Slice(BLOCK_SIZE + HASH_SIZE));
 
-                // Combined size of Key, intermediate MAC, and Password bytes.
+                // Combined size of Key, intermediate MAC, and actual Password bytes.
                 buf = buf.Slice(0, BLOCK_SIZE + HASH_SIZE + pswBytesCount);
 
                 var key = buf.Slice(0, BLOCK_SIZE);
@@ -411,16 +411,18 @@ namespace Neliva.Security.Cryptography
                 key.Clear();
 
                 key[0] = 1; // format version
-                key[1] = 0; // reserved
+                key[1] = HASH_SIZE; // requested hash output size
                 key[2] = (byte)salt.Length;
                 key[3] = (byte)associatedData.Length;
 
                 salt.CopyTo(key.Slice(sizeof(uint)));
                 associatedData.CopyTo(key.Slice(sizeof(uint) + salt.Length));
 
-                HMACSHA512.HashData(key, buf.Slice(BLOCK_SIZE + HASH_SIZE, pswBytesCount), buf.Slice(BLOCK_SIZE));
+                var pswBytes = buf.Slice(BLOCK_SIZE + HASH_SIZE);
+                var hashAndPswBytes = buf.Slice(BLOCK_SIZE);
 
-                HMACSHA512.HashData(key, buf.Slice(BLOCK_SIZE, HASH_SIZE + pswBytesCount), destination);
+                HMACSHA512.HashData(key, pswBytes, hashAndPswBytes); // Prepend intermediate MAC to password bytes
+                HMACSHA512.HashData(key, hashAndPswBytes, destination);
             }
             finally
             {
