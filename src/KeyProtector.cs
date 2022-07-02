@@ -65,8 +65,6 @@ namespace Neliva.Security.Cryptography
             this._rngFill = rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
         }
 
-        private static ReadOnlySpan<byte> ZeroIV => new byte[BlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-
         /// <summary>
         /// Gets the number of bytes added to content during protection.
         /// </summary>
@@ -179,17 +177,16 @@ namespace Neliva.Security.Cryptography
                     {
                         aes.Key = tmp32;
 
-                        aes.EncryptCbc(
+                        CbcNoPadding(
+                            aes,
                             tmp64Span.Slice(0, MacSize),
-                            ZeroIV,
-                            output.Slice(VersionSize + IterCounterSize + SaltSize),
-                            PaddingMode.None);
+                            output.Slice(VersionSize + IterCounterSize + SaltSize));
 
-                        aes.EncryptCbc(
+                        CbcNoPadding(
+                            aes,
                             content,
-                            output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
                             output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize),
-                            PaddingMode.None);
+                            output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize));
                     }
                 }
                 finally
@@ -330,17 +327,18 @@ namespace Neliva.Security.Cryptography
                         {
                             aes.Key = tmp32;
 
-                            aes.DecryptCbc(
+                            CbcNoPadding(
+                                aes,
                                 package.Slice(VersionSize + IterCounterSize + SaltSize, MacSize),
-                                ZeroIV,
                                 tmp32Span,
-                                PaddingMode.None);
+                                encrypt: false);
 
-                            aes.DecryptCbc(
+                            CbcNoPadding(
+                                aes,
                                 package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize, outputContentSize),
-                                package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
                                 output,
-                                PaddingMode.None);
+                                package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
+                                encrypt: false);
                         }
 
                         hmac.Key = tmp64;
@@ -376,6 +374,25 @@ namespace Neliva.Security.Cryptography
         public void Dispose()
         {
             this._IsDisposed = true;
+        }
+
+        private static void CbcNoPadding(Aes aes, ReadOnlySpan<byte> source, Span<byte> destination, ReadOnlySpan<byte> iv = default, bool encrypt = true)
+        {
+            ReadOnlySpan<byte> zeroIV = new byte[BlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+            if (iv.Length == 0)
+            {
+                iv = zeroIV;
+            }
+
+            if (encrypt)
+            {
+                aes.EncryptCbc(source, iv, destination, PaddingMode.None);
+            }
+            else
+            {
+                aes.DecryptCbc(source, iv, destination, PaddingMode.None);
+            }
         }
 
         private static void DeriveKeys(KeyedHashAlgorithm alg, Span<byte> encryptionKey, Span<byte> signingKey)
