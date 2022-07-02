@@ -348,7 +348,7 @@ namespace Neliva.Security.Cryptography
 
                     if (!CryptographicOperations.FixedTimeEquals(tmp64Span.Slice(0, MacSize), tmp32Span))
                     {
-                        throw new CryptographicException("The provided password is incorrect.");
+                        throw new BadPasswordException();
                     }
 
                     return outputContentSize;
