@@ -21,13 +21,17 @@ namespace Neliva.Security.Cryptography.Tests
         private static ReadOnlySpan<byte> Version => new byte[] { (byte)'P', (byte)'B', (byte)'2', (byte)'K' };
 
         [TestMethod]
-        [DataRow(32)]
-        [DataRow(64)]
-        [DataRow(MaxContentSize)]
-        public void RoundTripPass(int contentLength)
+        [DataRow(0, 32, 0)]
+        [DataRow(1, 48, 1)]
+        [DataRow(64, 64, 32)]
+        [DataRow(128, 64, 63)]
+        [DataRow(1024, MaxContentSize, 64)]
+        public void RoundTripPass(int passwordLength, int contentLength, int associatedDataLength)
         {
-            var password = "user-password#3";
+            var password = new string('p', passwordLength);
             var iterations = 1;
+
+            var associatedData = new byte[associatedDataLength];
 
             using var protector = new KeyProtector();
 
@@ -35,13 +39,13 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[content.Length + protector.Overhead];
 
-            int protectedLength = protector.Protect(content, package, password, iterations);
+            int protectedLength = protector.Protect(content, package, password, iterations, associatedData);
 
             Assert.AreEqual(package.Length, protectedLength);
 
             var unprotectedContent = new byte[content.Length];
 
-            int unprotectedLength = protector.Unprotect(package, unprotectedContent, password);
+            int unprotectedLength = protector.Unprotect(package, unprotectedContent, password, associatedData);
 
             Assert.AreEqual(unprotectedContent.Length, unprotectedLength);
 
@@ -181,21 +185,51 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [TestMethod]
-        public void IncorrectPasswordFails()
+        [DataRow("user-password", 1, 0, "bad-user-password", 1, 0, (byte)0, false)]
+        [DataRow("", 1, 0, "b", 1, 0, (byte)0, false)]
+        [DataRow("user-password", 1, 0, "user-password", 2, 0, (byte)0, false)]
+        [DataRow("user-password", 1, 0, "user-password", 1, 1, (byte)0, false)]
+        [DataRow("user-password", 1, 2, "user-password", 1, 2, (byte)1, false)]
+        [DataRow("user-password", 1, 64, "user-password", 1, 64, (byte)3, false)]
+        [DataRow("user-password", 1, 0, "user-password", 1, 0, (byte)0, true)]
+        public void IncorrectParamsUnprotectFails(string protectPass, int protectIters, int protectAdLen, string unprotectPass, int unprotectIters, int unprotectAdLen, byte unprotectAdVal, bool unprotectBadSalt)
         {
-            var iterations = 1;
+            using var protector = new KeyProtector(rng => rng.Fill(33));
 
-            using var protector = new KeyProtector();
+            var protectAd = new byte[protectAdLen];
+            var unprotectAd = new byte[unprotectAdLen].Fill(unprotectAdVal);
 
             var content = new byte[32].Fill(223);
 
             var package = new byte[content.Length + protector.Overhead];
 
-            protector.Protect(content, package, "user-password", iterations);
+            var pkgSpan = package.AsSpan();
+
+            protector.Protect(content, package, protectPass, protectIters, protectAd);
+
+            if (protectIters != unprotectIters)
+            {
+                BinaryPrimitives.WriteUInt32BigEndian(pkgSpan.Slice(4), (uint)unprotectIters);
+            }
+
+            if (unprotectBadSalt)
+            {
+                pkgSpan[4 + 4] ^= 1; // make bad salt
+            }
+
+            // Fix the checksum for the bad backage input
+            if (protectIters != unprotectIters || unprotectBadSalt)
+            {
+                Span<byte> hash = new byte[64];
+
+                SHA512.HashData(pkgSpan.Slice(0, pkgSpan.Length - 16), hash);
+
+                hash.Slice(0, 16).CopyTo(pkgSpan.Slice(pkgSpan.Length - 16));
+            }
 
             var unprotectedContent = new byte[content.Length].Fill(88);
 
-            var ex = Assert.ThrowsException<CryptographicException>(() => protector.Unprotect(package, unprotectedContent, "bad-user-password"));
+            var ex = Assert.ThrowsException<CryptographicException>(() => protector.Unprotect(package, unprotectedContent, unprotectPass, unprotectAd));
             Assert.AreEqual("The provided password is incorrect.", ex.Message);
 
             Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Protect() failure.");
