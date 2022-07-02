@@ -122,14 +122,14 @@ namespace Neliva.Security.Cryptography
         /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
         /// method.
         /// </summary>
-        public int MaxContentSize { get => this._MaxContentSize; }
+        public int MaxContentSize => this._MaxContentSize;
 
         /// <summary>
         /// Gets the max package length in bytes that can be produced by the
         /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
         /// method.
         /// </summary>
-        public int MaxPackageSize { get => this._MaxPackageSize; }
+        public int MaxPackageSize => this._MaxPackageSize;
 
         /// <summary>
         /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.

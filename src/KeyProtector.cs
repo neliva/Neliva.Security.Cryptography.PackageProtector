@@ -2,8 +2,10 @@
 // See the UNLICENSE file in the project root for more information.
 
 using System;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace Neliva.Security.Cryptography
 {
@@ -40,8 +42,11 @@ namespace Neliva.Security.Cryptography
         private const int MaxContentSize = ((ushort.MaxValue - OverheadSize) / BlockSize) * BlockSize;
         private const int MinPackageSize = MinContentSize + OverheadSize;
         private const int MaxPackageSize = MaxContentSize + OverheadSize;
+        private const int MaxAssociatedDataSize = 64;
 
         private const uint Version = ((uint)'P' << 24) | ((uint)'B' << 16) | ((uint)'2' << 8) | (uint)'K';
+
+        private static readonly UTF8Encoding SafeEncoding = new UTF8Encoding(false, true);
 
         private readonly RngFillAction _rngFill;
 
@@ -59,12 +64,6 @@ namespace Neliva.Security.Cryptography
         {
             this._rngFill = rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
         }
-
-        private static ReadOnlySpan<byte> EncLabel => new byte[] { (byte)'A', (byte)'E', (byte)'S', (byte)'2', (byte)'5', (byte)'6', (byte)'-', (byte)'C', (byte)'B', (byte)'C' };
-
-        private static ReadOnlySpan<byte> MacLabel => new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2', (byte)'-', (byte)'2', (byte)'5', (byte)'6' };
-
-        private static ReadOnlySpan<byte> ZeroIV => new byte[BlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         /// <summary>
         /// Gets the number of bytes added to content during protection.
@@ -86,6 +85,10 @@ namespace Neliva.Security.Cryptography
         /// <param name="iterations">
         /// The number of iterations for a key derivation operation.
         /// </param>
+        /// <param name="associatedData">
+        /// The extra data associated with the <paramref name="content"/>, which must match the value
+        /// provided during unprotection.
+        /// </param>
         /// <returns>
         /// The number of bytes written to the <paramref name="package"/> destination.
         /// </returns>
@@ -95,6 +98,8 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="package"/> destination space is insufficient.
         /// - or -
         /// The <paramref name="iterations"/> is not a positive value.
+        /// - or -
+        /// The <paramref name="associatedData"/> length is too large.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
@@ -102,7 +107,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="KeyProtector"/> object has already been disposed.
         /// </exception>
-        public int Protect(ReadOnlySpan<byte> content, Span<byte> package, ReadOnlySpan<char> password, int iterations)
+        public int Protect(ReadOnlySpan<byte> content, Span<byte> package, ReadOnlySpan<char> password, int iterations, ReadOnlySpan<byte> associatedData = default)
         {
             if (content.Length < MinContentSize || content.Length > MaxContentSize || (content.Length % BlockSize) != 0)
             {
@@ -119,6 +124,11 @@ namespace Neliva.Security.Cryptography
             if (iterations <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(iterations));
+            }
+
+            if (associatedData.Length > MaxAssociatedDataSize)
+            {
+                throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
             var output = package.Slice(0, outputPackageSize);
@@ -150,12 +160,13 @@ namespace Neliva.Security.Cryptography
 
                 try
                 {
-                    Rfc2898DeriveBytes.Pbkdf2(password, salt, tmp64Span, iterations, HashAlgorithmName.SHA512);
+                    PrehashPassword(password, output.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
+
+                    PrehashedPbkdf2(tmp64Span, tmp64Span, iterations);
 
                     using (var hmac = new HMACSHA512(tmp64))
                     {
-                        hmac.DeriveKey(tmp32Span, EncLabel);
-                        hmac.DeriveKey(tmp64Span, MacLabel);
+                        DeriveKeys(hmac, encryptionKey: tmp32Span, signingKey: tmp64Span);
 
                         hmac.Key = tmp64;
 
@@ -166,17 +177,16 @@ namespace Neliva.Security.Cryptography
                     {
                         aes.Key = tmp32;
 
-                        aes.EncryptCbc(
+                        CbcNoPadding(
+                            aes,
                             tmp64Span.Slice(0, MacSize),
-                            ZeroIV,
-                            output.Slice(VersionSize + IterCounterSize + SaltSize),
-                            PaddingMode.None);
+                            output.Slice(VersionSize + IterCounterSize + SaltSize));
 
-                        aes.EncryptCbc(
+                        CbcNoPadding(
+                            aes,
                             content,
-                            output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
                             output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize),
-                            PaddingMode.None);
+                            output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize));
                     }
                 }
                 finally
@@ -213,6 +223,10 @@ namespace Neliva.Security.Cryptography
         /// <param name="password">
         /// The password used to unprotect the <paramref name="package"/>.
         /// </param>
+        /// <param name="associatedData">
+        /// The extra data associated with the <paramref name="package"/>, which must match the value
+        /// provided during protection.
+        /// </param>
         /// <returns>
         /// The number of bytes written to the <paramref name="content"/> destination.
         /// </returns>
@@ -220,6 +234,8 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="package"/> length is not correct.
         /// - or -
         /// The <paramref name="content"/> destination space is insufficient.
+        /// - or -
+        /// The <paramref name="associatedData"/> length is too large.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="package"/> and <paramref name="content"/> overlap in memory.
@@ -237,7 +253,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="CryptographicException">
         /// The provided <paramref name="password"/> is incorrect.
         /// </exception>
-        public int Unprotect(ReadOnlySpan<byte> package, Span<byte> content, ReadOnlySpan<char> password)
+        public int Unprotect(ReadOnlySpan<byte> package, Span<byte> content, ReadOnlySpan<char> password, ReadOnlySpan<byte> associatedData = default)
         {
             if (package.Length < MinPackageSize || package.Length > MaxPackageSize || (package.Length % BlockSize) != 0)
             {
@@ -249,6 +265,11 @@ namespace Neliva.Security.Cryptography
             if (content.Length < outputContentSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
+            }
+
+            if (associatedData.Length > MaxAssociatedDataSize)
+            {
+                throw new ArgumentOutOfRangeException(nameof(associatedData));
             }
 
             var output = content.Slice(0, outputContentSize);
@@ -294,28 +315,30 @@ namespace Neliva.Security.Cryptography
             {
                 try
                 {
-                    Rfc2898DeriveBytes.Pbkdf2(password, package.Slice(VersionSize + IterCounterSize, SaltSize), tmp64Span, iterations, HashAlgorithmName.SHA512);
+                    PrehashPassword(password, package.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
+
+                    PrehashedPbkdf2(tmp64Span, tmp64Span, iterations);
 
                     using (var hmac = new HMACSHA512(tmp64))
                     {
-                        hmac.DeriveKey(tmp32Span, EncLabel);
-                        hmac.DeriveKey(tmp64Span, MacLabel);
+                        DeriveKeys(hmac, encryptionKey: tmp32Span, signingKey: tmp64Span);
 
                         using (var aes = Aes.Create())
                         {
                             aes.Key = tmp32;
 
-                            aes.DecryptCbc(
+                            CbcNoPadding(
+                                aes,
                                 package.Slice(VersionSize + IterCounterSize + SaltSize, MacSize),
-                                ZeroIV,
                                 tmp32Span,
-                                PaddingMode.None);
+                                encrypt: false);
 
-                            aes.DecryptCbc(
+                            CbcNoPadding(
+                                aes,
                                 package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize, outputContentSize),
-                                package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
                                 output,
-                                PaddingMode.None);
+                                package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
+                                encrypt: false);
                         }
 
                         hmac.Key = tmp64;
@@ -351,6 +374,95 @@ namespace Neliva.Security.Cryptography
         public void Dispose()
         {
             this._IsDisposed = true;
+        }
+
+        private static void CbcNoPadding(Aes aes, ReadOnlySpan<byte> source, Span<byte> destination, ReadOnlySpan<byte> iv = default, bool encrypt = true)
+        {
+            ReadOnlySpan<byte> zeroIV = new byte[BlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+            if (iv.Length == 0)
+            {
+                iv = zeroIV;
+            }
+
+            if (encrypt)
+            {
+                aes.EncryptCbc(source, iv, destination, PaddingMode.None);
+            }
+            else
+            {
+                aes.DecryptCbc(source, iv, destination, PaddingMode.None);
+            }
+        }
+
+        private static void DeriveKeys(KeyedHashAlgorithm alg, Span<byte> encryptionKey, Span<byte> signingKey)
+        {
+            ReadOnlySpan<byte> encLabel = new byte[] { (byte)'A', (byte)'E', (byte)'S', (byte)'2', (byte)'5', (byte)'6', (byte)'-', (byte)'C', (byte)'B', (byte)'C' };
+            ReadOnlySpan<byte> macLabel = new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2', (byte)'-', (byte)'2', (byte)'5', (byte)'6' };
+
+            alg.DeriveKey(encryptionKey, encLabel);
+            alg.DeriveKey(signingKey, macLabel);
+        }
+
+        private static void PrehashPassword(ReadOnlySpan<char> password, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> associatedData, Span<byte> destination)
+        {
+            const byte BLOCK_SIZE = 128; // HMACSHA512, recommended key size
+            const byte HASH_SIZE = 64; // HMACSHA512
+
+            int pswBytesCapacity = SafeEncoding.GetMaxByteCount(password.Length);
+            int bufSize = BLOCK_SIZE + HASH_SIZE + pswBytesCapacity;
+
+            byte[] bufArray = ArrayPool<byte>.Shared.Rent(bufSize);
+
+            Span<byte> buf = bufArray;
+
+            try
+            {
+                int pswBytesCount = SafeEncoding.GetBytes(password, buf.Slice(BLOCK_SIZE + HASH_SIZE));
+
+                // Combined size of Key, intermediate MAC, and actual Password bytes.
+                buf = buf.Slice(0, BLOCK_SIZE + HASH_SIZE + pswBytesCount);
+
+                var key = buf.Slice(0, BLOCK_SIZE);
+
+                key.Clear();
+
+                key[0] = 1; // format version
+                key[1] = HASH_SIZE; // requested hash output size
+                key[2] = (byte)salt.Length;
+                key[3] = (byte)associatedData.Length;
+
+                salt.CopyTo(key.Slice(sizeof(uint)));
+                associatedData.CopyTo(key.Slice(sizeof(uint) + salt.Length));
+
+                var pswBytes = buf.Slice(BLOCK_SIZE + HASH_SIZE);
+                var hashAndPswBytes = buf.Slice(BLOCK_SIZE);
+
+                HMACSHA512.HashData(key, pswBytes, hashAndPswBytes); // Prepend intermediate MAC to password bytes
+                HMACSHA512.HashData(key, hashAndPswBytes, destination);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(buf);
+
+                ArrayPool<byte>.Shared.Return(bufArray);
+            }
+        }
+
+        private static void PrehashedPbkdf2(ReadOnlySpan<byte> prehashedPassword, Span<byte> destination, int iterations)
+        {
+            // PREHASHED PASSWORD ALREADY INCLUDES SALT AND ASSOCIATED DATA
+            ReadOnlySpan<byte> salt = new byte[60]
+            {
+                (byte)'P', (byte)'R', (byte)'E', (byte)'H', (byte)'A', (byte)'S', (byte)'H', (byte)'E', (byte)'D', (byte)' ',
+                (byte)'P', (byte)'A', (byte)'S', (byte)'S', (byte)'W', (byte)'O', (byte)'R', (byte)'D', (byte)' ', (byte)'A',
+                (byte)'L', (byte)'R', (byte)'E', (byte)'A', (byte)'D', (byte)'Y', (byte)' ', (byte)'I', (byte)'N', (byte)'C',
+                (byte)'L', (byte)'U', (byte)'D', (byte)'E', (byte)'S', (byte)' ', (byte)'S', (byte)'A', (byte)'L', (byte)'T',
+                (byte)' ', (byte)'A', (byte)'N', (byte)'D', (byte)' ', (byte)'A', (byte)'S', (byte)'S', (byte)'O', (byte)'C',
+                (byte)'I', (byte)'A', (byte)'T', (byte)'E', (byte)'D', (byte)' ', (byte)'D', (byte)'A', (byte)'T', (byte)'A'
+            };
+
+            Rfc2898DeriveBytes.Pbkdf2(prehashedPassword, salt, destination, iterations, HashAlgorithmName.SHA512);
         }
     }
 }
