@@ -65,10 +65,6 @@ namespace Neliva.Security.Cryptography
             this._rngFill = rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
         }
 
-        private static ReadOnlySpan<byte> EncLabel => new byte[] { (byte)'A', (byte)'E', (byte)'S', (byte)'2', (byte)'5', (byte)'6', (byte)'-', (byte)'C', (byte)'B', (byte)'C' };
-
-        private static ReadOnlySpan<byte> MacLabel => new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2', (byte)'-', (byte)'2', (byte)'5', (byte)'6' };
-
         private static ReadOnlySpan<byte> ZeroIV => new byte[BlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         /// <summary>
@@ -172,8 +168,7 @@ namespace Neliva.Security.Cryptography
 
                     using (var hmac = new HMACSHA512(tmp64))
                     {
-                        hmac.DeriveKey(tmp32Span, EncLabel);
-                        hmac.DeriveKey(tmp64Span, MacLabel);
+                        DeriveKeys(hmac, encryptionKey: tmp32Span, signingKey: tmp64Span);
 
                         hmac.Key = tmp64;
 
@@ -329,8 +324,7 @@ namespace Neliva.Security.Cryptography
 
                     using (var hmac = new HMACSHA512(tmp64))
                     {
-                        hmac.DeriveKey(tmp32Span, EncLabel);
-                        hmac.DeriveKey(tmp64Span, MacLabel);
+                        DeriveKeys(hmac, encryptionKey: tmp32Span, signingKey: tmp64Span);
 
                         using (var aes = Aes.Create())
                         {
@@ -384,6 +378,15 @@ namespace Neliva.Security.Cryptography
             this._IsDisposed = true;
         }
 
+        private static void DeriveKeys(KeyedHashAlgorithm alg, Span<byte> encryptionKey, Span<byte> signingKey)
+        {
+            ReadOnlySpan<byte> encLabel = new byte[] { (byte)'A', (byte)'E', (byte)'S', (byte)'2', (byte)'5', (byte)'6', (byte)'-', (byte)'C', (byte)'B', (byte)'C' };
+            ReadOnlySpan<byte> macLabel = new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2', (byte)'-', (byte)'2', (byte)'5', (byte)'6' };
+
+            alg.DeriveKey(encryptionKey, encLabel);
+            alg.DeriveKey(signingKey, macLabel);
+        }
+
         private static void PrehashPassword(ReadOnlySpan<char> password, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> associatedData, Span<byte> destination)
         {
             const int BLOCK_SIZE = 128; // HMACSHA512
@@ -400,6 +403,7 @@ namespace Neliva.Security.Cryptography
             {
                 int pswBytesCount = SafeEncoding.GetBytes(password, buf.Slice(BLOCK_SIZE + HASH_SIZE));
 
+                // Combined size of Key, intermediate MAC, and Password bytes.
                 buf = buf.Slice(0, BLOCK_SIZE + HASH_SIZE + pswBytesCount);
 
                 var key = buf.Slice(0, BLOCK_SIZE);
@@ -414,7 +418,7 @@ namespace Neliva.Security.Cryptography
                 salt.CopyTo(key.Slice(sizeof(uint)));
                 associatedData.CopyTo(key.Slice(sizeof(uint) + salt.Length));
 
-                HMACSHA512.HashData(key, buf.Slice(BLOCK_SIZE + HASH_SIZE, pswBytesCount), buf.Slice(BLOCK_SIZE, HASH_SIZE));
+                HMACSHA512.HashData(key, buf.Slice(BLOCK_SIZE + HASH_SIZE, pswBytesCount), buf.Slice(BLOCK_SIZE));
 
                 HMACSHA512.HashData(key, buf.Slice(BLOCK_SIZE, HASH_SIZE + pswBytesCount), destination);
             }
