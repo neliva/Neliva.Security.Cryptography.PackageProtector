@@ -250,7 +250,7 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="package"/> checksum is invalid.
         /// </exception>
-        /// <exception cref="CryptographicException">
+        /// <exception cref="BadPasswordException">
         /// The provided <paramref name="password"/> is incorrect.
         /// </exception>
         public int Unprotect(ReadOnlySpan<byte> package, Span<byte> content, ReadOnlySpan<char> password, ReadOnlySpan<byte> associatedData = default)
