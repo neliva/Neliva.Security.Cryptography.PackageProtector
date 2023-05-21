@@ -404,9 +404,7 @@ namespace Neliva.Security.Cryptography
             int pswBytesCapacity = SafeEncoding.GetMaxByteCount(password.Length);
             int bufSize = BLOCK_SIZE + HASH_SIZE + pswBytesCapacity;
 
-            var sharedPool = ArrayPool<byte>.Shared;
-
-            byte[] bufArray = sharedPool.Rent(bufSize);
+            byte[] bufArray = ArrayPool<byte>.Shared.Rent(bufSize);
 
             Span<byte> buf = bufArray;
 
@@ -439,7 +437,7 @@ namespace Neliva.Security.Cryptography
             {
                 CryptographicOperations.ZeroMemory(buf);
 
-                sharedPool.Return(bufArray);
+                ArrayPool<byte>.Shared.Return(bufArray);
             }
         }
 
