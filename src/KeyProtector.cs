@@ -14,7 +14,7 @@ namespace Neliva.Security.Cryptography
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <see cref="KeyProtector"/> uses HMAC-SHA512 AND AES256-CBC to sign-then-encrypt
+    /// <see cref="KeyProtector"/> uses HMAC-SHA512 and AES256-CBC to sign-then-encrypt
     /// the provided key data.
     /// </para>
     /// <para>
@@ -380,19 +380,11 @@ namespace Neliva.Security.Cryptography
         {
             ReadOnlySpan<byte> zeroIV = new byte[BlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-            if (iv.Length == 0)
-            {
-                iv = zeroIV;
-            }
+            var useIV = iv.IsEmpty ? zeroIV : iv;
 
-            if (encrypt)
-            {
-                aes.EncryptCbc(source, iv, destination, PaddingMode.None);
-            }
-            else
-            {
-                aes.DecryptCbc(source, iv, destination, PaddingMode.None);
-            }
+            _ = encrypt ?
+                aes.EncryptCbc(source, useIV, destination, PaddingMode.None) :
+                aes.DecryptCbc(source, useIV, destination, PaddingMode.None);
         }
 
         private static void DeriveKeys(KeyedHashAlgorithm alg, Span<byte> encryptionKey, Span<byte> signingKey)
