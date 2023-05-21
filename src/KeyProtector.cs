@@ -14,7 +14,7 @@ namespace Neliva.Security.Cryptography
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <see cref="KeyProtector"/> uses HMAC-SHA512 AND AES256-CBC to sign-then-encrypt
+    /// <see cref="KeyProtector"/> uses HMAC-SHA512 and AES256-CBC to sign-then-encrypt
     /// the provided key data.
     /// </para>
     /// <para>
@@ -380,19 +380,11 @@ namespace Neliva.Security.Cryptography
         {
             ReadOnlySpan<byte> zeroIV = new byte[BlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-            if (iv.Length == 0)
-            {
-                iv = zeroIV;
-            }
+            var useIV = iv.IsEmpty ? zeroIV : iv;
 
-            if (encrypt)
-            {
-                aes.EncryptCbc(source, iv, destination, PaddingMode.None);
-            }
-            else
-            {
-                aes.DecryptCbc(source, iv, destination, PaddingMode.None);
-            }
+            _ = encrypt ?
+                aes.EncryptCbc(source, useIV, destination, PaddingMode.None) :
+                aes.DecryptCbc(source, useIV, destination, PaddingMode.None);
         }
 
         private static void DeriveKeys(KeyedHashAlgorithm alg, Span<byte> encryptionKey, Span<byte> signingKey)
@@ -412,7 +404,9 @@ namespace Neliva.Security.Cryptography
             int pswBytesCapacity = SafeEncoding.GetMaxByteCount(password.Length);
             int bufSize = BLOCK_SIZE + HASH_SIZE + pswBytesCapacity;
 
-            byte[] bufArray = ArrayPool<byte>.Shared.Rent(bufSize);
+            var sharedPool = ArrayPool<byte>.Shared;
+
+            byte[] bufArray = sharedPool.Rent(bufSize);
 
             Span<byte> buf = bufArray;
 
@@ -445,7 +439,7 @@ namespace Neliva.Security.Cryptography
             {
                 CryptographicOperations.ZeroMemory(buf);
 
-                ArrayPool<byte>.Shared.Return(bufArray);
+                sharedPool.Return(bufArray);
             }
         }
 
