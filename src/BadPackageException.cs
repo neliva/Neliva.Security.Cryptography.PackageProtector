@@ -7,11 +7,12 @@ using System.Security.Cryptography;
 namespace Neliva.Security.Cryptography
 {
     /// <summary>
-    /// The exception that is thrown when package is invalid or
-    /// corrupted, or when decryption fails due to invalid key.
+    /// The exception that is thrown when a package is invalid or
+    /// corrupted, or when decryption fails due to an invalid key.
     /// </summary>
     /// <seealso cref="PackageProtector.UnprotectAsync(System.IO.Stream, System.IO.Stream, byte[], ArraySegment{byte}, System.Threading.CancellationToken)"/>
     /// <seealso cref="PackageProtector.Unprotect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
+    /// <seealso cref="KeyProtector.Unprotect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{char}, ReadOnlySpan{byte})"/>
     public sealed class BadPackageException : CryptographicException
     {
         private static readonly string BadPackageMsg = "Package is invalid or corrupted.";
