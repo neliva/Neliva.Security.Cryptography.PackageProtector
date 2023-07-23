@@ -398,8 +398,8 @@ namespace Neliva.Security.Cryptography
 
         private static void PrehashPassword(ReadOnlySpan<char> password, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> associatedData, Span<byte> destination)
         {
-            const byte BLOCK_SIZE = 128; // HMACSHA512, recommended key size
-            const byte HASH_SIZE = 64; // HMACSHA512
+            const byte BLOCK_SIZE = 128; // The HMACSHA512 recommended key size
+            const byte HASH_SIZE = 64; // The HMACSHA512 output hash size
 
             int pswBytesCapacity = SafeEncoding.GetMaxByteCount(password.Length);
             int bufSize = BLOCK_SIZE + HASH_SIZE + pswBytesCapacity;
@@ -412,7 +412,7 @@ namespace Neliva.Security.Cryptography
             {
                 int pswBytesCount = SafeEncoding.GetBytes(password, buf.Slice(BLOCK_SIZE + HASH_SIZE));
 
-                // Combined size of Key, intermediate MAC, and actual Password bytes.
+                // The combined size of Key, intermediate MAC, and the actual Password bytes.
                 buf = buf.Slice(0, BLOCK_SIZE + HASH_SIZE + pswBytesCount);
 
                 var key = buf.Slice(0, BLOCK_SIZE);
