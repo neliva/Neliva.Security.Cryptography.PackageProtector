@@ -63,12 +63,12 @@ jobs:
             buildlabel="+build.${{ github.run_number }}"
             shasuffix=.${shortsha}
         fi
-        echo ::set-output name=OfficialRelease::${isRelease}
-        echo ::set-output name=AssemblyVersion::${major}.0.0
-        echo ::set-output name=FileVersion::${major}.${minor}.${patch}.${build}
-        echo ::set-output name=InformationalVersion::${major}.${minor}.${patch}${prerelease}${buildlabel}
-        echo ::set-output name=PackageVersion::${major}.${minor}.${patch}${prerelease}
-        echo ::set-output name=ArtifactsVersion::${major}.${minor}.${patch}${prerelease}${buildlabel}${shasuffix}
+        echo OfficialRelease=${isRelease} >> $GITHUB_OUTPUT
+        echo AssemblyVersion=${major}.0.0 >> $GITHUB_OUTPUT
+        echo FileVersion=${major}.${minor}.${patch}.${build} >> $GITHUB_OUTPUT
+        echo InformationalVersion=${major}.${minor}.${patch}${prerelease}${buildlabel} >> $GITHUB_OUTPUT
+        echo PackageVersion=${major}.${minor}.${patch}${prerelease} >> $GITHUB_OUTPUT
+        echo ArtifactsVersion=${major}.${minor}.${patch}${prerelease}${buildlabel}${shasuffix} >> $GITHUB_OUTPUT
     - name: Show build version
       run: |
         echo EventName: ${{ github.event_name }}
