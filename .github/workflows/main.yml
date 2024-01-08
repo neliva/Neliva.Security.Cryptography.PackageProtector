@@ -100,7 +100,7 @@ jobs:
         path: ./artifacts
     - name: Push to NuGet.org feed
       if: github.event_name == 'release' && steps.semver.outputs.OfficialRelease == 'true'
-      run: dotnet nuget push *.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --timeout 90 --disable-buffering true
+      run: dotnet nuget push *.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --timeout 90 --disable-buffering
       working-directory: ./artifacts
 #   - name: Add GitHub nuget feed source
 #     if: github.event_name == 'release' && steps.semver.outputs.OfficialRelease == 'true'
