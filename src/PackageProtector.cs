@@ -493,6 +493,21 @@ namespace Neliva.Security.Cryptography
 
         internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
         {
+            // The max number of message bytes that we can input into SHA512 to
+            // be processed in a single block is 111 bytes, due to:
+            // * 16 bytes for message length
+            // * 1 byte for the mandatory 0x80 padding prefix
+
+            // SP800-108 KDF in Counter Mode requires 9 bytes reserved for
+            // the structure overhead, due to:
+            // * 4-byte counter
+            // * 0x00 separator byte
+            // * 4-byte length of the derived key
+
+            // The max length of the KDF Label+Context that keeps the entire HMAC message
+            // inside one block is 102 bytes.
+
+
             Span<byte> data = stackalloc byte[55]; // Max available space before hmac padding.
 
             const byte SignPurpose = 0x00;
