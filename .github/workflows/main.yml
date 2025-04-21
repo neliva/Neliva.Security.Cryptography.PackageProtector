@@ -94,7 +94,7 @@ jobs:
     - name: Pack
       run: dotnet pack --configuration Release --no-build --no-restore --nologo --output ./artifacts -p:AssemblyVersion=${{ steps.semver.outputs.AssemblyVersion }} -p:FileVersion=${{ steps.semver.outputs.FileVersion }} -p:InformationalVersion=${{ steps.semver.outputs.InformationalVersion }} -p:PackageVersion=${{ steps.semver.outputs.PackageVersion }}
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ github.event.repository.name }}.${{ steps.semver.outputs.ArtifactsVersion }}
         path: ./artifacts
