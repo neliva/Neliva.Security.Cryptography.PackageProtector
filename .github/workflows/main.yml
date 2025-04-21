@@ -84,7 +84,7 @@ jobs:
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v3    # https://github.com/actions/setup-dotnet
       with:
-        dotnet-version: 6.0.x
+        dotnet-version: 8.0.x
     - name: Restore
       run: dotnet restore
     - name: Build
