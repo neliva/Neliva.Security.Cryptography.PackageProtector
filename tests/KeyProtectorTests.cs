@@ -121,14 +121,10 @@ namespace Neliva.Security.Cryptography.Tests
             var encoder = new UTF8Encoding(false, true);
 
             var passBytes = (ReadOnlySpan<byte>)encoder.GetBytes(password);
-            var hashAndPassBytesBuf = new byte[64 + passBytes.Length];
-            Span<byte> hashAndPassBytes = hashAndPassBytesBuf;
-            passBytes.CopyTo(hashAndPassBytes.Slice(64));
 
             var prehashedPass = new byte[64];
 
-            HMACSHA512.HashData(key, passBytes, hashAndPassBytes);
-            HMACSHA512.HashData(key, hashAndPassBytes, prehashedPass);
+            HMACSHA512.HashData(key, passBytes, prehashedPass);
 
             var pbkdf2Salt = encoder.GetBytes("PREHASHED PASSWORD ALREADY INCLUDES SALT AND ASSOCIATED DATA");
 
