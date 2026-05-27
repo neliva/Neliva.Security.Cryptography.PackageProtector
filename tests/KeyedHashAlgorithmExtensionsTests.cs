@@ -153,5 +153,26 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.Equal(expectedDerivedKey, actual);
         }
+
+        [Fact]
+        public void DeriveKeyEmptyLabelAndContextPass()
+        {
+            using var hmac = new HMACSHA256(new byte[32]);
+            var derived = new byte[32];
+            hmac.DeriveKey(derived, ReadOnlySpan<byte>.Empty, ReadOnlySpan<byte>.Empty);
+
+            Assert.Contains(derived, b => b != 0);
+        }
+
+        [Fact]
+        public void DeriveKeySHA256MultiBlockOutputPass()
+        {
+            // 65 bytes forces the counter loop to iterate (32 + 32 + 1).
+            using var hmac = new HMACSHA256(new byte[32].Fill(7));
+            var derived = new byte[65];
+            hmac.DeriveKey(derived, new byte[] { 1, 2, 3 }, new byte[] { 4, 5, 6 });
+
+            Assert.Contains(derived, b => b != 0);
+        }
     }
 }

@@ -955,5 +955,13 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.Empty(ArraySegment<byte>.Empty.Array);
         }
+
+        [Fact]
+        public void DoubleDisposeNoThrow()
+        {
+            var p = new PackageProtector(packageSize: 64);
+            p.Dispose();
+            p.Dispose();
+        }
     }
 }

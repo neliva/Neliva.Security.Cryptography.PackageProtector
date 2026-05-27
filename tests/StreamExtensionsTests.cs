@@ -387,6 +387,90 @@ namespace Neliva.Security.Cryptography.Tests
         {
             return new byte[arrayLength].Fill(elementValue);
         }
+
+        [Fact]
+        public async Task ProtectAsyncPreCancelledFail()
+        {
+            using var p = new PackageProtector(packageSize: MinPackageSize);
+
+            var key = new byte[32];
+            var content = new MemoryStream(new byte[MinPackageSize * 4]);
+            var package = new MemoryStream();
+
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => p.ProtectAsync(content, package, key, default, cts.Token));
+        }
+
+        [Fact]
+        public async Task UnprotectAsyncPreCancelledFail()
+        {
+            using var p = new PackageProtector(packageSize: MinPackageSize);
+
+            var key = new byte[32];
+
+            var package = new MemoryStream();
+            var src = new MemoryStream(new byte[MinPackageSize]);
+            await p.ProtectAsync(src, package, key);
+            package.Position = 0;
+
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => p.UnprotectAsync(package, new MemoryStream(), key, default, cts.Token));
+        }
+
+        [Fact]
+        public async Task ProtectAsyncShortReadsRoundTripPass()
+        {
+            using var p = new PackageProtector(packageSize: 128);
+
+            var key = new byte[32].Fill(5);
+            var data = new byte[p.MaxContentSize * 3 + 17].Fill(42);
+
+            var content = new ShortReadStream(data, maxRead: 7);
+            var package = new MemoryStream();
+
+            await p.ProtectAsync(content, package, key);
+
+            package.Position = 0;
+            var unprotected = new MemoryStream();
+            await p.UnprotectAsync(package, unprotected, key);
+
+            Assert.Equal(data, unprotected.ToArray());
+        }
+
+        private sealed class ShortReadStream : Stream
+        {
+            private readonly byte[] _data;
+            private readonly int _maxRead;
+            private int _pos;
+
+            public ShortReadStream(byte[] data, int maxRead) { _data = data; _maxRead = maxRead; }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => _data.Length;
+            public override long Position { get => _pos; set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                int remaining = _data.Length - _pos;
+                if (remaining <= 0) return 0;
+                int n = Math.Min(Math.Min(count, _maxRead), remaining);
+                Buffer.BlockCopy(_data, _pos, buffer, offset, n);
+                _pos += n;
+                return n;
+            }
+        }
     }
 }
 

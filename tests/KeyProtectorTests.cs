@@ -621,5 +621,36 @@ namespace Neliva.Security.Cryptography.Tests
             ex = Assert.Throws<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
             Assert.Equal("The package checksum is invalid.", ex.Message);
         }
+
+        [Fact]
+        public void NullRngFillConstructorPass()
+        {
+            using var p = new KeyProtector(null);
+            Assert.Equal(96, p.Overhead);
+        }
+
+        [Fact]
+        public void DoubleDisposeNoThrow()
+        {
+            var p = new KeyProtector();
+            p.Dispose();
+            p.Dispose();
+        }
+
+        [Fact]
+        public void ProtectInvalidUtf8PasswordFails()
+        {
+            using var protector = new KeyProtector(d => d.Fill(1));
+
+            var content = new byte[32];
+            var package = new byte[32 + protector.Overhead];
+
+            // Lone high surrogate is invalid UTF-8 when encoded with throwOnInvalidBytes.
+            string badPassword = "\uD800";
+
+            Assert.Throws<EncoderFallbackException>(() => protector.Protect(content, package, badPassword, 1));
+
+            Assert.True(package.IsAllZeros(), "Package not cleared on failure.");
+        }
     }
 }

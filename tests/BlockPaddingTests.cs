@@ -94,6 +94,36 @@ namespace Neliva.Security.Cryptography.Tests
             }
         }
 
+        [Fact]
+        public void PKCS7PaddingLastByteZeroFail()
+        {
+            byte[] buf = new byte[16];
+            Assert.Equal(-1, BlockPadding.GetPKCS7PaddingLength(16, buf));
+        }
+
+        [Fact]
+        public void PKCS7PaddingPadLengthGreaterThanBlockSizeFail()
+        {
+            byte[] buf = new byte[16];
+            for (int i = 0; i < buf.Length; i++) buf[i] = 17;
+            Assert.Equal(-1, BlockPadding.GetPKCS7PaddingLength(16, buf));
+        }
+
+        [Fact]
+        public void PKCS7PaddingBlockSizeOnePass()
+        {
+            byte[] buf = new byte[] { 1 };
+            Assert.Equal(1, BlockPadding.GetPKCS7PaddingLength(1, buf));
+        }
+
+        [Fact]
+        public void PKCS7PaddingFullBlockPaddingPass()
+        {
+            byte[] buf = new byte[16];
+            for (int i = 0; i < buf.Length; i++) buf[i] = 16;
+            Assert.Equal(16, BlockPadding.GetPKCS7PaddingLength(16, buf));
+        }
+
         private static byte[] CreateBlock(int blockSize, byte padLength)
         {
             byte[] b = new byte[blockSize];
