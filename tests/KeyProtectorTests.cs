@@ -1,4 +1,4 @@
-﻿// This is free and unencumbered software released into the public domain.
+// This is free and unencumbered software released into the public domain.
 // See the UNLICENSE file in the project root for more information.
 
 using System;
@@ -6,12 +6,11 @@ using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Xunit;
 
 namespace Neliva.Security.Cryptography.Tests
 {
     [ExcludeFromCodeCoverage]
-    [TestClass]
     public class KeyProtectorTests
     {
         private const int MaxContentSize = 65424;
@@ -20,12 +19,12 @@ namespace Neliva.Security.Cryptography.Tests
 
         private static ReadOnlySpan<byte> Version => new byte[] { (byte)'P', (byte)'B', (byte)'2', (byte)'K' };
 
-        [TestMethod]
-        [DataRow(0, 32, 0)]
-        [DataRow(1, 48, 1)]
-        [DataRow(64, 64, 32)]
-        [DataRow(128, 64, 63)]
-        [DataRow(1024, MaxContentSize, 64)]
+        [Theory]
+        [InlineData(0, 32, 0)]
+        [InlineData(1, 48, 1)]
+        [InlineData(64, 64, 32)]
+        [InlineData(128, 64, 63)]
+        [InlineData(1024, MaxContentSize, 64)]
         public void RoundTripPass(int passwordLength, int contentLength, int associatedDataLength)
         {
             var password = new string('p', passwordLength);
@@ -41,23 +40,23 @@ namespace Neliva.Security.Cryptography.Tests
 
             int protectedLength = protector.Protect(content, package, password, iterations, associatedData);
 
-            Assert.AreEqual(package.Length, protectedLength);
+            Assert.Equal(package.Length, protectedLength);
 
             var unprotectedContent = new byte[content.Length];
 
             int unprotectedLength = protector.Unprotect(package, unprotectedContent, password, associatedData);
 
-            Assert.AreEqual(unprotectedContent.Length, unprotectedLength);
+            Assert.Equal(unprotectedContent.Length, unprotectedLength);
 
-            CollectionAssert.AreEquivalent(content, unprotectedContent);
+            Assert.Equal(content, unprotectedContent);
         }
 
-        [TestMethod]
-        [DataRow(32, (byte)3, 0)] // min content length
-        [DataRow(48, (byte)1, 1)]
-        [DataRow(64, (byte)5, 32)]
-        [DataRow(192, (byte)8, 63)]
-        [DataRow(MaxContentSize, (byte)2, 64)]
+        [Theory]
+        [InlineData(32, (byte)3, 0)]
+        [InlineData(48, (byte)1, 1)]
+        [InlineData(64, (byte)5, 32)]
+        [InlineData(192, (byte)8, 63)]
+        [InlineData(MaxContentSize, (byte)2, 64)]
         public void ProtectProducesCorrectFormatPass(int contentLength, byte iterations, int associatedDataLength)
         {
             var password = "user-password";
@@ -84,20 +83,20 @@ namespace Neliva.Security.Cryptography.Tests
 
             int protectedLength = protector.Protect(content, packageSpan, password, iterations, associatedData);
 
-            Assert.AreEqual(packageSpan.Length, protectedLength);
+            Assert.Equal(packageSpan.Length, protectedLength);
 
-            Assert.IsTrue(packageSpan.Slice(0, 4).SequenceEqual(Version));
+            Assert.True(packageSpan.Slice(0, 4).SequenceEqual(Version));
 
             var iterSpan = packageSpan.Slice(4, 4);
             int iter = (int)BinaryPrimitives.ReadUInt32BigEndian(iterSpan);
 
-            Assert.AreEqual(iterations, iter);
+            Assert.Equal(iterations, iter);
 
-            Assert.IsTrue(iterSpan.SequenceEqual(iterSpanExpected));
+            Assert.True(iterSpan.SequenceEqual(iterSpanExpected));
 
             var salt = (ReadOnlySpan<byte>)packageSpan.Slice(8, 40);
 
-            Assert.IsTrue(salt.IsAllSameValue(fillByte));
+            Assert.True(salt.IsAllSameValue(fillByte));
 
             int checksumOffset = protectedLength - ChecksumSize;
 
@@ -105,15 +104,15 @@ namespace Neliva.Security.Cryptography.Tests
 
             SHA512.HashData(packageSpan.Slice(0, checksumOffset), checksumHash);
 
-            Assert.IsTrue(packageSpan.Slice(checksumOffset).SequenceEqual(checksumHash.Slice(0, ChecksumSize)), "Checksum doesn't match.");
+            Assert.True(packageSpan.Slice(checksumOffset).SequenceEqual(checksumHash.Slice(0, ChecksumSize)), "Checksum doesn't match.");
 
             var key = (Span<byte>)new byte[128];
             var keySalt = packageSpan.Slice(0, 48);
 
-            key[0] = 1; // format version
-            key[1] = 64; // output hash size
-            key[2] = (byte)keySalt.Length; // salt size
-            key[3] = (byte)associatedDataLength; // associated data size
+            key[0] = 1;
+            key[1] = 64;
+            key[2] = (byte)keySalt.Length;
+            key[3] = (byte)associatedDataLength;
 
             keySalt.CopyTo(key.Slice(4));
             associatedData.CopyTo(key.Slice(4 + keySalt.Length));
@@ -135,7 +134,7 @@ namespace Neliva.Security.Cryptography.Tests
             byte[] derivedKey = Rfc2898DeriveBytes.Pbkdf2((Span<byte>)prehashedPass, pbkdf2Salt, iter, HashAlgorithmName.SHA512, 64);
 
             byte[] encLabel = encoder.GetBytes("AES256-CBC");
-            byte[] macLabel = encoder.GetBytes("HMAC-SHA512-256"); // HMAC-SHA512 hash truncated to first 256 bits
+            byte[] macLabel = encoder.GetBytes("HMAC-SHA512-256");
 
             byte[] encKey = new byte[32];
             byte[] macKey = new byte[64];
@@ -155,7 +154,7 @@ namespace Neliva.Security.Cryptography.Tests
             using (var hmac = new HMACSHA512(macKey))
             {
                 var contentHash = new byte[64];
-                
+
                 hmac.ComputeHash(content, contentHash);
 
                 expectedContentHash = new ReadOnlySpan<byte>(contentHash).Slice(0, 32);
@@ -171,27 +170,27 @@ namespace Neliva.Security.Cryptography.Tests
                 aes.Mode = CipherMode.CBC;
                 aes.Padding = PaddingMode.None;
 
-                using (var dec = aes.CreateDecryptor(encKey, new byte[16])) // zero IV
+                using (var dec = aes.CreateDecryptor(encKey, new byte[16]))
                 {
                     int bytesDecrypted = dec.TransformBlock(package, 4 + 4 + 40, decryptedHashAndContent.Length, decryptedHashAndContent, 0);
 
-                    Assert.AreEqual(decryptedHashAndContent.Length, bytesDecrypted);
+                    Assert.Equal(decryptedHashAndContent.Length, bytesDecrypted);
                 }
             }
 
-            Assert.IsTrue(expectedContentHash.SequenceEqual(decryptedHash), "Hash doesn't match.");
+            Assert.True(expectedContentHash.SequenceEqual(decryptedHash), "Hash doesn't match.");
 
-            Assert.IsTrue(content.SequenceEqual(decryptedContent), "Content doesn't match.");
+            Assert.True(content.SequenceEqual(decryptedContent), "Content doesn't match.");
         }
 
-        [TestMethod]
-        [DataRow("user-password", 1, 0, "bad-user-password", 1, 0, (byte)0, false)]
-        [DataRow("", 1, 0, "b", 1, 0, (byte)0, false)]
-        [DataRow("user-password", 1, 0, "user-password", 2, 0, (byte)0, false)]
-        [DataRow("user-password", 1, 0, "user-password", 1, 1, (byte)0, false)]
-        [DataRow("user-password", 1, 2, "user-password", 1, 2, (byte)1, false)]
-        [DataRow("user-password", 1, 64, "user-password", 1, 64, (byte)3, false)]
-        [DataRow("user-password", 1, 0, "user-password", 1, 0, (byte)0, true)]
+        [Theory]
+        [InlineData("user-password", 1, 0, "bad-user-password", 1, 0, (byte)0, false)]
+        [InlineData("", 1, 0, "b", 1, 0, (byte)0, false)]
+        [InlineData("user-password", 1, 0, "user-password", 2, 0, (byte)0, false)]
+        [InlineData("user-password", 1, 0, "user-password", 1, 1, (byte)0, false)]
+        [InlineData("user-password", 1, 2, "user-password", 1, 2, (byte)1, false)]
+        [InlineData("user-password", 1, 64, "user-password", 1, 64, (byte)3, false)]
+        [InlineData("user-password", 1, 0, "user-password", 1, 0, (byte)0, true)]
         public void IncorrectParamsUnprotectFails(string protectPass, int protectIters, int protectAdLen, string unprotectPass, int unprotectIters, int unprotectAdLen, byte unprotectAdVal, bool unprotectBadSalt)
         {
             using var protector = new KeyProtector(rng => rng.Fill(33));
@@ -214,10 +213,9 @@ namespace Neliva.Security.Cryptography.Tests
 
             if (unprotectBadSalt)
             {
-                pkgSpan[4 + 4] ^= 1; // make bad salt
+                pkgSpan[4 + 4] ^= 1;
             }
 
-            // Fix the checksum for the bad backage input
             if (protectIters != unprotectIters || unprotectBadSalt)
             {
                 Span<byte> hash = new byte[64];
@@ -229,20 +227,20 @@ namespace Neliva.Security.Cryptography.Tests
 
             var unprotectedContent = new byte[content.Length].Fill(88);
 
-            var ex = Assert.ThrowsException<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, unprotectPass, unprotectAd));
-            Assert.AreEqual("The provided password is incorrect.", ex.Message);
+            var ex = Assert.Throws<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, unprotectPass, unprotectAd));
+            Assert.Equal("The provided password is incorrect.", ex.Message);
 
-            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Protect() failure.");
+            Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Protect() failure.");
         }
 
-        [TestMethod]
-        [DataRow(0)]
-        [DataRow(1)]
-        [DataRow(16)]
-        [DataRow(31)] // min content length - 1
-        [DataRow(33)]
-        [DataRow(47)]
-        [DataRow(MaxContentSize + 1)]
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(16)]
+        [InlineData(31)]
+        [InlineData(33)]
+        [InlineData(47)]
+        [InlineData(MaxContentSize + 1)]
         public void ProtectBadContentSizeFails(int contentLength)
         {
             var password = "user-password";
@@ -254,18 +252,18 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[content.Length + protector.Overhead];
 
-            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, iterations));
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, iterations));
 
-            Assert.AreEqual("content", ex.ParamName);
-            Assert.AreEqual("Content length is invalid or not aligned on the required boundary. (Parameter 'content')", ex.Message);
+            Assert.Equal("content", ex.ParamName);
+            Assert.Equal("Content length is invalid or not aligned on the required boundary. (Parameter 'content')", ex.Message);
         }
 
-        [TestMethod]
-        [DataRow(0)]
-        [DataRow(32 + Overhead - 1)]
-        [DataRow(32 + Overhead + 1)]
-        [DataRow(MaxContentSize + Overhead - 1)]
-        [DataRow(MaxContentSize + Overhead + 1)]
+        [Theory]
+        [InlineData(0)]
+        [InlineData(32 + Overhead - 1)]
+        [InlineData(32 + Overhead + 1)]
+        [InlineData(MaxContentSize + Overhead - 1)]
+        [InlineData(MaxContentSize + Overhead + 1)]
         public void UnprotectBadPackageSizeFails(int packageSize)
         {
             var password = "user-password";
@@ -276,13 +274,13 @@ namespace Neliva.Security.Cryptography.Tests
 
             var content = new byte[packageSize];
 
-            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Unprotect(package, content, password));
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Unprotect(package, content, password));
 
-            Assert.AreEqual("package", ex.ParamName);
-            Assert.AreEqual("Package length is invalid or not aligned on the required boundary. (Parameter 'package')", ex.Message);
+            Assert.Equal("package", ex.ParamName);
+            Assert.Equal("Package length is invalid or not aligned on the required boundary. (Parameter 'package')", ex.Message);
         }
 
-        [TestMethod]
+        [Fact]
         public void ProtectBadPackageSpaceFails()
         {
             var password = "user-password";
@@ -294,13 +292,13 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[content.Length + protector.Overhead - 1];
 
-            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, iterations));
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, iterations));
 
-            Assert.AreEqual("package", ex.ParamName);
-            Assert.AreEqual("Insufficient space for package output. (Parameter 'package')", ex.Message);
+            Assert.Equal("package", ex.ParamName);
+            Assert.Equal("Insufficient space for package output. (Parameter 'package')", ex.Message);
         }
 
-        [TestMethod]
+        [Fact]
         public void UnprotectBadContentSpaceFails()
         {
             var password = "user-password";
@@ -311,16 +309,16 @@ namespace Neliva.Security.Cryptography.Tests
 
             var context = new byte[package.Length - protector.Overhead - 1];
 
-            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Unprotect(package, context, password));
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Unprotect(package, context, password));
 
-            Assert.AreEqual("content", ex.ParamName);
-            Assert.AreEqual("Insufficient space for content output. (Parameter 'content')", ex.Message);
+            Assert.Equal("content", ex.ParamName);
+            Assert.Equal("Insufficient space for content output. (Parameter 'content')", ex.Message);
         }
 
-        [TestMethod]
-        [DataRow(int.MinValue)]
-        [DataRow(-1)]
-        [DataRow(0)]
+        [Theory]
+        [InlineData(int.MinValue)]
+        [InlineData(-1)]
+        [InlineData(0)]
         public void ProtectBadIterationsFails(int iterations)
         {
             var password = "user-password";
@@ -331,13 +329,13 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[content.Length + protector.Overhead];
 
-            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, iterations));
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, iterations));
 
-            Assert.AreEqual("iterations", ex.ParamName);
+            Assert.Equal("iterations", ex.ParamName);
         }
 
-        [TestMethod]
-        [DataRow(65)]
+        [Theory]
+        [InlineData(65)]
         public unsafe void ProtectBadAssociatedDataTooLargeFails(int associatedDataLength)
         {
             var password = "user-password";
@@ -350,13 +348,13 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[content.Length + protector.Overhead];
 
-            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, 1, ad));
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, 1, ad));
 
-            Assert.AreEqual("associatedData", ex.ParamName);
+            Assert.Equal("associatedData", ex.ParamName);
         }
 
-        [TestMethod]
-        [DataRow(65)]
+        [Theory]
+        [InlineData(65)]
         public unsafe void UnprotectBadAssociatedDataTooLargeFails(int associatedDataLength)
         {
             var password = "user-password";
@@ -369,54 +367,58 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[content.Length + protector.Overhead];
 
-            var ex = Assert.ThrowsException<ArgumentOutOfRangeException>(() => protector.Unprotect(package, content, password, ad));
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Unprotect(package, content, password, ad));
 
-            Assert.AreEqual("associatedData", ex.ParamName);
+            Assert.Equal("associatedData", ex.ParamName);
         }
 
-        [TestMethod]
+        [Fact]
         public void ProtectOverlapFails()
         {
             var password = "user-password";
 
             using var protector = new KeyProtector();
 
-            var ex = Assert.ThrowsException<InvalidOperationException>(() =>
+            int overhead = protector.Overhead;
+
+            var ex = Assert.Throws<InvalidOperationException>(() =>
             {
-                Span<byte> buf = new byte[32 + protector.Overhead + 32];
+                Span<byte> buf = new byte[32 + overhead + 32];
 
-                var content = buf.Slice(32 + protector.Overhead, 32);
+                var content = buf.Slice(32 + overhead, 32);
 
-                var package = buf.Slice(1, 32 + protector.Overhead);
+                var package = buf.Slice(1, 32 + overhead);
 
                 protector.Protect(content, package, password, 1);
             });
 
-            Assert.AreEqual("The 'package' must not overlap in memory with the 'content'.", ex.Message);
+            Assert.Equal("The 'package' must not overlap in memory with the 'content'.", ex.Message);
         }
 
-        [TestMethod]
+        [Fact]
         public void UnprotectOverlapFails()
         {
             var password = "user-password";
 
             using var protector = new KeyProtector();
 
-            var ex = Assert.ThrowsException<InvalidOperationException>(() =>
+            int overhead = protector.Overhead;
+
+            var ex = Assert.Throws<InvalidOperationException>(() =>
             {
-                Span<byte> buf = new byte[32 + protector.Overhead + 32];
+                Span<byte> buf = new byte[32 + overhead + 32];
 
-                var content = buf.Slice(32 + protector.Overhead, 32);
+                var content = buf.Slice(32 + overhead, 32);
 
-                var package = buf.Slice(1, 32 + protector.Overhead);
+                var package = buf.Slice(1, 32 + overhead);
 
                 protector.Unprotect(package, content, password);
             });
 
-            Assert.AreEqual("The 'content' must not overlap in memory with the 'package'.", ex.Message);
+            Assert.Equal("The 'content' must not overlap in memory with the 'package'.", ex.Message);
         }
 
-        [TestMethod]
+        [Fact]
         public void ProtectUseAfterDisposeFail()
         {
             using var protector = new KeyProtector();
@@ -430,11 +432,11 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[content.Length + protector.Overhead];
 
-            var ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Protect(content, package, password, iterations));
-            Assert.AreEqual(typeof(KeyProtector).FullName, ex.ObjectName);
+            var ex = Assert.Throws<ObjectDisposedException>(() => protector.Protect(content, package, password, iterations));
+            Assert.Equal(typeof(KeyProtector).FullName, ex.ObjectName);
         }
 
-        [TestMethod]
+        [Fact]
         public void UnprotectUseAfterDisposeFail()
         {
             using var protector = new KeyProtector();
@@ -447,11 +449,11 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[content.Length + protector.Overhead];
 
-            var ex = Assert.ThrowsException<ObjectDisposedException>(() => protector.Unprotect(package, content, password));
-            Assert.AreEqual(typeof(KeyProtector).FullName, ex.ObjectName);
+            var ex = Assert.Throws<ObjectDisposedException>(() => protector.Unprotect(package, content, password));
+            Assert.Equal(typeof(KeyProtector).FullName, ex.ObjectName);
         }
 
-        [TestMethod]
+        [Fact]
         public void ProtectClearOutputOnFailurePass()
         {
             var password = "user-password";
@@ -471,13 +473,13 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[32].Fill(223);
             var package = new byte[32 + protector.Overhead].Fill(88);
 
-            var ex = Assert.ThrowsException<Exception>(() => protector.Protect(content, package, password, iterations));
-            Assert.AreEqual(exStr, ex.Message);
+            var ex = Assert.Throws<Exception>(() => protector.Protect(content, package, password, iterations));
+            Assert.Equal(exStr, ex.Message);
 
-            Assert.IsTrue(package.IsAllZeros(), "Destination not cleared on Protect() failure.");
+            Assert.True(package.IsAllZeros(), "Destination not cleared on Protect() failure.");
         }
 
-        [TestMethod]
+        [Fact]
         public void UnprotectClearOutputOnFailurePass()
         {
             var password = "user-password";
@@ -499,23 +501,23 @@ namespace Neliva.Security.Cryptography.Tests
 
             int checksumOffset = package.Length - ChecksumSize;
 
-            package[checksumOffset - 1] ^= 1; // Intentionally corrupt last byte of encrypted payload
+            package[checksumOffset - 1] ^= 1;
 
             Span<byte> checksumHash = new byte[64];
 
-            SHA512.HashData(packageSpan.Slice(0, checksumOffset), checksumHash); // Recompute checksum over corrupted payload.
+            SHA512.HashData(packageSpan.Slice(0, checksumOffset), checksumHash);
 
-            checksumHash.Slice(0, ChecksumSize).CopyTo(packageSpan.Slice(checksumOffset));  // Replace checksum.
+            checksumHash.Slice(0, ChecksumSize).CopyTo(packageSpan.Slice(checksumOffset));
 
             var unprotectedContent = new byte[content.Length].Fill(byte.MaxValue);
 
-            var ex = Assert.ThrowsException<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, password));
-            Assert.AreEqual("The provided password is incorrect.", ex.Message);
+            var ex = Assert.Throws<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, password));
+            Assert.Equal("The provided password is incorrect.", ex.Message);
 
-            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
+            Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
-        [TestMethod]
+        [Fact]
         public void UnprotectClearOutputOnBadPasswordPass()
         {
             const string password = "user-password";
@@ -533,22 +535,20 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[32].Fill(242);
             var package = new byte[32 + protector.Overhead];
 
-            var packageSpan = package.AsSpan();
-
             protector.Protect(content, package, password, iterations);
 
             var unprotectedContent = new byte[content.Length].Fill(byte.MaxValue);
 
-            var ex = Assert.ThrowsException<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, badPassword));
-            Assert.AreEqual("The provided password is incorrect.", ex.Message);
+            var ex = Assert.Throws<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, badPassword));
+            Assert.Equal("The provided password is incorrect.", ex.Message);
 
-            Assert.IsTrue(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() bad password.");
+            Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() bad password.");
         }
 
-        [TestMethod]
-        [DataRow(int.MinValue)]
-        [DataRow(-1)]
-        [DataRow(0)]
+        [Theory]
+        [InlineData(int.MinValue)]
+        [InlineData(-1)]
+        [InlineData(0)]
         public void UnprotectBadIterationsFails(int iterations)
         {
             const string password = "user-password";
@@ -567,11 +567,11 @@ namespace Neliva.Security.Cryptography.Tests
 
             BinaryPrimitives.WriteUInt32BigEndian(packageSpan.Slice(4, 4), (uint)iterations);
 
-            var ex = Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
-            Assert.AreEqual("The package iterations count is invalid.", ex.Message);
+            var ex = Assert.Throws<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
+            Assert.Equal("The package iterations count is invalid.", ex.Message);
         }
 
-        [TestMethod]
+        [Fact]
         public void UnprotectVersionFails()
         {
             const string password = "user-password";
@@ -588,14 +588,13 @@ namespace Neliva.Security.Cryptography.Tests
 
             protector.Protect(content, package, password, 1);
 
-            // Write lowercase header version which is invalid.
             BinaryPrimitives.WriteUInt32BigEndian(packageSpan.Slice(0, 4), ((uint)'p' << 24) | ((uint)'b' << 16) | ((uint)'2' << 8) | (uint)'k');
 
-            var ex = Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
-            Assert.AreEqual("The package version is invalid.", ex.Message);
+            var ex = Assert.Throws<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
+            Assert.Equal("The package version is invalid.", ex.Message);
         }
 
-        [TestMethod]
+        [Fact]
         public void UnprotectBadChecksumFails()
         {
             const string password = "user-password";
@@ -608,24 +607,19 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[32].Fill(242);
             var package = new byte[32 + protector.Overhead];
 
-            var packageSpan = package.AsSpan();
-
             protector.Protect(content, package, password, 1);
 
-            // Corrupt last byte of package/checksum
             package[^1] ^= 1;
 
-            var ex = Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
-            Assert.AreEqual("The package checksum is invalid.", ex.Message);
+            var ex = Assert.Throws<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
+            Assert.Equal("The package checksum is invalid.", ex.Message);
 
-            // Revert previous corruption.
             package[^1] ^= 1;
 
-            // Corrupt first byte of salt.
             package[8] ^= 1;
 
-            ex = Assert.ThrowsException<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
-            Assert.AreEqual("The package checksum is invalid.", ex.Message);
+            ex = Assert.Throws<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
+            Assert.Equal("The package checksum is invalid.", ex.Message);
         }
     }
 }

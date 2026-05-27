@@ -1,42 +1,41 @@
-﻿// This is free and unencumbered software released into the public domain.
+// This is free and unencumbered software released into the public domain.
 // See the UNLICENSE file in the project root for more information.
 
 using System;
 using System.Diagnostics.CodeAnalysis;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Xunit;
 
 namespace Neliva.Security.Cryptography.Tests
 {
     [ExcludeFromCodeCoverage]
-    [TestClass]
     public class BadPackageExceptionTests
     {
-        [TestMethod]
+        [Fact]
         public void CreateBadPackageExceptionPass()
         {
             var customMsg = "My msg.";
 
             var ex = new BadPackageException();
-            Assert.AreNotEqual(null, ex.Message);
+            Assert.NotNull(ex.Message);
 
             ex = new BadPackageException(customMsg);
-            Assert.AreEqual(customMsg, ex.Message);
+            Assert.Equal(customMsg, ex.Message);
 
             ex = new BadPackageException(null);
-            Assert.AreNotEqual(null, ex.Message);
+            Assert.NotNull(ex.Message);
 
             var argEx = new ArgumentException();
             ex = new BadPackageException(customMsg, argEx);
-            Assert.AreEqual(customMsg, ex.Message);
-            Assert.AreEqual(argEx, ex.InnerException);
+            Assert.Equal(customMsg, ex.Message);
+            Assert.Equal(argEx, ex.InnerException);
 
             ex = new BadPackageException(customMsg, null);
-            Assert.AreEqual(customMsg, ex.Message);
+            Assert.Equal(customMsg, ex.Message);
 
             var argNullEx = new ArgumentNullException();
             ex = new BadPackageException(null, argNullEx);
-            Assert.AreNotEqual(null, ex.Message);
-            Assert.AreEqual(argNullEx, ex.InnerException);
+            Assert.NotNull(ex.Message);
+            Assert.Equal(argNullEx, ex.InnerException);
         }
     }
 }
