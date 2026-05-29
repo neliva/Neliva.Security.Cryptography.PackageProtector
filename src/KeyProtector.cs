@@ -402,7 +402,7 @@ namespace Neliva.Security.Cryptography
             const byte HASH_SIZE = 64; // The HMACSHA512 output hash size
 
             int pswBytesCapacity = SafeEncoding.GetMaxByteCount(password.Length);
-            int bufSize = BLOCK_SIZE + HASH_SIZE + pswBytesCapacity;
+            int bufSize = BLOCK_SIZE + pswBytesCapacity;
 
             byte[] bufArray = ArrayPool<byte>.Shared.Rent(bufSize);
 
@@ -410,10 +410,10 @@ namespace Neliva.Security.Cryptography
 
             try
             {
-                int pswBytesCount = SafeEncoding.GetBytes(password, buf.Slice(BLOCK_SIZE + HASH_SIZE));
+                int pswBytesCount = SafeEncoding.GetBytes(password, buf.Slice(BLOCK_SIZE));
 
-                // The combined size of Key, intermediate MAC, and the actual Password bytes.
-                buf = buf.Slice(0, BLOCK_SIZE + HASH_SIZE + pswBytesCount);
+                // The combined size of the key and the UTF8 password bytes.
+                buf = buf.Slice(0, BLOCK_SIZE + pswBytesCount);
 
                 var key = buf.Slice(0, BLOCK_SIZE);
 
@@ -427,11 +427,9 @@ namespace Neliva.Security.Cryptography
                 salt.CopyTo(key.Slice(sizeof(uint)));
                 associatedData.CopyTo(key.Slice(sizeof(uint) + salt.Length));
 
-                var pswBytes = buf.Slice(BLOCK_SIZE + HASH_SIZE);
-                var hashAndPswBytes = buf.Slice(BLOCK_SIZE);
+                var pswBytes = buf.Slice(BLOCK_SIZE);
 
-                HMACSHA512.HashData(key, pswBytes, hashAndPswBytes); // Prepend intermediate MAC to password bytes
-                HMACSHA512.HashData(key, hashAndPswBytes, destination);
+                HMACSHA512.HashData(key, pswBytes, destination);
             }
             finally
             {
