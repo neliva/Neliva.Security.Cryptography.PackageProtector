@@ -471,6 +471,39 @@ namespace Neliva.Security.Cryptography.Tests
                 return n;
             }
         }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(32)]
+        public async Task StreamRoundTripAllIvSizesPass(int ivSize)
+        {
+            // Streaming round-trip is only exercised with the default ivSize elsewhere.
+            // Validate ivSize=0 (deterministic) and ivSize=32 (largest IV) end-to-end,
+            // including the empty-package end-of-stream marker semantics.
+            using var p = new PackageProtector(ivSize: ivSize, packageSize: 256);
+
+            var key = new byte[32].Fill(91);
+
+            // Choose a content length that does NOT align on a package boundary so
+            // the last package is a short package and no extra end-of-stream marker
+            // is emitted.
+            int contentLength = p.MaxContentSize * 2 + 13;
+            var contentBytes = new byte[contentLength].Fill(77);
+
+            var package = new MemoryStream();
+
+            long protectedLen = await p.ProtectAsync(new MemoryStream(contentBytes), package, key);
+
+            Assert.True(protectedLen > 0);
+
+            package.Position = 0;
+            var decrypted = new MemoryStream();
+
+            long decryptedLen = await p.UnprotectAsync(package, decrypted, key);
+
+            Assert.Equal(contentLength, decryptedLen);
+            Assert.Equal(contentBytes, decrypted.ToArray());
+        }
     }
 }
 

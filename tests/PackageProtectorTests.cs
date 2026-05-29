@@ -963,5 +963,123 @@ namespace Neliva.Security.Cryptography.Tests
             p.Dispose();
             p.Dispose();
         }
+
+        [Theory]
+        [InlineData(16)]
+        [InlineData(32)]
+        public void ProtectRandomIvProducesDifferentCiphertextPass(int ivSize)
+        {
+            // Semantic security: same plaintext + key + packageNumber + associatedData
+            // must yield distinct ciphertexts when a random IV is used.
+            using var protector = new PackageProtector(ivSize: ivSize, packageSize: 128);
+
+            var key = new byte[32].Fill(11);
+            var content = new byte[protector.MaxContentSize].Fill(42);
+
+            var pkg1 = new byte[protector.MaxPackageSize];
+            var pkg2 = new byte[protector.MaxPackageSize];
+
+            protector.Protect(content, pkg1, key, 7, null);
+            protector.Protect(content, pkg2, key, 7, null);
+
+            Assert.NotEqual(pkg1, pkg2);
+
+            // Difference must include both the random IV prefix and the encrypted body.
+            Assert.NotEqual(
+                new ArraySegment<byte>(pkg1, 0, ivSize).ToArray(),
+                new ArraySegment<byte>(pkg2, 0, ivSize).ToArray());
+
+            Assert.NotEqual(
+                new ArraySegment<byte>(pkg1, ivSize, pkg1.Length - ivSize).ToArray(),
+                new ArraySegment<byte>(pkg2, ivSize, pkg2.Length - ivSize).ToArray());
+        }
+
+        [Fact]
+        public void ProtectZeroIvProducesDeterministicCiphertextPass()
+        {
+            // With ivSize=0 the construction is deterministic by design.
+            // Identical inputs must yield byte-identical output (no hidden randomness).
+            using var protector = new PackageProtector(ivSize: 0, packageSize: 128);
+
+            var key = new byte[32].Fill(11);
+            var associatedData = new byte[16].Fill(33);
+            var content = new byte[protector.MaxContentSize].Fill(42);
+
+            var pkg1 = new byte[protector.MaxPackageSize];
+            var pkg2 = new byte[protector.MaxPackageSize];
+
+            protector.Protect(content, pkg1, key, 7, associatedData);
+            protector.Protect(content, pkg2, key, 7, associatedData);
+
+            Assert.Equal(pkg1, pkg2);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(16)]
+        [InlineData(32)]
+        public void RoundTripAcrossSeparateInstancesPass(int ivSize)
+        {
+            // Protector instances must carry no hidden per-instance state:
+            // a package produced by one instance must be decryptable by another
+            // instance constructed with the same parameters.
+            var key = new byte[64].Fill(17);
+
+            // MaxAssociatedDataSize == 32 - ivSize, so use a size valid for all ivSizes.
+            var associatedData = ArraySegment<byte>.Empty;
+
+            using var pA = new PackageProtector(ivSize: ivSize, packageSize: 256);
+            using var pB = new PackageProtector(ivSize: ivSize, packageSize: 256);
+
+            var content = new byte[pA.MaxContentSize - 13].Fill(99);
+
+            var package = new byte[pA.MaxPackageSize];
+
+            int bytesProtected = pA.Protect(content, package, key, 12345, associatedData);
+
+            var output = new byte[pB.MaxPackageSize];
+
+            int bytesUnprotected = pB.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), output, key, 12345, associatedData);
+
+            Assert.Equal(content.Length, bytesUnprotected);
+            Assert.Equal(content, new ArraySegment<byte>(output, 0, bytesUnprotected).ToArray());
+        }
+
+        [Theory]
+        [InlineData(0, 16)]
+        [InlineData(0, 32)]
+        [InlineData(16, 0)]
+        [InlineData(16, 32)]
+        [InlineData(32, 0)]
+        [InlineData(32, 16)]
+        public void UnprotectWithMismatchedIvSizeFail(int protectIvSize, int unprotectIvSize)
+        {
+            // The KDF binds the encryption/signing keys to the configured ivSize
+            // (its length is part of the derivation input). A package produced with
+            // one ivSize must NOT be decryptable by a protector configured with a
+            // different ivSize, even when the package length happens to be acceptable
+            // to both.
+            const int PackageSize = 128;
+
+            var key = new byte[32].Fill(5);
+
+            using var pProtect = new PackageProtector(ivSize: protectIvSize, packageSize: PackageSize);
+            using var pUnprotect = new PackageProtector(ivSize: unprotectIvSize, packageSize: PackageSize);
+
+            var content = new byte[pProtect.MaxContentSize].Fill(7);
+
+            var package = new byte[PackageSize];
+
+            int bytesProtected = pProtect.Protect(content, package, key, 0, null);
+            Assert.Equal(PackageSize, bytesProtected);
+
+            var output = new byte[PackageSize];
+
+            Assert.Throws<BadPackageException>(
+                () => pUnprotect.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), output, key, 0, null));
+
+            Assert.True(((ArraySegment<byte>)output).IsAllZeros(),
+                "Destination not cleared after cross-ivSize unprotect failure.");
+        }
     }
 }

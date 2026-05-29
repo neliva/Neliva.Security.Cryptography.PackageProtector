@@ -652,5 +652,52 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.True(package.IsAllZeros(), "Package not cleared on failure.");
         }
+
+        [Fact]
+        public void RoundTripUnicodePasswordPass()
+        {
+            // Passwords are encoded with UTF8Encoding(false, true). A round-trip with
+            // a multi-byte Unicode password (with combining characters and emoji) must
+            // succeed bit-for-bit. This locks in that the prehash encodes the password
+            // as UTF-8 consistently between Protect and Unprotect.
+            using var protector = new KeyProtector();
+
+            string password = "p\u00e4ssw\u00f6rd \u4e2d\u6587 \uD83D\uDD10";
+
+            var content = new byte[64].Fill(123);
+            var package = new byte[content.Length + protector.Overhead];
+
+            int protectedLen = protector.Protect(content, package, password, iterations: 2);
+            Assert.Equal(package.Length, protectedLen);
+
+            var unprotected = new byte[content.Length];
+            int unprotectedLen = protector.Unprotect(package, unprotected, password);
+
+            Assert.Equal(content.Length, unprotectedLen);
+            Assert.Equal(content, unprotected);
+        }
+
+        [Fact]
+        public void RoundTripAcrossSeparateInstancesPass()
+        {
+            // KeyProtector instances must not carry hidden per-instance state.
+            // A package produced by one instance must be decryptable by another.
+            using var pA = new KeyProtector();
+            using var pB = new KeyProtector();
+
+            const string password = "cross-instance-password";
+            var associatedData = new byte[16].Fill(64);
+
+            var content = new byte[48].Fill(200);
+            var package = new byte[content.Length + pA.Overhead];
+
+            pA.Protect(content, package, password, iterations: 3, associatedData);
+
+            var unprotected = new byte[content.Length];
+            int unprotectedLen = pB.Unprotect(package, unprotected, password, associatedData);
+
+            Assert.Equal(content.Length, unprotectedLen);
+            Assert.Equal(content, unprotected);
+        }
     }
 }
