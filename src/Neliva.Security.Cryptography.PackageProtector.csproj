@@ -2,9 +2,8 @@
 
   <PropertyGroup>
 
-    <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Neliva.Security.Cryptography</RootNamespace>
-    
+
     <Authors>Neliva</Authors>
     <Company>Neliva</Company>
 
@@ -56,7 +55,6 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <NoWarn>$(NoWarn);NU5105</NoWarn>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
 
     <AssemblyOriginatorKeyFile>..\build\AssemblyKey.snk</AssemblyOriginatorKeyFile>
     <SignAssembly>true</SignAssembly>
