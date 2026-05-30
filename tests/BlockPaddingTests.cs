@@ -46,6 +46,10 @@ namespace Neliva.Security.Cryptography.Tests
             ex = Assert.Throws<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(16, new byte[15]));
             Assert.Equal("buffer", ex.ParamName);
             Assert.Equal("Length is not a multiple of block size. (Parameter 'buffer')", ex.Message);
+
+            // Inner boundaries of the valid blockSize range must not throw.
+            Assert.Equal(1, BlockPadding.GetPKCS7PaddingLength(1, new byte[] { 1 }));
+            Assert.Equal(byte.MaxValue, BlockPadding.GetPKCS7PaddingLength(byte.MaxValue, CreateBuffer(byte.MaxValue, byte.MaxValue)));
         }
 
         // Verifies that a zero declared padding length (last byte is zero) is
