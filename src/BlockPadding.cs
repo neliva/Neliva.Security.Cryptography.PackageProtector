@@ -43,19 +43,19 @@ namespace Neliva.Security.Cryptography
         {
             if (blockSize <= 0 || blockSize > byte.MaxValue)
             {
-                throw new ArgumentOutOfRangeException(nameof(blockSize));
+                throw new ArgumentOutOfRangeException(nameof(blockSize), "Block size must be between 1 and 255.");
             }
 
             int bufferLength = buffer.Length;
 
             if (bufferLength == 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(buffer));
+                throw new ArgumentOutOfRangeException(nameof(buffer), "Buffer is empty.");
             }
 
             if ((bufferLength % blockSize) != 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(buffer), "Length is not a multiple of block size.");
+                throw new ArgumentOutOfRangeException(nameof(buffer), "Buffer length is not a multiple of block size.");
             }
 
             uint padLength = buffer[bufferLength - 1];
@@ -84,8 +84,6 @@ namespace Neliva.Security.Cryptography
         private static uint ConstantTimeMsb(uint value)
         {
             return (uint)((int)value >> 31);
-
-            // return 0 - (value >> 31);
         }
 
         // Returns 0xf..f if left >= right; otherwise, 0x0..0.
