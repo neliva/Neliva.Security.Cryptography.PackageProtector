@@ -142,6 +142,65 @@ namespace Neliva.Security.Cryptography.Tests
             }
         }
 
+        // Verifies that a corruption at every padding byte position (every byte the
+        // validation loop must inspect, except the final byte that declares the
+        // padding length) is rejected, for every block size and every valid padding
+        // length.
+        [Fact]
+        public void PKCS7PaddingFullRangeCorruptedPositionFail()
+        {
+            for (int blockSize = 1; blockSize <= byte.MaxValue; blockSize++)
+            {
+                for (int padLength = 2; padLength <= blockSize; padLength++)
+                {
+                    byte[] b = CreateBuffer(blockSize, (byte)padLength);
+
+                    int firstPadIndex = blockSize - padLength;
+                    int lastDeclaringIndex = blockSize - 1;
+
+                    for (int pos = firstPadIndex; pos < lastDeclaringIndex; pos++)
+                    {
+                        byte original = b[pos];
+
+                        b[pos] = (byte)(original ^ 0xFF);
+
+                        Assert.Equal(-1, BlockPadding.GetPKCS7PaddingLength(blockSize, b));
+
+                        b[pos] = original;
+                    }
+                }
+            }
+        }
+
+        // Verifies that bytes preceding the padding region are ignored: valid padding
+        // is accepted and its length returned even when every content byte differs
+        // from the padding value, for every block size, every valid padding length,
+        // across single and multi block buffers.
+        [Fact]
+        public void PKCS7PaddingFullRangeArbitraryContentValidPass()
+        {
+            for (int blockSize = 1; blockSize <= byte.MaxValue; blockSize++)
+            {
+                for (int padLength = 1; padLength <= blockSize; padLength++)
+                {
+                    for (int blocks = 1; blocks <= 3; blocks++)
+                    {
+                        int length = blockSize * blocks;
+
+                        // A content value guaranteed to differ from padLength.
+                        byte[] b = CreateBuffer(length, (byte)(padLength ^ 0xFF));
+
+                        for (int i = length - padLength; i < length; i++)
+                        {
+                            b[i] = (byte)padLength;
+                        }
+
+                        Assert.Equal(padLength, BlockPadding.GetPKCS7PaddingLength(blockSize, b));
+                    }
+                }
+            }
+        }
+
         private static byte[] CreateBuffer(int length, byte value)
         {
             byte[] b = new byte[length];
