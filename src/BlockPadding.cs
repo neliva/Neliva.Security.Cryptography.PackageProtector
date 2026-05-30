@@ -6,10 +6,39 @@ using System.Runtime.CompilerServices;
 
 namespace Neliva.Security.Cryptography
 {
+    /// <summary>
+    /// Provides constant-time helpers for working with block cipher padding.
+    /// </summary>
     internal static class BlockPadding
     {
-        // Returns -1 on failure or the number of padding bytes on success.
-        // This method verifies padding in constant time.
+        /// <summary>
+        /// Validates the PKCS7 padding in the last block of <paramref name="buffer"/>
+        /// and returns the number of padding bytes.
+        /// </summary>
+        /// <param name="blockSize">
+        /// The block size, in bytes, that the padding is aligned to.
+        /// Must be between 1 and <see cref="byte.MaxValue"/> inclusive.
+        /// </param>
+        /// <param name="buffer">
+        /// The buffer whose final block contains the PKCS7 padding to validate.
+        /// Its length must be a non-zero multiple of <paramref name="blockSize"/>.
+        /// </param>
+        /// <returns>
+        /// The number of padding bytes (between 1 and <paramref name="blockSize"/>)
+        /// when the padding is valid; otherwise, -1.
+        /// </returns>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="blockSize"/> is less than 1 or greater than <see cref="byte.MaxValue"/>.
+        /// - or -
+        /// The <paramref name="buffer"/> is empty.
+        /// - or -
+        /// The <paramref name="buffer"/> length is not a multiple of <paramref name="blockSize"/>.
+        /// </exception>
+        /// <remarks>
+        /// The padding is verified in constant time with respect to the buffer
+        /// contents, so the execution time does not reveal whether the padding is
+        /// valid or how many padding bytes are present.
+        /// </remarks>
         public static int GetPKCS7PaddingLength(int blockSize, ReadOnlySpan<byte> buffer)
         {
             if (blockSize <= 0 || blockSize > byte.MaxValue)
@@ -30,7 +59,7 @@ namespace Neliva.Security.Cryptography
             }
 
             uint padLength = buffer[bufferLength - 1];
-            uint mask = ConstantTimeGE((uint)bufferLength, padLength) & ConstantTimeGE(padLength, 1);
+            uint mask = ConstantTimeGE((uint)blockSize, padLength) & ConstantTimeGE(padLength, 1);
 
             for (int i = 0; i < blockSize; i++)
             {
@@ -39,11 +68,13 @@ namespace Neliva.Security.Cryptography
                 mask &= ~(bmask & (padLength ^ b));
             }
 
-            mask = (mask >> 4) & (mask >> 2) & (mask >> 1) & mask;
+            mask &= mask >> 4;
+            mask &= mask >> 2;
+            mask &= mask >> 1;
             mask <<= 31;
             mask = ConstantTimeMsb(mask);
 
-            int result = (int)((mask & padLength) | (~mask & -1)); // returns -1 on failure
+            int result = (int)((mask & padLength) | ~mask); // returns -1 on failure
 
             return result;
         }
