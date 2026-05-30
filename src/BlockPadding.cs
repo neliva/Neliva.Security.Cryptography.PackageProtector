@@ -24,7 +24,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(buffer));
             }
 
-            if ((bufferLength < blockSize) || ((bufferLength % blockSize) != 0))
+            if ((bufferLength % blockSize) != 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(buffer), "Length is not a multiple of block size.");
             }
