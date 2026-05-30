@@ -38,6 +38,15 @@ namespace Neliva.Security.Cryptography
         /// The padding is verified in constant time with respect to the buffer
         /// contents, so the execution time does not reveal whether the padding is
         /// valid or how many padding bytes are present.
+        /// <para>
+        /// The <paramref name="buffer"/> must be authenticated (for example, by a
+        /// verified message authentication code) before this method is called.
+        /// Although the verification is constant time, the return value itself
+        /// reveals whether the padding is valid. Calling this method on
+        /// unauthenticated, attacker-controlled data and exposing that outcome
+        /// (through an exception, error code, or any observable behavior) creates a
+        /// padding oracle that can be used to decrypt or forge data without the key.
+        /// </para>
         /// </remarks>
         public static int GetPKCS7PaddingLength(int blockSize, ReadOnlySpan<byte> buffer)
         {
