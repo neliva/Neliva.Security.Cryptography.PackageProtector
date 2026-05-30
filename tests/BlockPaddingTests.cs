@@ -124,6 +124,70 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.Equal(16, BlockPadding.GetPKCS7PaddingLength(16, buf));
         }
 
+        // Verifies that correctly formed PKCS7 padding is accepted and the padding
+        // length is returned for every block size from 1 to the maximum allowed, for
+        // every valid padding length, across single and multi block buffers.
+        [Fact]
+        public void PKCS7PaddingFullRangeValidPass()
+        {
+            for (int blockSize = 1; blockSize <= byte.MaxValue; blockSize++)
+            {
+                for (int padLength = 1; padLength <= blockSize; padLength++)
+                {
+                    for (int blocks = 1; blocks <= 3; blocks++)
+                    {
+                        byte[] b = CreateBuffer(blockSize * blocks, (byte)padLength);
+
+                        Assert.Equal(padLength, BlockPadding.GetPKCS7PaddingLength(blockSize, b));
+                    }
+                }
+            }
+        }
+
+        // Verifies that a single corrupted padding byte is rejected for every block
+        // size from 1 to the maximum allowed, for every valid padding length, and for
+        // every corrupted bit position within that byte.
+        [Fact]
+        public void PKCS7PaddingFullRangeCorruptedByteFail()
+        {
+            for (int blockSize = 1; blockSize <= byte.MaxValue; blockSize++)
+            {
+                for (int padLength = 2; padLength <= blockSize; padLength++)
+                {
+                    int corruptIndex = blockSize - padLength;
+
+                    for (int bit = 0; bit < 8; bit++)
+                    {
+                        byte[] b = CreateBlock(blockSize, (byte)padLength);
+
+                        b[corruptIndex] = (byte)(padLength ^ (1 << bit));
+
+                        Assert.Equal(-1, BlockPadding.GetPKCS7PaddingLength(blockSize, b));
+                    }
+                }
+            }
+        }
+
+        // Verifies that a declared padding length greater than the block size is
+        // rejected for every block size, using multi block buffers large enough to
+        // hold the oversized padding length up to the maximum byte value.
+        [Fact]
+        public void PKCS7PaddingFullRangeOversizedPadLengthFail()
+        {
+            for (int blockSize = 1; blockSize < byte.MaxValue; blockSize++)
+            {
+                for (int padLength = blockSize + 1; padLength <= byte.MaxValue; padLength++)
+                {
+                    int blocks = (padLength + blockSize - 1) / blockSize;
+                    int bufferLength = blockSize * blocks;
+
+                    byte[] b = CreateBuffer(bufferLength, (byte)padLength);
+
+                    Assert.Equal(-1, BlockPadding.GetPKCS7PaddingLength(blockSize, b));
+                }
+            }
+        }
+
         private static byte[] CreateBlock(int blockSize, byte padLength)
         {
             byte[] b = new byte[blockSize];
@@ -131,6 +195,18 @@ namespace Neliva.Security.Cryptography.Tests
             for (int i = b.Length - 1; i >= 0; i--)
             {
                 b[i] = padLength;
+            }
+
+            return b;
+        }
+
+        private static byte[] CreateBuffer(int length, byte value)
+        {
+            byte[] b = new byte[length];
+
+            for (int i = 0; i < b.Length; i++)
+            {
+                b[i] = value;
             }
 
             return b;
