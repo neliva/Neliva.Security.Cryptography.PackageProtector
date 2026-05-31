@@ -162,6 +162,9 @@ namespace Neliva.Security.Cryptography
                 {
                     PrehashPassword(password, output.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
 
+                    // Safe to use the same span for input and output. Pbkdf2 consumes
+                    // the prehashed password into its internal HMAC key before writing
+                    // the derived bytes, so the in-place overwrite does not corrupt the input.
                     PrehashedPbkdf2(tmp64Span, tmp64Span, iterations);
 
                     using (var hmac = new HMACSHA512(tmp64))
@@ -317,6 +320,9 @@ namespace Neliva.Security.Cryptography
                 {
                     PrehashPassword(password, package.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
 
+                    // Safe to use the same span for input and output. Pbkdf2 consumes
+                    // the prehashed password into its internal HMAC key before writing
+                    // the derived bytes, so the in-place overwrite does not corrupt the input.
                     PrehashedPbkdf2(tmp64Span, tmp64Span, iterations);
 
                     using (var hmac = new HMACSHA512(tmp64))
