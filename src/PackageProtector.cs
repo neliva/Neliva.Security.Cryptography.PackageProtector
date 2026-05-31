@@ -59,7 +59,7 @@ namespace Neliva.Security.Cryptography
         /// <param name="packageSize">
         /// The package size in bytes which must be a multiple of 16 bytes.
         /// The minimum is (<paramref name="ivSize"/> + 48)
-        /// and the maximum is <c>16777206</c>.
+        /// and the maximum is <c>16777200</c>.
         /// </param>
         /// <param name="rngFill">
         /// A callback to fill a span with cryptographically strong random bytes.
@@ -70,7 +70,7 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="ivSize"/> parameter is not 0, 16 or 32 bytes.
         /// - or -
         /// The <paramref name="packageSize"/> parameter is less than
-        /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>16777206</c> bytes.
+        /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>16777200</c> bytes.
         /// </exception>
         public PackageProtector(int ivSize = BlockSize, int packageSize = 64 * 1024, RngFillAction rngFill = null)
         {
