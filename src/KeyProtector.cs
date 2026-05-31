@@ -28,6 +28,12 @@ namespace Neliva.Security.Cryptography
     /// |                                   |      encrypted       |            |    
     /// </code>
     /// </para>
+    /// <para>
+    /// The <c>Checksum</c> is an unkeyed SHA-512 digest that provides integrity only.
+    /// It detects accidental corruption and allows a fast fail before the expensive
+    /// key derivation runs, but it offers no protection against deliberate tampering.
+    /// Authenticity is provided solely by the encrypted <c>HMAC</c>.
+    /// </para>
     /// </remarks>
     public sealed class KeyProtector : IDisposable
     {
