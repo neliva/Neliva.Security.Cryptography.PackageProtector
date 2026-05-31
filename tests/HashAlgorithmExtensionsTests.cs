@@ -52,10 +52,18 @@ namespace Neliva.Security.Cryptography.Tests
         public void ComputeHashMatchesReferencePass(int sourceLength)
         {
             var key = new byte[32];
-            new Random(sourceLength).NextBytes(key);
+
+            for (int i = 0; i < key.Length; i++)
+            {
+                key[i] = (byte)(i + 1);
+            }
 
             var source = new byte[sourceLength];
-            new Random(sourceLength + 1).NextBytes(source);
+
+            for (int i = 0; i < source.Length; i++)
+            {
+                source[i] = (byte)i;
+            }
 
             var expected = new byte[32];
             HMACSHA256.HashData(key, source, expected);
