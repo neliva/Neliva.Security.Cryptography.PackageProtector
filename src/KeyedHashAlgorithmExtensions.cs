@@ -75,7 +75,7 @@ namespace Neliva.Security.Cryptography
 
             Span<byte> buffer = (bufferSize <= MaxStackAllocSize) ?
                 stackalloc byte[bufferSize] :
-                (rented = ArrayPool<byte>.Shared.Rent(bufferSize));
+                (rented = ArrayPool<byte>.Shared.Rent(bufferSize)).AsSpan(0, bufferSize);
 
             Span<byte> hash = buffer.Slice(0, hashSize);
             Span<byte> inputData = buffer.Slice(hashSize);

@@ -474,12 +474,13 @@ namespace Neliva.Security.Cryptography.Tests
 
         [Theory]
         [InlineData(0)]
+        [InlineData(16)]
         [InlineData(32)]
         public async Task StreamRoundTripAllIvSizesPass(int ivSize)
         {
-            // Streaming round-trip is only exercised with the default ivSize elsewhere.
-            // Validate ivSize=0 (deterministic) and ivSize=32 (largest IV) end-to-end,
-            // including the empty-package end-of-stream marker semantics.
+            // Validate ivSize=0 (deterministic), ivSize=16 (default) and ivSize=32
+            // (largest IV) end-to-end, including the empty-package end-of-stream
+            // marker semantics.
             using var p = new PackageProtector(ivSize: ivSize, packageSize: 256);
 
             var key = new byte[32].Fill(91);
@@ -503,6 +504,112 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.Equal(contentLength, decryptedLen);
             Assert.Equal(contentBytes, decrypted.ToArray());
+        }
+
+        [Fact]
+        public async Task StreamRoundTripWithAssociatedDataPass()
+        {
+            // The negative associated data path is covered elsewhere; verify a full
+            // round-trip succeeds when matching associated data is supplied to both
+            // ProtectAsync and UnprotectAsync.
+            using var p = new PackageProtector(ivSize: 16, packageSize: 128);
+
+            var key = new byte[32].Fill(71);
+            var associatedData = new byte[16].Fill(123);
+
+            var contentBytes = new byte[p.MaxContentSize * 2 + 9].Fill(44);
+
+            var package = new MemoryStream();
+
+            await p.ProtectAsync(new MemoryStream(contentBytes), package, key, associatedData);
+
+            package.Position = 0;
+            var decrypted = new MemoryStream();
+
+            long decryptedLen = await p.UnprotectAsync(package, decrypted, key, associatedData);
+
+            Assert.Equal(contentBytes.Length, decryptedLen);
+            Assert.Equal(contentBytes, decrypted.ToArray());
+
+            // Unprotecting with mismatched associated data must fail.
+            package.Position = 0;
+            var ex = await Assert.ThrowsAsync<BadPackageException>(() => p.UnprotectAsync(package, Stream.Null, key, new byte[16].Fill(124)));
+            Assert.Equal("Package is invalid or corrupted.", ex.Message);
+        }
+
+        [Fact]
+        public async Task StreamRoundTripExactContentMultipleAppendsEndMarkerPass()
+        {
+            // When the content length is an exact multiple of MaxContentSize, the
+            // last data package is full, so an extra empty end-of-stream marker
+            // package must be appended. Verify exact output length and round-trip.
+            using var p = new PackageProtector(packageSize: 128);
+
+            var key = new byte[32].Fill(17);
+
+            int contentLength = p.MaxContentSize * 3;
+            var contentBytes = new byte[contentLength].Fill(88);
+
+            var package = new MemoryStream();
+
+            long protectedLen = await p.ProtectAsync(new MemoryStream(contentBytes), package, key);
+
+            // 3 full data packages plus 1 empty end-of-stream marker package.
+            // Empty content is PKCS7-padded to a full block, so the marker is a
+            // full minimum-size package (iv + padded block + hash).
+            Assert.Equal((long)p.MaxPackageSize * 3 + MinPackageSize, protectedLen);
+
+            package.Position = 0;
+            var decrypted = new MemoryStream();
+
+            long decryptedLen = await p.UnprotectAsync(package, decrypted, key);
+
+            Assert.Equal(contentLength, decryptedLen);
+            Assert.Equal(contentBytes, decrypted.ToArray());
+        }
+
+        [Fact]
+        public async Task StreamRoundTripEmptyContentProducesSingleMarkerPass()
+        {
+            // Empty content must still produce exactly one end-of-stream marker
+            // package, and unprotecting it must yield zero content bytes.
+            using var p = new PackageProtector(packageSize: 128);
+
+            var key = new byte[32].Fill(53);
+
+            var package = new MemoryStream();
+
+            long protectedLen = await p.ProtectAsync(new MemoryStream(Array.Empty<byte>()), package, key);
+
+            // Empty content is PKCS7-padded to a full block, so the single marker
+            // package is a full minimum-size package.
+            Assert.Equal(MinPackageSize, protectedLen);
+
+            package.Position = 0;
+            var decrypted = new MemoryStream();
+
+            long decryptedLen = await p.UnprotectAsync(package, decrypted, key);
+
+            Assert.Equal(0, decryptedLen);
+            Assert.Equal(0, decrypted.Length);
+        }
+
+        [Fact]
+        public async Task StreamProtectReturnsTotalWrittenLengthPass()
+        {
+            // The returned length must equal the number of bytes actually written
+            // to the package stream.
+            using var p = new PackageProtector(packageSize: 128);
+
+            var key = new byte[32].Fill(61);
+
+            var contentBytes = new byte[p.MaxContentSize + 5].Fill(200);
+
+            var package = new MemoryStream();
+
+            long protectedLen = await p.ProtectAsync(new MemoryStream(contentBytes), package, key);
+
+            Assert.Equal(package.Length, protectedLen);
         }
     }
 }

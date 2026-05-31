@@ -851,6 +851,145 @@ namespace Neliva.Security.Cryptography.Tests
             }
         }
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(16)]
+        [InlineData(32)]
+        public void UnprotectTamperEveryByteAndBitMultiBlockFail(int ivSize)
+        {
+            // Exhaustive tamper detection: flipping any single bit at any byte
+            // position of a multi block package must be rejected and must clear the
+            // output. Covers the IV region, the MAC region, and the encrypted body.
+            const int PackageSize = 128; // Multiple AES blocks beyond the minimum.
+
+            using var protector = new PackageProtector(ivSize: ivSize, packageSize: PackageSize);
+
+            var key = new byte[32].Fill(4);
+
+            // MaxAssociatedDataSize == 32 - ivSize, so use a size valid for all ivSizes.
+            var associatedData = new byte[32 - ivSize].Fill(7);
+
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize].Fill(9));
+
+            var package = new ArraySegment<byte>(new byte[PackageSize]);
+
+            var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
+
+            var unprotectedContent = new ArraySegment<byte>(new byte[PackageSize]);
+
+            for (int i = 0; i < bytesProtected; i++)
+            {
+                for (int bit = 0; bit < 8; bit++)
+                {
+                    package[i] ^= (byte)(1 << bit);
+
+                    Assert.Throws<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
+
+                    Assert.True(unprotectedContent.IsAllZeros(), $"Destination not cleared on Unprotect() failure for byte index '{i}', bit '{bit}'.");
+
+                    package[i] ^= (byte)(1 << bit);
+                }
+            }
+        }
+
+        [Theory]
+        [InlineData(16)]
+        [InlineData(32)]
+        public void UnprotectTamperedIvFail(int ivSize)
+        {
+            // The KDF binds the derived keys to the IV bytes. Flipping any bit of
+            // any IV byte must cause a MAC failure and clear the output.
+            const int PackageSize = 128;
+
+            using var protector = new PackageProtector(ivSize: ivSize, packageSize: PackageSize);
+
+            var key = new byte[32].Fill(4);
+            var associatedData = new byte[32 - ivSize].Fill(7);
+
+            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize].Fill(9));
+
+            var package = new ArraySegment<byte>(new byte[PackageSize]);
+
+            var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
+
+            var unprotectedContent = new ArraySegment<byte>(new byte[PackageSize]);
+
+            for (int i = 0; i < ivSize; i++)
+            {
+                for (int bit = 0; bit < 8; bit++)
+                {
+                    package[i] ^= (byte)(1 << bit);
+
+                    Assert.Throws<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
+
+                    Assert.True(unprotectedContent.IsAllZeros(), $"Destination not cleared on Unprotect() failure for IV byte index '{i}', bit '{bit}'.");
+
+                    package[i] ^= (byte)(1 << bit);
+                }
+            }
+        }
+
+        [Theory]
+        [InlineData(0L)]
+        [InlineData(1L)]
+        [InlineData(long.MaxValue)]
+        [InlineData(long.MaxValue - 1L)]
+        [InlineData(0x0102030405060708L)]
+        public void RoundTripPackageNumberBoundaryPass(long packageNumber)
+        {
+            // The package number is serialized as 8 big endian bytes into the KDF
+            // input. Round-tripping boundary and high values confirms the full range
+            // survives protection and unprotection.
+            const int PackageSize = 128;
+
+            using var protector = new PackageProtector(ivSize: 16, packageSize: PackageSize);
+
+            var key = new byte[32].Fill(4);
+            var associatedData = new byte[16].Fill(7);
+
+            var content = new byte[protector.MaxContentSize - 5].Fill(9);
+
+            var package = new byte[PackageSize];
+
+            var bytesProtected = protector.Protect(content, package, key, packageNumber, associatedData);
+
+            var unprotectedContent = new byte[PackageSize];
+
+            var bytesUnprotected = protector.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), unprotectedContent, key, packageNumber, associatedData);
+
+            Assert.Equal(content.Length, bytesUnprotected);
+            Assert.Equal(content, new ArraySegment<byte>(unprotectedContent, 0, bytesUnprotected).ToArray());
+        }
+
+        [Theory]
+        [InlineData(0L, 1L)]
+        [InlineData(1L, 0L)]
+        [InlineData(0L, long.MaxValue)]
+        [InlineData(long.MaxValue, 0L)]
+        public void UnprotectWrongPackageNumberBoundaryFail(long protectNumber, long unprotectNumber)
+        {
+            // A package produced with one package number must not be decryptable with
+            // a different package number, including boundary values.
+            const int PackageSize = 128;
+
+            using var protector = new PackageProtector(ivSize: 16, packageSize: PackageSize);
+
+            var key = new byte[32].Fill(4);
+            var associatedData = new byte[16].Fill(7);
+
+            var content = new byte[protector.MaxContentSize].Fill(9);
+
+            var package = new byte[PackageSize];
+
+            var bytesProtected = protector.Protect(content, package, key, protectNumber, associatedData);
+
+            var unprotectedContent = new ArraySegment<byte>(new byte[PackageSize]);
+
+            Assert.Throws<BadPackageException>(() => protector.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), unprotectedContent, key, unprotectNumber, associatedData));
+
+            Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
+        }
+
         [Fact]
         public void UnprotectGoodMacBadPadFail()
         {

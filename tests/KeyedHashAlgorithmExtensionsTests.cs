@@ -174,5 +174,237 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.Contains(derived, b => b != 0);
         }
+
+        // Verifies the byte-exact output against an independent reference
+        // implementation of the SP800-108 counter mode KDF. Covers multiple hash
+        // sizes (32/48/64), single and multi block output, truncated final blocks
+        // (lengths not a multiple of the hash size), empty label/context, and the
+        // ArrayPool rented buffer path (large label/context exceeding the 320 byte
+        // stackalloc threshold).
+        [Theory]
+        [InlineData("SHA256", 1, 5, 20)]
+        [InlineData("SHA256", 31, 5, 20)]
+        [InlineData("SHA256", 32, 0, 0)]
+        [InlineData("SHA256", 33, 5, 20)]
+        [InlineData("SHA256", 64, 5, 20)]
+        [InlineData("SHA256", 65, 5, 20)]
+        [InlineData("SHA256", 96, 300, 300)] // rented buffer path
+        [InlineData("SHA256", 200, 0, 512)]  // rented buffer path
+        [InlineData("SHA384", 1, 5, 20)]
+        [InlineData("SHA384", 48, 5, 20)]
+        [InlineData("SHA384", 49, 5, 20)]
+        [InlineData("SHA384", 100, 400, 0)]  // rented buffer path
+        [InlineData("SHA512", 1, 0, 0)]
+        [InlineData("SHA512", 64, 5, 20)]
+        [InlineData("SHA512", 65, 5, 20)]
+        [InlineData("SHA512", 300, 0, 500)]  // rented buffer path
+        public void DeriveKeyMatchesReferencePass(string algName, int derivedKeyLength, int labelLength, int contextLength)
+        {
+            var masterKey = new byte[40].Fill(11);
+            var label = new byte[labelLength].Fill(55);
+            var context = new byte[contextLength].Fill(88);
+
+            var derivedKey = new byte[derivedKeyLength];
+
+            using (var hmac = CreateHmac(algName, masterKey))
+            {
+                hmac.DeriveKey(derivedKey, label, context);
+            }
+
+            var expected = ComputeReference(algName, masterKey, derivedKeyLength, label, context);
+
+            Assert.Equal(expected, derivedKey);
+        }
+
+        [Fact]
+        public void DeriveKeyIsDeterministicPass()
+        {
+            var masterKey = new byte[32].Fill(3);
+            var label = new byte[] { 1, 2, 3 };
+            var context = new byte[] { 4, 5, 6 };
+
+            var first = new byte[80];
+            var second = new byte[80];
+
+            using (var hmac = new HMACSHA256(masterKey))
+            {
+                hmac.DeriveKey(first, label, context);
+            }
+
+            using (var hmac = new HMACSHA256(masterKey))
+            {
+                hmac.DeriveKey(second, label, context);
+            }
+
+            Assert.Equal(first, second);
+        }
+
+        [Fact]
+        public void DeriveKeyOutputBoundToRequestedLengthPass()
+        {
+            // The requested key length is encoded (in bits) into the KDF input, so
+            // the first hashSize bytes of a short derivation must differ from the
+            // first hashSize bytes of a longer derivation with identical inputs.
+            var masterKey = new byte[32].Fill(9);
+            var label = new byte[] { 1, 2, 3 };
+            var context = new byte[] { 4, 5, 6 };
+
+            var shortKey = new byte[32];
+            var longKey = new byte[64];
+
+            using (var hmac = new HMACSHA256(masterKey))
+            {
+                hmac.DeriveKey(shortKey, label, context);
+            }
+
+            using (var hmac = new HMACSHA256(masterKey))
+            {
+                hmac.DeriveKey(longKey, label, context);
+            }
+
+            Assert.NotEqual(shortKey, longKey.AsSpan(0, 32).ToArray());
+        }
+
+        [Fact]
+        public void DeriveKeyLabelContextBoundaryProducesDistinctKeysPass()
+        {
+            // The 0x00 separator between label and context must make the boundary
+            // unambiguous, so distributing the same bytes differently across label
+            // and context must yield distinct keys.
+            var masterKey = new byte[32].Fill(13);
+
+            byte[] Derive(byte[] label, byte[] context)
+            {
+                var key = new byte[32];
+
+                using var hmac = new HMACSHA256(masterKey);
+
+                hmac.DeriveKey(key, label, context);
+
+                return key;
+            }
+
+            var ab_empty = Derive(new byte[] { 0x41, 0x42 }, Array.Empty<byte>());
+            var a_b = Derive(new byte[] { 0x41 }, new byte[] { 0x42 });
+            var empty_ab = Derive(Array.Empty<byte>(), new byte[] { 0x41, 0x42 });
+            var a_empty = Derive(new byte[] { 0x41 }, Array.Empty<byte>());
+            var empty_a = Derive(Array.Empty<byte>(), new byte[] { 0x41 });
+
+            var keys = new[] { ab_empty, a_b, empty_ab, a_empty, empty_a };
+
+            for (int i = 0; i < keys.Length; i++)
+            {
+                for (int j = i + 1; j < keys.Length; j++)
+                {
+                    Assert.NotEqual(keys[i], keys[j]);
+                }
+            }
+        }
+
+        // Verifies byte-exact compatibility with the .NET built-in SP800-108
+        // counter mode KDF (SP800108HmacCounterKdf). Both must produce identical
+        // output for identical key/label/context/length across multiple hash sizes,
+        // single and multi block output, truncated final blocks, empty label/context,
+        // and the ArrayPool rented buffer path (large label/context).
+        [Theory]
+        [InlineData("SHA256", 1, 5, 20)]
+        [InlineData("SHA256", 31, 5, 20)]
+        [InlineData("SHA256", 32, 0, 0)]
+        [InlineData("SHA256", 33, 5, 20)]
+        [InlineData("SHA256", 64, 5, 20)]
+        [InlineData("SHA256", 65, 5, 20)]
+        [InlineData("SHA256", 96, 300, 300)] // rented buffer path
+        [InlineData("SHA256", 200, 0, 512)]  // rented buffer path
+        [InlineData("SHA384", 1, 5, 20)]
+        [InlineData("SHA384", 48, 5, 20)]
+        [InlineData("SHA384", 49, 5, 20)]
+        [InlineData("SHA384", 100, 400, 0)]  // rented buffer path
+        [InlineData("SHA512", 1, 0, 0)]
+        [InlineData("SHA512", 64, 5, 20)]
+        [InlineData("SHA512", 65, 5, 20)]
+        [InlineData("SHA512", 300, 0, 500)]  // rented buffer path
+        public void DeriveKeyMatchesBuiltInSP800108Pass(string algName, int derivedKeyLength, int labelLength, int contextLength)
+        {
+            var masterKey = new byte[40].Fill(11);
+            var label = new byte[labelLength].Fill(55);
+            var context = new byte[contextLength].Fill(88);
+
+            var derivedKey = new byte[derivedKeyLength];
+
+            using (var hmac = CreateHmac(algName, masterKey))
+            {
+                hmac.DeriveKey(derivedKey, label, context);
+            }
+
+            var expected = SP800108HmacCounterKdf.DeriveBytes(masterKey, HashName(algName), label, context, derivedKeyLength);
+
+            Assert.Equal(expected, derivedKey);
+        }
+
+        private static HashAlgorithmName HashName(string algName)
+        {
+            return algName switch
+            {
+                "SHA256" => HashAlgorithmName.SHA256,
+                "SHA384" => HashAlgorithmName.SHA384,
+                "SHA512" => HashAlgorithmName.SHA512,
+                _ => throw new ArgumentOutOfRangeException(nameof(algName)),
+            };
+        }
+
+        private static KeyedHashAlgorithm CreateHmac(string algName, byte[] key)
+        {
+            return algName switch
+            {
+                "SHA256" => new HMACSHA256(key),
+                "SHA384" => new HMACSHA384(key),
+                "SHA512" => new HMACSHA512(key),
+                _ => throw new ArgumentOutOfRangeException(nameof(algName)),
+            };
+        }
+
+        // Independent SP800-108 counter mode KDF used as a test oracle. The
+        // construction is validated against the published aspnet test vectors in
+        // DeriveKeyPass / DeriveKeyWithLongMasterKeyPass.
+        private static byte[] ComputeReference(string algName, byte[] key, int derivedKeyLength, byte[] label, byte[] context)
+        {
+            int hashSize;
+
+            using (var probe = CreateHmac(algName, key))
+            {
+                hashSize = probe.HashSize / 8;
+            }
+
+            int inputSize = sizeof(uint) + label.Length + 1 + context.Length + sizeof(uint);
+
+            var input = new byte[inputSize];
+
+            Buffer.BlockCopy(label, 0, input, sizeof(uint), label.Length);
+            input[sizeof(uint) + label.Length] = 0x00;
+            Buffer.BlockCopy(context, 0, input, sizeof(uint) + label.Length + 1, context.Length);
+
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(input.AsSpan(inputSize - sizeof(uint)), (uint)derivedKeyLength * 8u);
+
+            var result = new byte[derivedKeyLength];
+
+            int offset = 0;
+
+            using var alg = CreateHmac(algName, key);
+
+            for (uint counter = 1; offset < derivedKeyLength; counter++)
+            {
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(input, counter);
+
+                var hash = alg.ComputeHash(input);
+
+                int take = Math.Min(hashSize, derivedKeyLength - offset);
+
+                Buffer.BlockCopy(hash, 0, result, offset, take);
+
+                offset += take;
+            }
+
+            return result;
+        }
     }
 }

@@ -28,6 +28,12 @@ namespace Neliva.Security.Cryptography
     /// |                                   |      encrypted       |            |    
     /// </code>
     /// </para>
+    /// <para>
+    /// The <c>Checksum</c> is an unkeyed SHA-512 digest that provides integrity only.
+    /// It detects accidental corruption and allows a fast fail before the expensive
+    /// key derivation runs, but it offers no protection against deliberate tampering.
+    /// Authenticity is provided solely by the encrypted <c>HMAC</c>.
+    /// </para>
     /// </remarks>
     public sealed class KeyProtector : IDisposable
     {
@@ -162,6 +168,9 @@ namespace Neliva.Security.Cryptography
                 {
                     PrehashPassword(password, output.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
 
+                    // Safe to use the same span for input and output. Pbkdf2 consumes
+                    // the prehashed password into its internal HMAC key before writing
+                    // the derived bytes, so the in-place overwrite does not corrupt the input.
                     PrehashedPbkdf2(tmp64Span, tmp64Span, iterations);
 
                     using (var hmac = new HMACSHA512(tmp64))
@@ -317,6 +326,9 @@ namespace Neliva.Security.Cryptography
                 {
                     PrehashPassword(password, package.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
 
+                    // Safe to use the same span for input and output. Pbkdf2 consumes
+                    // the prehashed password into its internal HMAC key before writing
+                    // the derived bytes, so the in-place overwrite does not corrupt the input.
                     PrehashedPbkdf2(tmp64Span, tmp64Span, iterations);
 
                     using (var hmac = new HMACSHA512(tmp64))
