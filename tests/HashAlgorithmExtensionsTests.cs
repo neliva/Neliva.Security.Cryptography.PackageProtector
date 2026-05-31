@@ -42,5 +42,32 @@ namespace Neliva.Security.Cryptography.Tests
                 hmac.ComputeHash(new byte[sourceLength], new byte[destinationLength]);
             }
         }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(63)]
+        [InlineData(64)]
+        [InlineData(100)]
+        public void ComputeHashMatchesReferencePass(int sourceLength)
+        {
+            var key = new byte[32];
+            new Random(sourceLength).NextBytes(key);
+
+            var source = new byte[sourceLength];
+            new Random(sourceLength + 1).NextBytes(source);
+
+            var expected = new byte[32];
+            HMACSHA256.HashData(key, source, expected);
+
+            using (var hmac = new HMACSHA256(key))
+            {
+                var actual = new byte[32];
+
+                hmac.ComputeHash(source, actual);
+
+                Assert.Equal(expected, actual);
+            }
+        }
     }
 }
