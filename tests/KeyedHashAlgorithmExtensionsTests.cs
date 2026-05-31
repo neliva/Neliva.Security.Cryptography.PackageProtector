@@ -301,6 +301,57 @@ namespace Neliva.Security.Cryptography.Tests
             }
         }
 
+        // Verifies byte-exact compatibility with the .NET built-in SP800-108
+        // counter mode KDF (SP800108HmacCounterKdf). Both must produce identical
+        // output for identical key/label/context/length across multiple hash sizes,
+        // single and multi block output, truncated final blocks, empty label/context,
+        // and the ArrayPool rented buffer path (large label/context).
+        [Theory]
+        [InlineData("SHA256", 1, 5, 20)]
+        [InlineData("SHA256", 31, 5, 20)]
+        [InlineData("SHA256", 32, 0, 0)]
+        [InlineData("SHA256", 33, 5, 20)]
+        [InlineData("SHA256", 64, 5, 20)]
+        [InlineData("SHA256", 65, 5, 20)]
+        [InlineData("SHA256", 96, 300, 300)] // rented buffer path
+        [InlineData("SHA256", 200, 0, 512)]  // rented buffer path
+        [InlineData("SHA384", 1, 5, 20)]
+        [InlineData("SHA384", 48, 5, 20)]
+        [InlineData("SHA384", 49, 5, 20)]
+        [InlineData("SHA384", 100, 400, 0)]  // rented buffer path
+        [InlineData("SHA512", 1, 0, 0)]
+        [InlineData("SHA512", 64, 5, 20)]
+        [InlineData("SHA512", 65, 5, 20)]
+        [InlineData("SHA512", 300, 0, 500)]  // rented buffer path
+        public void DeriveKeyMatchesBuiltInSP800108Pass(string algName, int derivedKeyLength, int labelLength, int contextLength)
+        {
+            var masterKey = new byte[40].Fill(11);
+            var label = new byte[labelLength].Fill(55);
+            var context = new byte[contextLength].Fill(88);
+
+            var derivedKey = new byte[derivedKeyLength];
+
+            using (var hmac = CreateHmac(algName, masterKey))
+            {
+                hmac.DeriveKey(derivedKey, label, context);
+            }
+
+            var expected = SP800108HmacCounterKdf.DeriveBytes(masterKey, HashName(algName), label, context, derivedKeyLength);
+
+            Assert.Equal(expected, derivedKey);
+        }
+
+        private static HashAlgorithmName HashName(string algName)
+        {
+            return algName switch
+            {
+                "SHA256" => HashAlgorithmName.SHA256,
+                "SHA384" => HashAlgorithmName.SHA384,
+                "SHA512" => HashAlgorithmName.SHA512,
+                _ => throw new ArgumentOutOfRangeException(nameof(algName)),
+            };
+        }
+
         private static KeyedHashAlgorithm CreateHmac(string algName, byte[] key)
         {
             return algName switch
