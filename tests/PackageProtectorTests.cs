@@ -121,6 +121,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new PackageProtector(ivSize: ivSize));
 
             Assert.Equal(nameof(ivSize), ex.ParamName);
+            Assert.Equal("IV size must be 0, 16 or 32 bytes. (Parameter 'ivSize')", ex.Message);
         }
 
         [Theory]
@@ -174,6 +175,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new PackageProtector(ivSize: ivSize, packageSize: packageSize));
 
             Assert.Equal(nameof(packageSize), ex.ParamName);
+            Assert.Equal("Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 16777200 bytes. (Parameter 'packageSize')", ex.Message);
         }
 
         [Theory]

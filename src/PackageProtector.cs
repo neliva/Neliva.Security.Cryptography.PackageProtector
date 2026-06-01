@@ -82,7 +82,7 @@ namespace Neliva.Security.Cryptography
                     break;
 
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(ivSize));
+                    throw new ArgumentOutOfRangeException(nameof(ivSize), "IV size must be 0, 16 or 32 bytes.");
             }
 
             int minPackageSize = ivSize + HashSize + BlockSize;
@@ -91,7 +91,7 @@ namespace Neliva.Security.Cryptography
 
             if (packageSize < minPackageSize || packageSize > KdfMaxPackageSize || IsNotAlignedBlock(packageSize))
             {
-                throw new ArgumentOutOfRangeException(nameof(packageSize));
+                throw new ArgumentOutOfRangeException(nameof(packageSize), "Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 16777200 bytes.");
             }
 
             // Overhead is the minimum number of bytes added to content
