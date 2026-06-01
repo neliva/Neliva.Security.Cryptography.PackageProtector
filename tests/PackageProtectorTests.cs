@@ -1220,5 +1220,202 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.True(((ArraySegment<byte>)output).IsAllZeros(),
                 "Destination not cleared after cross-ivSize unprotect failure.");
         }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(16)]
+        [InlineData(32)]
+        public void RoundTripFullAssociatedDataRangePass(int ivSize)
+        {
+            // The associatedData length is bound into the KDF (its byte value and the
+            // bytes themselves). Exhaustively round-trip every valid associatedData
+            // size from 0 to MaxAssociatedDataSize (== 32 - ivSize) for each ivSize.
+            const int PackageSize = 128;
+
+            var key = new byte[32].Fill(4);
+
+            int maxAssociatedDataSize = 32 - ivSize;
+
+            using var protector = new PackageProtector(ivSize: ivSize, packageSize: PackageSize);
+
+            var content = new byte[protector.MaxContentSize - 1].Fill(9);
+
+            var package = new byte[PackageSize];
+            var unprotectedContent = new byte[PackageSize];
+
+            for (int aadSize = 0; aadSize <= maxAssociatedDataSize; aadSize++)
+            {
+                var associatedData = new byte[aadSize].Fill((byte)(aadSize + 1));
+
+                Array.Clear(package);
+                Array.Clear(unprotectedContent);
+
+                int bytesProtected = protector.Protect(content, package, key, 3, associatedData);
+
+                int bytesUnprotected = protector.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), unprotectedContent, key, 3, associatedData);
+
+                Assert.Equal(content.Length, bytesUnprotected);
+                Assert.Equal(content, new ArraySegment<byte>(unprotectedContent, 0, bytesUnprotected).ToArray());
+            }
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(16)]
+        [InlineData(32)]
+        public void RoundTripFullKeySizeRangePass(int ivSize)
+        {
+            // The valid key length is 32..64 bytes. Exhaustively round-trip every
+            // size in that range to confirm all are accepted and produce a valid
+            // package, for each ivSize.
+            const int PackageSize = 128;
+
+            using var protector = new PackageProtector(ivSize: ivSize, packageSize: PackageSize);
+
+            var associatedData = new byte[32 - ivSize].Fill(7);
+
+            var content = new byte[protector.MaxContentSize - 2].Fill(9);
+
+            var package = new byte[PackageSize];
+            var unprotectedContent = new byte[PackageSize];
+
+            for (int keySize = 32; keySize <= 64; keySize++)
+            {
+                var key = new byte[keySize].Fill((byte)keySize);
+
+                Array.Clear(package);
+                Array.Clear(unprotectedContent);
+
+                int bytesProtected = protector.Protect(content, package, key, 9, associatedData);
+
+                int bytesUnprotected = protector.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), unprotectedContent, key, 9, associatedData);
+
+                Assert.Equal(content.Length, bytesUnprotected);
+                Assert.Equal(content, new ArraySegment<byte>(unprotectedContent, 0, bytesUnprotected).ToArray());
+            }
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(16)]
+        [InlineData(32)]
+        public void RoundTripEmptyContentAllIvSizesPass(int ivSize)
+        {
+            // Empty content produces the minimum package (iv + hash + one padding
+            // block) for every ivSize and must round-trip back to zero content bytes.
+            const int PackageSize = 128;
+
+            var key = new byte[32].Fill(4);
+            var associatedData = new byte[32 - ivSize].Fill(7);
+
+            using var protector = new PackageProtector(ivSize: ivSize, packageSize: PackageSize);
+
+            int expectedPackageSize = ivSize + HashSize + BlockSize;
+
+            var package = new byte[PackageSize];
+            var unprotectedContent = new byte[PackageSize];
+
+            int bytesProtected = protector.Protect(ArraySegment<byte>.Empty, package, key, 0, associatedData);
+
+            Assert.Equal(expectedPackageSize, bytesProtected);
+
+            int bytesUnprotected = protector.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), unprotectedContent, key, 0, associatedData);
+
+            Assert.Equal(0, bytesUnprotected);
+        }
+
+        [Fact]
+        public void ProtectValidationPrecedencePass()
+        {
+            // When multiple arguments are invalid at once, Protect must report them
+            // in this documented order: content -> package -> key(null) -> key(size)
+            // -> packageNumber -> associatedData.
+            using var p = new PackageProtector(packageSize: 128);
+
+            var tooLargeContent = new byte[p.MaxContentSize + 1];
+            var validContent = new byte[p.MaxContentSize];
+
+            var tinyPackage = new byte[1];
+            var validPackage = new byte[p.MaxPackageSize];
+
+            var hugeAssociatedData = new byte[999];
+
+            // content (too large) wins over package, key, packageNumber, associatedData.
+            var exContent = Assert.Throws<ArgumentOutOfRangeException>(
+                () => p.Protect(tooLargeContent, tinyPackage, null, -1, hugeAssociatedData));
+            Assert.Equal("content", exContent.ParamName);
+
+            // package (insufficient) wins over key, packageNumber, associatedData.
+            var exPackage = Assert.Throws<ArgumentOutOfRangeException>(
+                () => p.Protect(validContent, tinyPackage, null, -1, hugeAssociatedData));
+            Assert.Equal("package", exPackage.ParamName);
+
+            // key (null) wins over packageNumber, associatedData.
+            var exKeyNull = Assert.Throws<ArgumentNullException>(
+                () => p.Protect(validContent, validPackage, null, -1, hugeAssociatedData));
+            Assert.Equal("key", exKeyNull.ParamName);
+
+            // key (bad size) wins over packageNumber, associatedData.
+            var exKeySize = Assert.Throws<ArgumentOutOfRangeException>(
+                () => p.Protect(validContent, validPackage, new byte[16], -1, hugeAssociatedData));
+            Assert.Equal("key", exKeySize.ParamName);
+
+            // packageNumber (negative) wins over associatedData.
+            var exNumber = Assert.Throws<ArgumentOutOfRangeException>(
+                () => p.Protect(validContent, validPackage, new byte[32], -1, hugeAssociatedData));
+            Assert.Equal("packageNumber", exNumber.ParamName);
+
+            // associatedData (too large) is reported last.
+            var exAad = Assert.Throws<ArgumentOutOfRangeException>(
+                () => p.Protect(validContent, validPackage, new byte[32], 0, hugeAssociatedData));
+            Assert.Equal("associatedData", exAad.ParamName);
+        }
+
+        [Fact]
+        public void UnprotectValidationPrecedencePass()
+        {
+            // When multiple arguments are invalid at once, Unprotect must report them
+            // in this documented order: package -> content -> key(null) -> key(size)
+            // -> packageNumber -> associatedData.
+            using var p = new PackageProtector(packageSize: 128);
+
+            var invalidPackage = new byte[1];
+            var validPackage = new byte[p.MaxPackageSize];
+
+            var tinyContent = new byte[0];
+            var validContent = new byte[p.MaxPackageSize];
+
+            var hugeAssociatedData = new byte[999];
+
+            // package (bad size) wins over content, key, packageNumber, associatedData.
+            var exPackage = Assert.Throws<ArgumentOutOfRangeException>(
+                () => p.Unprotect(invalidPackage, tinyContent, null, -1, hugeAssociatedData));
+            Assert.Equal("package", exPackage.ParamName);
+
+            // content (insufficient) wins over key, packageNumber, associatedData.
+            var exContent = Assert.Throws<ArgumentOutOfRangeException>(
+                () => p.Unprotect(validPackage, tinyContent, null, -1, hugeAssociatedData));
+            Assert.Equal("content", exContent.ParamName);
+
+            // key (null) wins over packageNumber, associatedData.
+            var exKeyNull = Assert.Throws<ArgumentNullException>(
+                () => p.Unprotect(validPackage, validContent, null, -1, hugeAssociatedData));
+            Assert.Equal("key", exKeyNull.ParamName);
+
+            // key (bad size) wins over packageNumber, associatedData.
+            var exKeySize = Assert.Throws<ArgumentOutOfRangeException>(
+                () => p.Unprotect(validPackage, validContent, new byte[16], -1, hugeAssociatedData));
+            Assert.Equal("key", exKeySize.ParamName);
+
+            // packageNumber (negative) wins over associatedData.
+            var exNumber = Assert.Throws<ArgumentOutOfRangeException>(
+                () => p.Unprotect(validPackage, validContent, new byte[32], -1, hugeAssociatedData));
+            Assert.Equal("packageNumber", exNumber.ParamName);
+
+            // associatedData (too large) is reported last.
+            var exAad = Assert.Throws<ArgumentOutOfRangeException>(
+                () => p.Unprotect(validPackage, validContent, new byte[32], 0, hugeAssociatedData));
+            Assert.Equal("associatedData", exAad.ParamName);
+        }
     }
 }
