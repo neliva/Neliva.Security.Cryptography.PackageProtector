@@ -224,7 +224,7 @@ namespace Neliva.Security.Cryptography.Tests
             var unprotectedContent = new byte[content.Length].Fill(88);
 
             var ex = Assert.Throws<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, unprotectPass, unprotectAd));
-            Assert.Equal("The provided password is incorrect.", ex.Message);
+            Assert.Equal("Password is invalid or incorrect.", ex.Message);
 
             Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Protect() failure.");
         }
@@ -511,7 +511,7 @@ namespace Neliva.Security.Cryptography.Tests
             var unprotectedContent = new byte[content.Length].Fill(byte.MaxValue);
 
             var ex = Assert.Throws<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, password));
-            Assert.Equal("The provided password is incorrect.", ex.Message);
+            Assert.Equal("Password is invalid or incorrect.", ex.Message);
 
             Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
@@ -539,7 +539,7 @@ namespace Neliva.Security.Cryptography.Tests
             var unprotectedContent = new byte[content.Length].Fill(byte.MaxValue);
 
             var ex = Assert.Throws<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, badPassword));
-            Assert.Equal("The provided password is incorrect.", ex.Message);
+            Assert.Equal("Password is invalid or incorrect.", ex.Message);
 
             Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() bad password.");
         }

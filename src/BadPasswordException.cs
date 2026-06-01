@@ -12,7 +12,7 @@ namespace Neliva.Security.Cryptography
     /// <seealso cref="KeyProtector.Unprotect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{char}, ReadOnlySpan{byte})"/>
     public sealed class BadPasswordException : CryptographicException
     {
-        private const string BadPasswordMsg = "The provided password is incorrect.";
+        private const string BadPasswordMsg = "Password is invalid or incorrect.";
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BadPasswordException"/> class
