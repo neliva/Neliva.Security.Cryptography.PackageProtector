@@ -65,12 +65,12 @@ namespace Neliva.Security.Cryptography
 
             if (IsInvalidKeySize(key.Length))
             {
-                throw new ArgumentOutOfRangeException(nameof(key));
+                throw new ArgumentOutOfRangeException(nameof(key), "Key length must be between 32 and 64 bytes.");
             }
 
             if (associatedData.Count > this._MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData));
+                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
 
             if (this._IsDisposed)
@@ -211,12 +211,12 @@ namespace Neliva.Security.Cryptography
 
             if (IsInvalidKeySize(key.Length))
             {
-                throw new ArgumentOutOfRangeException(nameof(key));
+                throw new ArgumentOutOfRangeException(nameof(key), "Key length must be between 32 and 64 bytes.");
             }
 
             if (associatedData.Count > this._MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData));
+                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
 
             if (this._IsDisposed)

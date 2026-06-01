@@ -101,6 +101,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => protector.ProtectAsync(Stream.Null, Stream.Null, new byte[keySize]));
             Assert.Equal("key", ex.ParamName);
+            Assert.StartsWith("Key length must be between 32 and 64 bytes.", ex.Message);
         }
 
         [Theory]
@@ -115,6 +116,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => protector.UnprotectAsync(Stream.Null, Stream.Null, new byte[keySize]));
             Assert.Equal("key", ex.ParamName);
+            Assert.StartsWith("Key length must be between 32 and 64 bytes.", ex.Message);
         }
 
         [Theory]
@@ -130,6 +132,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new byte[32], new byte[associatedDataSize]));
             Assert.Equal("associatedData", ex.ParamName);
+            Assert.StartsWith("Associated data length is too large.", ex.Message);
         }
 
         [Theory]
@@ -144,6 +147,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new byte[32], new byte[associatedDataSize]));
             Assert.Equal("associatedData", ex.ParamName);
+            Assert.StartsWith("Associated data length is too large.", ex.Message);
         }
 
         [Fact]
@@ -610,6 +614,225 @@ namespace Neliva.Security.Cryptography.Tests
             long protectedLen = await p.ProtectAsync(new MemoryStream(contentBytes), package, key);
 
             Assert.Equal(package.Length, protectedLen);
+        }
+
+        [Fact]
+        public async Task ProtectValidationPrecedencePass()
+        {
+            // Validation order: content -> package -> key -> key size ->
+            // associatedData -> disposed. Each check must take precedence over
+            // the next.
+            using var p = new PackageProtector(packageSize: 128);
+
+            p.Dispose();
+
+            // content null wins over everything.
+            var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.ProtectAsync(null, null, null));
+            Assert.Equal("content", ex.ParamName);
+
+            // package null wins over key null.
+            ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.ProtectAsync(Stream.Null, null, null));
+            Assert.Equal("package", ex.ParamName);
+
+            // key null wins over key size and disposed.
+            ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.ProtectAsync(Stream.Null, Stream.Null, null));
+            Assert.Equal("key", ex.ParamName);
+
+            // key size wins over associatedData and disposed.
+            var exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new byte[16], new byte[1024]));
+            Assert.Equal("key", exRange.ParamName);
+
+            // associatedData wins over disposed.
+            exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new byte[32], new byte[1024]));
+            Assert.Equal("associatedData", exRange.ParamName);
+
+            // disposed is last.
+            var exDisposed = await Assert.ThrowsAsync<ObjectDisposedException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new byte[32]));
+            Assert.Equal(typeof(PackageProtector).FullName, exDisposed.ObjectName);
+        }
+
+        [Fact]
+        public async Task UnprotectValidationPrecedencePass()
+        {
+            // Validation order: package -> content -> key -> key size ->
+            // associatedData -> disposed. Each check must take precedence over
+            // the next.
+            using var p = new PackageProtector(packageSize: 128);
+
+            p.Dispose();
+
+            // package null wins over everything.
+            var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.UnprotectAsync(null, null, null));
+            Assert.Equal("package", ex.ParamName);
+
+            // content null wins over key null.
+            ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.UnprotectAsync(Stream.Null, null, null));
+            Assert.Equal("content", ex.ParamName);
+
+            // key null wins over key size and disposed.
+            ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, null));
+            Assert.Equal("key", ex.ParamName);
+
+            // key size wins over associatedData and disposed.
+            var exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new byte[16], new byte[1024]));
+            Assert.Equal("key", exRange.ParamName);
+
+            // associatedData wins over disposed.
+            exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new byte[32], new byte[1024]));
+            Assert.Equal("associatedData", exRange.ParamName);
+
+            // disposed is last.
+            var exDisposed = await Assert.ThrowsAsync<ObjectDisposedException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new byte[32]));
+            Assert.Equal(typeof(PackageProtector).FullName, exDisposed.ObjectName);
+        }
+
+        [Theory]
+        [InlineData(32)]
+        [InlineData(33)]
+        [InlineData(48)]
+        [InlineData(63)]
+        [InlineData(64)]
+        public async Task StreamRoundTripValidKeySizesPass(int keySize)
+        {
+            // All key sizes between 32 and 64 bytes (inclusive) are valid and must
+            // round-trip successfully.
+            using var p = new PackageProtector(packageSize: 128);
+
+            var key = new byte[keySize].Fill(97);
+
+            var contentBytes = new byte[p.MaxContentSize * 2 + 11].Fill(13);
+
+            var package = new MemoryStream();
+
+            await p.ProtectAsync(new MemoryStream(contentBytes), package, key);
+
+            package.Position = 0;
+            var decrypted = new MemoryStream();
+
+            long decryptedLen = await p.UnprotectAsync(package, decrypted, key);
+
+            Assert.Equal(contentBytes.Length, decryptedLen);
+            Assert.Equal(contentBytes, decrypted.ToArray());
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(8)]
+        [InlineData(16)]
+        public async Task StreamRoundTripFullAssociatedDataRangePass(int associatedDataSize)
+        {
+            // Associated data lengths from empty up to the maximum allowed (for
+            // ivSize 16 the max is 16 bytes) must round-trip when supplied
+            // identically to protect and unprotect.
+            using var p = new PackageProtector(ivSize: 16, packageSize: 128);
+
+            var key = new byte[32].Fill(151);
+            var associatedData = new byte[associatedDataSize].Fill(211);
+
+            var contentBytes = new byte[p.MaxContentSize + 7].Fill(60);
+
+            var package = new MemoryStream();
+
+            await p.ProtectAsync(new MemoryStream(contentBytes), package, key, associatedData);
+
+            package.Position = 0;
+            var decrypted = new MemoryStream();
+
+            long decryptedLen = await p.UnprotectAsync(package, decrypted, key, associatedData);
+
+            Assert.Equal(contentBytes.Length, decryptedLen);
+            Assert.Equal(contentBytes, decrypted.ToArray());
+        }
+
+        [Fact]
+        public async Task StreamRoundTripMaxAssociatedDataBoundaryPass()
+        {
+            // The maximum associated data size is exactly valid; one byte more must
+            // fail with the associatedData out-of-range message.
+            using var p = new PackageProtector(ivSize: 16, packageSize: 128);
+
+            var key = new byte[32].Fill(181);
+
+            // Max associated data size is (32 - ivSize) bytes.
+            int maxAssociatedDataSize = 32 - 16;
+            var maxAssociatedData = new byte[maxAssociatedDataSize].Fill(9);
+
+            var contentBytes = new byte[p.MaxContentSize + 3].Fill(72);
+
+            var package = new MemoryStream();
+
+            await p.ProtectAsync(new MemoryStream(contentBytes), package, key, maxAssociatedData);
+
+            package.Position = 0;
+            var decrypted = new MemoryStream();
+
+            long decryptedLen = await p.UnprotectAsync(package, decrypted, key, maxAssociatedData);
+
+            Assert.Equal(contentBytes.Length, decryptedLen);
+            Assert.Equal(contentBytes, decrypted.ToArray());
+
+            // One byte over the maximum must fail.
+            var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, key, new byte[maxAssociatedDataSize + 1]));
+            Assert.Equal("associatedData", ex.ParamName);
+            Assert.StartsWith("Associated data length is too large.", ex.Message);
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(15)]
+        [InlineData(16)]
+        [InlineData(17)]
+        public async Task StreamRoundTripContentLengthAlignmentRangePass(int extra)
+        {
+            // Exercise content lengths around block-size and package-size
+            // boundaries to cover both the exact-multiple end marker path and the
+            // short final package path.
+            using var p = new PackageProtector(packageSize: 128);
+
+            var key = new byte[32].Fill(120);
+
+            int contentLength = p.MaxContentSize + extra;
+            var contentBytes = new byte[contentLength].Fill(48);
+
+            var package = new MemoryStream();
+
+            await p.ProtectAsync(new MemoryStream(contentBytes), package, key);
+
+            package.Position = 0;
+            var decrypted = new MemoryStream();
+
+            long decryptedLen = await p.UnprotectAsync(package, decrypted, key);
+
+            Assert.Equal(contentLength, decryptedLen);
+            Assert.Equal(contentBytes, decrypted.ToArray());
+        }
+
+        [Fact]
+        public async Task StreamRoundTripDefaultAssociatedDataEquivalentToEmptyPass()
+        {
+            // Default ArraySegment<byte> and ArraySegment<byte>.Empty must be
+            // interchangeable across protect and unprotect.
+            using var p = new PackageProtector(packageSize: 128);
+
+            var key = new byte[32].Fill(64);
+
+            var contentBytes = new byte[p.MaxContentSize + 1].Fill(200);
+
+            var package = new MemoryStream();
+
+            // Protect with default associated data.
+            await p.ProtectAsync(new MemoryStream(contentBytes), package, key, default);
+
+            package.Position = 0;
+            var decrypted = new MemoryStream();
+
+            // Unprotect with explicit empty associated data.
+            long decryptedLen = await p.UnprotectAsync(package, decrypted, key, ArraySegment<byte>.Empty);
+
+            Assert.Equal(contentBytes.Length, decryptedLen);
+            Assert.Equal(contentBytes, decrypted.ToArray());
         }
     }
 }
