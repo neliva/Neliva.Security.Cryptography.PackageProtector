@@ -166,7 +166,7 @@ namespace Neliva.Security.Cryptography.Tests
             package.SetLength(len - MinPackageSize);
 
             var ex = await Assert.ThrowsAsync<InvalidDataException>(() => p.UnprotectAsync(package, Stream.Null, key));
-            Assert.Equal("Unexpected end of stream. Stream is truncated or corrupted.", ex.Message);
+            Assert.Equal("Missing end of stream marker. Stream is truncated or corrupted.", ex.Message);
         }
 
         [Fact]
@@ -185,7 +185,7 @@ namespace Neliva.Security.Cryptography.Tests
             package.SetLength(len - (MinPackageSize / 3));
 
             var ex = await Assert.ThrowsAsync<InvalidDataException>(() => p.UnprotectAsync(package, Stream.Null, key));
-            Assert.Equal("Unexpected stream length. Stream is truncated or corrupted.", ex.Message);
+            Assert.Equal("Invalid package length. Stream is truncated or corrupted.", ex.Message);
         }
 
         [Fact]
@@ -316,7 +316,7 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(199);
 
             var ex = await Assert.ThrowsAsync<InvalidDataException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, key));
-            Assert.Equal("Unexpected end of stream. Stream is truncated or corrupted.", ex.Message);
+            Assert.Equal("Missing end of stream marker. Stream is truncated or corrupted.", ex.Message);
         }
 
         [Fact]
@@ -447,7 +447,7 @@ namespace Neliva.Security.Cryptography.Tests
             package.Position = 0;
 
             var ex = await Assert.ThrowsAsync<InvalidDataException>(() => p.UnprotectAsync(package, Stream.Null, key));
-            Assert.Equal("Unexpected end of stream. Stream is truncated or corrupted.", ex.Message);
+            Assert.Equal("Missing end of stream marker. Stream is truncated or corrupted.", ex.Message);
         }
 
         [Fact]
@@ -566,7 +566,7 @@ namespace Neliva.Security.Cryptography.Tests
             content.SetLength(MinPackageSize - 13);
 
             var ex = await Assert.ThrowsAsync<InvalidDataException>(() => p.UnprotectAsync(content, Stream.Null, key));
-            Assert.Equal("Unexpected stream length. Stream is truncated or corrupted.", ex.Message);
+            Assert.Equal("Invalid package length. Stream is truncated or corrupted.", ex.Message);
         }
 
         [Fact]
