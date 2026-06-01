@@ -224,7 +224,7 @@ namespace Neliva.Security.Cryptography.Tests
             var unprotectedContent = new byte[content.Length].Fill(88);
 
             var ex = Assert.Throws<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, unprotectPass, unprotectAd));
-            Assert.Equal("The provided password is incorrect.", ex.Message);
+            Assert.Equal("Password is invalid or incorrect.", ex.Message);
 
             Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Protect() failure.");
         }
@@ -328,6 +328,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, iterations));
 
             Assert.Equal("iterations", ex.ParamName);
+            Assert.Equal("Iterations must be a positive value. (Parameter 'iterations')", ex.Message);
         }
 
         [Theory]
@@ -347,6 +348,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, 1, ad));
 
             Assert.Equal("associatedData", ex.ParamName);
+            Assert.Equal("Associated data length is too large. (Parameter 'associatedData')", ex.Message);
         }
 
         [Theory]
@@ -366,6 +368,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Unprotect(package, content, password, ad));
 
             Assert.Equal("associatedData", ex.ParamName);
+            Assert.Equal("Associated data length is too large. (Parameter 'associatedData')", ex.Message);
         }
 
         [Fact]
@@ -508,7 +511,7 @@ namespace Neliva.Security.Cryptography.Tests
             var unprotectedContent = new byte[content.Length].Fill(byte.MaxValue);
 
             var ex = Assert.Throws<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, password));
-            Assert.Equal("The provided password is incorrect.", ex.Message);
+            Assert.Equal("Password is invalid or incorrect.", ex.Message);
 
             Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
@@ -536,7 +539,7 @@ namespace Neliva.Security.Cryptography.Tests
             var unprotectedContent = new byte[content.Length].Fill(byte.MaxValue);
 
             var ex = Assert.Throws<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, badPassword));
-            Assert.Equal("The provided password is incorrect.", ex.Message);
+            Assert.Equal("Password is invalid or incorrect.", ex.Message);
 
             Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() bad password.");
         }
@@ -694,6 +697,164 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.Equal(content.Length, unprotectedLen);
             Assert.Equal(content, unprotected);
+        }
+
+        [Fact]
+        public void ProtectValidationPrecedencePass()
+        {
+            // When multiple arguments are invalid at once, Protect must report them
+            // in this documented order: content -> package -> iterations -> associatedData.
+            using var protector = new KeyProtector();
+
+            const string password = "user-password";
+
+            var invalidContent = new byte[1];                       // not aligned / too small
+            var validContent = new byte[32];                        // min valid content
+
+            var smallPackage = new byte[1];                         // insufficient space
+            var validPackage = new byte[32 + Overhead];             // sufficient space
+
+            var hugeAssociatedData = new byte[65];                  // too large
+
+            // content (invalid size) wins over package, iterations, associatedData.
+            var exContent = Assert.Throws<ArgumentOutOfRangeException>(
+                () => protector.Protect(invalidContent, smallPackage, password, 0, hugeAssociatedData));
+            Assert.Equal("content", exContent.ParamName);
+
+            // package (insufficient) wins over iterations, associatedData.
+            var exPackage = Assert.Throws<ArgumentOutOfRangeException>(
+                () => protector.Protect(validContent, smallPackage, password, 0, hugeAssociatedData));
+            Assert.Equal("package", exPackage.ParamName);
+
+            // iterations (non-positive) wins over associatedData.
+            var exIterations = Assert.Throws<ArgumentOutOfRangeException>(
+                () => protector.Protect(validContent, validPackage, password, 0, hugeAssociatedData));
+            Assert.Equal("iterations", exIterations.ParamName);
+
+            // associatedData (too large) is reported last.
+            var exAad = Assert.Throws<ArgumentOutOfRangeException>(
+                () => protector.Protect(validContent, validPackage, password, 1, hugeAssociatedData));
+            Assert.Equal("associatedData", exAad.ParamName);
+        }
+
+        [Fact]
+        public void UnprotectValidationPrecedencePass()
+        {
+            // When multiple arguments are invalid at once, Unprotect must report them
+            // in this documented order: package -> content -> associatedData.
+            using var protector = new KeyProtector();
+
+            const string password = "user-password";
+
+            var invalidPackage = new byte[1];                       // not aligned / too small
+            var validPackage = new byte[32 + Overhead];             // valid size
+
+            var smallContent = new byte[0];                         // insufficient space
+            var validContent = new byte[32];                        // sufficient space
+
+            var hugeAssociatedData = new byte[65];                  // too large
+
+            // package (invalid size) wins over content, associatedData.
+            var exPackage = Assert.Throws<ArgumentOutOfRangeException>(
+                () => protector.Unprotect(invalidPackage, smallContent, password, hugeAssociatedData));
+            Assert.Equal("package", exPackage.ParamName);
+
+            // content (insufficient) wins over associatedData.
+            var exContent = Assert.Throws<ArgumentOutOfRangeException>(
+                () => protector.Unprotect(validPackage, smallContent, password, hugeAssociatedData));
+            Assert.Equal("content", exContent.ParamName);
+
+            // associatedData (too large) is reported last.
+            var exAad = Assert.Throws<ArgumentOutOfRangeException>(
+                () => protector.Unprotect(validPackage, validContent, password, hugeAssociatedData));
+            Assert.Equal("associatedData", exAad.ParamName);
+        }
+
+        [Fact]
+        public void RoundTripFullAssociatedDataRangePass()
+        {
+            // The associatedData length (its byte value and the bytes themselves) is
+            // bound into the prehash. Exhaustively round-trip every valid associatedData
+            // size from 0 to MaxAssociatedDataSize (64).
+            using var protector = new KeyProtector();
+
+            const string password = "aad-range-password";
+
+            var content = new byte[32].Fill(170);
+
+            var package = new byte[content.Length + protector.Overhead];
+            var unprotected = new byte[content.Length];
+
+            for (int adLen = 0; adLen <= 64; adLen++)
+            {
+                var associatedData = new byte[adLen].Fill((byte)(adLen + 1));
+
+                Array.Clear(package);
+                Array.Clear(unprotected);
+
+                int protectedLen = protector.Protect(content, package, password, 1, associatedData);
+                Assert.Equal(package.Length, protectedLen);
+
+                int unprotectedLen = protector.Unprotect(package, unprotected, password, associatedData);
+                Assert.Equal(content.Length, unprotectedLen);
+                Assert.Equal(content, unprotected);
+            }
+        }
+
+        [Fact]
+        public void RoundTripDefaultAssociatedDataPass()
+        {
+            // Omitting the optional associatedData argument must be equivalent to passing
+            // an empty span for both Protect and Unprotect.
+            using var protector = new KeyProtector();
+
+            const string password = "default-ad-password";
+
+            var content = new byte[48].Fill(55);
+            var package = new byte[content.Length + protector.Overhead];
+
+            // Protect with the associatedData argument omitted.
+            int protectedLen = protector.Protect(content, package, password, 2);
+            Assert.Equal(package.Length, protectedLen);
+
+            var unprotectedOmitted = new byte[content.Length];
+            var unprotectedEmpty = new byte[content.Length];
+
+            // Unprotect with the argument omitted and with an explicit empty span must both succeed.
+            int lenOmitted = protector.Unprotect(package, unprotectedOmitted, password);
+            int lenEmpty = protector.Unprotect(package, unprotectedEmpty, password, ReadOnlySpan<byte>.Empty);
+
+            Assert.Equal(content.Length, lenOmitted);
+            Assert.Equal(content.Length, lenEmpty);
+            Assert.Equal(content, unprotectedOmitted);
+            Assert.Equal(content, unprotectedEmpty);
+        }
+
+        [Fact]
+        public void RoundTripContentSizeAlignmentRangePass()
+        {
+            // Content must be block-aligned (16 bytes) and at least 32 bytes. Round-trip a
+            // sweep of consecutive valid aligned sizes to confirm all are handled correctly.
+            using var protector = new KeyProtector();
+
+            const string password = "content-size-password";
+
+            var associatedData = new byte[8].Fill(9);
+
+            for (int contentLen = 32; contentLen <= 32 + (16 * 16); contentLen += 16)
+            {
+                var content = new byte[contentLen].Fill((byte)contentLen);
+                var package = new byte[contentLen + protector.Overhead];
+
+                int protectedLen = protector.Protect(content, package, password, 1, associatedData);
+                Assert.Equal(package.Length, protectedLen);
+
+                var unprotected = new byte[contentLen];
+                int unprotectedLen = protector.Unprotect(package, unprotected, password, associatedData);
+
+                Assert.Equal(contentLen, unprotectedLen);
+                Assert.Equal(content, unprotected);
+            }
         }
     }
 }
