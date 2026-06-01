@@ -195,17 +195,17 @@ namespace Neliva.Security.Cryptography
 
             if (IsInvalidKeySize(key.Length))
             {
-                throw new ArgumentOutOfRangeException(nameof(key));
+                throw new ArgumentOutOfRangeException(nameof(key), "Key length must be between 32 and 64 bytes.");
             }
 
             if (packageNumber < 0L)
             {
-                throw new ArgumentOutOfRangeException(nameof(packageNumber));
+                throw new ArgumentOutOfRangeException(nameof(packageNumber), "Package number must not be negative.");
             }
 
             if (associatedData.Count > this._MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData));
+                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
 
             if (MemoryExtensions.Overlaps<byte>(content, package.Slice(0, outputPackageSize)))
@@ -361,17 +361,17 @@ namespace Neliva.Security.Cryptography
 
             if (IsInvalidKeySize(key.Length))
             {
-                throw new ArgumentOutOfRangeException(nameof(key));
+                throw new ArgumentOutOfRangeException(nameof(key), "Key length must be between 32 and 64 bytes.");
             }
 
             if (packageNumber < 0L)
             {
-                throw new ArgumentOutOfRangeException(nameof(packageNumber));
+                throw new ArgumentOutOfRangeException(nameof(packageNumber), "Package number must not be negative.");
             }
 
             if (associatedData.Count > this._MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData));
+                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
 
             var data = content.Slice(0, dataLength); // content + padding

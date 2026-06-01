@@ -221,6 +221,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[keySize], 0, null));
             Assert.Equal("key", ex.ParamName);
+            Assert.Equal("Key length must be between 32 and 64 bytes. (Parameter 'key')", ex.Message);
         }
 
         [Theory]
@@ -237,6 +238,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[keySize], 0, null));
             Assert.Equal("key", ex.ParamName);
+            Assert.Equal("Key length must be between 32 and 64 bytes. (Parameter 'key')", ex.Message);
         }
 
         [Fact]
@@ -345,6 +347,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], -1, null));
             Assert.Equal("packageNumber", ex.ParamName);
+            Assert.Equal("Package number must not be negative. (Parameter 'packageNumber')", ex.Message);
         }
 
         [Fact]
@@ -356,6 +359,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[32], -1, null));
             Assert.Equal("packageNumber", ex.ParamName);
+            Assert.Equal("Package number must not be negative. (Parameter 'packageNumber')", ex.Message);
         }
 
         [Theory]
@@ -371,6 +375,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Protect(content, package, new byte[32], long.MaxValue, new byte[associatedDataSize]));
             Assert.Equal("associatedData", ex.ParamName);
+            Assert.Equal("Associated data length is too large. (Parameter 'associatedData')", ex.Message);
         }
 
         [Theory]
@@ -385,6 +390,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new byte[32], long.MaxValue, new byte[associatedDataSize]));
             Assert.Equal("associatedData", ex.ParamName);
+            Assert.Equal("Associated data length is too large. (Parameter 'associatedData')", ex.Message);
         }
 
         [Theory]

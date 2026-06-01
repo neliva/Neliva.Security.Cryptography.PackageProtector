@@ -328,6 +328,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, iterations));
 
             Assert.Equal("iterations", ex.ParamName);
+            Assert.Equal("Iterations must be a positive value. (Parameter 'iterations')", ex.Message);
         }
 
         [Theory]
@@ -347,6 +348,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, 1, ad));
 
             Assert.Equal("associatedData", ex.ParamName);
+            Assert.Equal("Associated data length is too large. (Parameter 'associatedData')", ex.Message);
         }
 
         [Theory]
@@ -366,6 +368,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Unprotect(package, content, password, ad));
 
             Assert.Equal("associatedData", ex.ParamName);
+            Assert.Equal("Associated data length is too large. (Parameter 'associatedData')", ex.Message);
         }
 
         [Fact]

@@ -129,12 +129,12 @@ namespace Neliva.Security.Cryptography
 
             if (iterations <= 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(iterations));
+                throw new ArgumentOutOfRangeException(nameof(iterations), "Iterations must be a positive value.");
             }
 
             if (associatedData.Length > MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData));
+                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
 
             var output = package.Slice(0, outputPackageSize);
@@ -278,7 +278,7 @@ namespace Neliva.Security.Cryptography
 
             if (associatedData.Length > MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData));
+                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
 
             var output = content.Slice(0, outputContentSize);
