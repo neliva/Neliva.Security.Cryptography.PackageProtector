@@ -320,6 +320,242 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Fact]
+        public async Task UnprotectReorderedInteriorPackagesFail()
+        {
+            // Attack: swap two interior data packages (reordering).
+            // Each package is authenticated with its position (packageNumber),
+            // so a package placed at the wrong position must fail authentication.
+            using var p = new PackageProtector(packageSize: MinPackageSize);
+
+            var key = new byte[32].Fill(71);
+
+            // Four full data packages followed by an empty end-of-stream marker.
+            var content = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(123));
+
+            var package = new MemoryStream();
+            await p.ProtectAsync(content, package, key);
+
+            var buffer = package.GetBuffer();
+
+            // Swap package 1 and package 2 on the wire.
+            SwapPackages(buffer, p.MaxPackageSize, 1, 2);
+
+            package.Position = 0;
+
+            var ex = await Assert.ThrowsAsync<BadPackageException>(() => p.UnprotectAsync(package, Stream.Null, key));
+            Assert.Equal("Package is invalid or corrupted.", ex.Message);
+        }
+
+        [Fact]
+        public async Task UnprotectSwappedFirstAndLastDataPackagesFail()
+        {
+            // Attack: swap the first and last data packages.
+            using var p = new PackageProtector(packageSize: MinPackageSize);
+
+            var key = new byte[32].Fill(55);
+
+            // Three full data packages plus an empty end-of-stream marker.
+            var content = new MemoryStream(new byte[p.MaxContentSize * 3].Fill(88));
+
+            var package = new MemoryStream();
+            await p.ProtectAsync(content, package, key);
+
+            var buffer = package.GetBuffer();
+
+            // Swap package 0 and package 2 (both full data packages).
+            SwapPackages(buffer, p.MaxPackageSize, 0, 2);
+
+            package.Position = 0;
+
+            var ex = await Assert.ThrowsAsync<BadPackageException>(() => p.UnprotectAsync(package, Stream.Null, key));
+            Assert.Equal("Package is invalid or corrupted.", ex.Message);
+        }
+
+        [Fact]
+        public async Task UnprotectDuplicatedPackageSubstitutionFail()
+        {
+            // Attack: substitute a package with a copy of another package from the
+            // same stream. The duplicated package authenticates only at its
+            // original position, so it must fail at the substituted position.
+            using var p = new PackageProtector(packageSize: MinPackageSize);
+
+            var key = new byte[32].Fill(144);
+
+            var content = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(212));
+
+            var package = new MemoryStream();
+            await p.ProtectAsync(content, package, key);
+
+            var buffer = package.GetBuffer();
+
+            // Overwrite package 2 with a copy of package 0.
+            Array.Copy(buffer, 0, buffer, p.MaxPackageSize * 2, p.MaxPackageSize);
+
+            package.Position = 0;
+
+            var ex = await Assert.ThrowsAsync<BadPackageException>(() => p.UnprotectAsync(package, Stream.Null, key));
+            Assert.Equal("Package is invalid or corrupted.", ex.Message);
+        }
+
+        [Fact]
+        public async Task UnprotectFirstPackageRemovedFail()
+        {
+            // Attack: drop the first package. All subsequent packages now decrypt
+            // at a position one less than the one they were protected with, so the
+            // first remaining package fails authentication.
+            using var p = new PackageProtector(packageSize: MinPackageSize);
+
+            var key = new byte[32].Fill(91);
+
+            var content = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(17));
+
+            var package = new MemoryStream();
+            var len = await p.ProtectAsync(content, package, key);
+
+            var buffer = package.GetBuffer();
+
+            // Shift everything left by one package, discarding package 0.
+            Array.Copy(buffer, p.MaxPackageSize, buffer, 0, (int)len - p.MaxPackageSize);
+
+            var truncated = new MemoryStream();
+            await truncated.WriteAsync(buffer, 0, (int)len - p.MaxPackageSize);
+            truncated.Position = 0;
+
+            var ex = await Assert.ThrowsAsync<BadPackageException>(() => p.UnprotectAsync(truncated, Stream.Null, key));
+            Assert.Equal("Package is invalid or corrupted.", ex.Message);
+        }
+
+        [Fact]
+        public async Task UnprotectLastDataPackageMarkerRemovedFail()
+        {
+            // Attack: truncate the final data-carrying end-of-stream marker.
+            // When content is not a multiple of MaxContentSize the last package is
+            // a short marker; removing it leaves only full packages, so the stream
+            // ends without a marker.
+            using var p = new PackageProtector(packageSize: MinPackageSize);
+
+            var key = new byte[32].Fill(64);
+
+            // Three full packages plus a short (data-carrying) marker package.
+            var content = new MemoryStream(new byte[p.MaxContentSize * 3 + 7].Fill(201));
+
+            var package = new MemoryStream();
+            var len = await p.ProtectAsync(content, package, key);
+
+            // Remove the final marker package.
+            package.SetLength(len - p.MaxPackageSize);
+            package.Position = 0;
+
+            var ex = await Assert.ThrowsAsync<InvalidDataException>(() => p.UnprotectAsync(package, Stream.Null, key));
+            Assert.Equal("Unexpected end of stream. Stream is truncated or corrupted.", ex.Message);
+        }
+
+        [Fact]
+        public async Task UnprotectSubstituteFromDifferentStreamDifferentAssociatedDataFail()
+        {
+            // Attack: splice a package from a different stream that was protected
+            // with the same key but different associated data. Per-stream
+            // associated data binds packages to their stream, so the spliced
+            // package must fail authentication.
+            using var p = new PackageProtector(packageSize: MinPackageSize);
+
+            var key = new byte[32].Fill(33);
+
+            var adA = new byte[1].Fill(1);
+            var adB = new byte[1].Fill(2);
+
+            var contentA = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(70));
+            var contentB = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(70));
+
+            var packageA = new MemoryStream();
+            var packageB = new MemoryStream();
+
+            await p.ProtectAsync(contentA, packageA, key, adA);
+            await p.ProtectAsync(contentB, packageB, key, adB);
+
+            var bufferA = packageA.GetBuffer();
+            var bufferB = packageB.GetBuffer();
+
+            // Replace package 1 of stream A with package 1 of stream B.
+            Array.Copy(bufferB, p.MaxPackageSize, bufferA, p.MaxPackageSize, p.MaxPackageSize);
+
+            packageA.Position = 0;
+
+            var ex = await Assert.ThrowsAsync<BadPackageException>(() => p.UnprotectAsync(packageA, Stream.Null, key, adA));
+            Assert.Equal("Package is invalid or corrupted.", ex.Message);
+        }
+
+        [Fact]
+        public async Task UnprotectSubstituteFromDifferentStreamDifferentKeyFail()
+        {
+            // Attack: splice a package from a different stream protected under a
+            // different key. The key binding makes the spliced package fail.
+            using var p = new PackageProtector(packageSize: MinPackageSize);
+
+            var keyA = new byte[32].Fill(40);
+            var keyB = new byte[32].Fill(41);
+
+            var contentA = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(99));
+            var contentB = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(99));
+
+            var packageA = new MemoryStream();
+            var packageB = new MemoryStream();
+
+            await p.ProtectAsync(contentA, packageA, keyA);
+            await p.ProtectAsync(contentB, packageB, keyB);
+
+            var bufferA = packageA.GetBuffer();
+            var bufferB = packageB.GetBuffer();
+
+            // Replace package 2 of stream A with package 2 of stream B.
+            Array.Copy(bufferB, p.MaxPackageSize * 2, bufferA, p.MaxPackageSize * 2, p.MaxPackageSize);
+
+            packageA.Position = 0;
+
+            var ex = await Assert.ThrowsAsync<BadPackageException>(() => p.UnprotectAsync(packageA, Stream.Null, keyA));
+            Assert.Equal("Package is invalid or corrupted.", ex.Message);
+        }
+
+        [Fact]
+        public async Task UnprotectMarkerMovedToInteriorFail()
+        {
+            // Attack: move the end-of-stream marker into an interior position to
+            // truncate the stream early. The marker authenticates only at its
+            // original position, so it fails when relocated.
+            using var p = new PackageProtector(packageSize: MinPackageSize);
+
+            var key = new byte[32].Fill(150);
+
+            // Four full data packages plus an empty marker (package index 4).
+            var content = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(5));
+
+            var package = new MemoryStream();
+            var len = await p.ProtectAsync(content, package, key);
+
+            var buffer = package.GetBuffer();
+
+            int markerIndex = (int)(len / p.MaxPackageSize) - 1;
+
+            // Build a stream that ends with the marker placed at interior index 2.
+            var tampered = new MemoryStream();
+            await tampered.WriteAsync(buffer, 0, p.MaxPackageSize * 2); // packages 0,1
+            await tampered.WriteAsync(buffer, markerIndex * p.MaxPackageSize, p.MaxPackageSize); // marker at index 2
+            tampered.Position = 0;
+
+            var ex = await Assert.ThrowsAsync<BadPackageException>(() => p.UnprotectAsync(tampered, Stream.Null, key));
+            Assert.Equal("Package is invalid or corrupted.", ex.Message);
+        }
+
+        private static void SwapPackages(byte[] buffer, int packageSize, int indexA, int indexB)
+        {
+            var temp = new byte[packageSize];
+
+            Array.Copy(buffer, indexA * packageSize, temp, 0, packageSize);
+            Array.Copy(buffer, indexB * packageSize, buffer, indexA * packageSize, packageSize);
+            Array.Copy(temp, 0, buffer, indexB * packageSize, packageSize);
+        }
+
+        [Fact]
         public async Task UnprotectSingleTruncatedPackageFail()
         {
             using var p = new PackageProtector(packageSize: MinPackageSize);
