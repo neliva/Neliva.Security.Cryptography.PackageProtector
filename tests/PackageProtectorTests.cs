@@ -121,7 +121,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new PackageProtector(ivSize: ivSize));
 
             Assert.Equal(nameof(ivSize), ex.ParamName);
-            Assert.Equal("IV size must be 0, 16 or 32 bytes. (Parameter 'ivSize')", ex.Message);
+            Assert.Equal("IV size must be 0, 16, or 32 bytes. (Parameter 'ivSize')", ex.Message);
         }
 
         [Theory]
@@ -461,7 +461,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new byte[32], 0, null));
             Assert.Equal("package", ex.ParamName);
-            Assert.Equal("Package length is invalid or not aligned on the required boundary. (Parameter 'package')", ex.Message);
+            Assert.Equal("Package length is invalid or not aligned to the required boundary. (Parameter 'package')", ex.Message);
         }
 
         [Theory]
@@ -481,7 +481,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new byte[32], 0, null));
             Assert.Equal("package", ex.ParamName);
-            Assert.Equal("Package length is invalid or not aligned on the required boundary. (Parameter 'package')", ex.Message);
+            Assert.Equal("Package length is invalid or not aligned to the required boundary. (Parameter 'package')", ex.Message);
         }
 
         [Fact]

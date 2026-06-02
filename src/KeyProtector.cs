@@ -117,7 +117,7 @@ namespace Neliva.Security.Cryptography
         {
             if (content.Length < MinContentSize || content.Length > MaxContentSize || (content.Length % BlockSize) != 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(content), "Content length is invalid or not aligned on the required boundary.");
+                throw new ArgumentOutOfRangeException(nameof(content), "Content length is invalid or not aligned to the required boundary.");
             }
 
             int outputPackageSize = content.Length + OverheadSize;
@@ -256,7 +256,7 @@ namespace Neliva.Security.Cryptography
         {
             if (package.Length < MinPackageSize || package.Length > MaxPackageSize || (package.Length % BlockSize) != 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned on the required boundary.");
+                throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned to the required boundary.");
             }
 
             int outputContentSize = package.Length - OverheadSize;
@@ -292,7 +292,7 @@ namespace Neliva.Security.Cryptography
 
             if (iterations <= 0)
             {
-                throw new BadPackageException("The package iterations count is invalid.");
+                throw new BadPackageException("The package iteration count is invalid.");
             }
 
             Span<byte> buf = stackalloc byte[64 + 32];

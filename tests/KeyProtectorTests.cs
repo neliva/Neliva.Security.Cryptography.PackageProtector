@@ -254,7 +254,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, iterations));
 
             Assert.Equal("content", ex.ParamName);
-            Assert.Equal("Content length is invalid or not aligned on the required boundary. (Parameter 'content')", ex.Message);
+            Assert.Equal("Content length is invalid or not aligned to the required boundary. (Parameter 'content')", ex.Message);
         }
 
         [Theory]
@@ -276,7 +276,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Unprotect(package, content, password));
 
             Assert.Equal("package", ex.ParamName);
-            Assert.Equal("Package length is invalid or not aligned on the required boundary. (Parameter 'package')", ex.Message);
+            Assert.Equal("Package length is invalid or not aligned to the required boundary. (Parameter 'package')", ex.Message);
         }
 
         [Fact]
@@ -570,7 +570,7 @@ namespace Neliva.Security.Cryptography.Tests
             BinaryPrimitives.WriteUInt32BigEndian(packageSpan.Slice(4, 4), (uint)iterations);
 
             var ex = Assert.Throws<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
-            Assert.Equal("The package iterations count is invalid.", ex.Message);
+            Assert.Equal("The package iteration count is invalid.", ex.Message);
         }
 
         [Fact]
@@ -706,7 +706,7 @@ namespace Neliva.Security.Cryptography.Tests
             BinaryPrimitives.WriteUInt32BigEndian(packageSpan.Slice(4, 4), iterations);
 
             var ex = Assert.Throws<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
-            Assert.Equal("The package iterations count is invalid.", ex.Message);
+            Assert.Equal("The package iteration count is invalid.", ex.Message);
         }
 
         [Fact]

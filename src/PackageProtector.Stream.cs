@@ -261,12 +261,12 @@ namespace Neliva.Security.Cryptography
                         {
                             // No more packages are allowed once
                             // 'end of stream' is detected.
-                            throw new InvalidDataException("Unexpected data after end of stream marker.");
+                            throw new InvalidDataException("Unexpected data after the end-of-stream marker.");
                         }
 
                         if (this.IsInvalidPackageSize(offset))
                         {
-                            throw new InvalidDataException("Invalid package length. Stream is truncated or corrupted.");
+                            throw new InvalidDataException("Invalid package length. The stream is truncated or corrupted.");
                         }
 
                         int bytesUnprotected = this.Unprotect(packageBuffer.Slice(0, offset), contentBuffer, key, packageNumber, associatedData);
@@ -288,7 +288,7 @@ namespace Neliva.Security.Cryptography
                 {
                     // Stream must always have 'end of stream' marker which
                     // is an empty package, or not fully populated package.
-                    throw new InvalidDataException("Missing end of stream marker. Stream is truncated or corrupted.");
+                    throw new InvalidDataException("Missing end-of-stream marker. The stream is truncated or corrupted.");
                 }
             }
             finally
