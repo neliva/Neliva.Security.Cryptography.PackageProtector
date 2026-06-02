@@ -133,7 +133,7 @@ namespace Neliva.Security.Cryptography.Tests
             byte[] encLabel = encoder.GetBytes("AES256-CBC");
             byte[] macLabel = encoder.GetBytes("HMAC-SHA512-256");
 
-            byte[] versionContext = encoder.GetBytes("V1");
+            byte[] versionContext = encoder.GetBytes("PB2K");
 
             byte[] encKey = new byte[32];
             byte[] macKey = new byte[64];
@@ -625,6 +625,91 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Fact]
+        public void UnprotectTamperedCiphertextWithValidChecksumFails()
+        {
+            // The package checksum is an unkeyed SHA-512 digest, so it only protects
+            // against accidental corruption: an attacker who tampers with the ciphertext
+            // can always recompute a matching checksum. Authenticity is instead enforced
+            // by the encrypted HMAC, which is verified after decryption.
+            //
+            // This test documents that a forged package (tampered ciphertext + recomputed
+            // valid checksum) is still rejected, and that the rejection surfaces as a
+            // BadPasswordException (not BadPackageException), because the failure is
+            // detected by the HMAC comparison rather than the checksum gate.
+
+            const string password = "user-password";
+
+            RngFillAction rng = (Span<byte> data) => data.Fill(97);
+
+            using var protector = new KeyProtector(rng);
+
+            var content = new byte[32].Fill(242);
+            var package = new byte[32 + protector.Overhead];
+
+            var packageSpan = package.AsSpan();
+
+            protector.Protect(content, package, password, 1);
+
+            // Tamper with a byte inside the encrypted content region.
+            // Layout: Version(4) | Iterations(4) | Salt(40) | HMAC(32) | KeyData | Checksum(16).
+            // The encrypted content begins right after the encrypted HMAC at offset 80.
+            const int ciphertextOffset = 4 + 4 + 40 + 32;
+
+            packageSpan[ciphertextOffset] ^= 0x01;
+
+            // Recompute a valid checksum over the tampered package so the checksum gate passes.
+            int checksumOffset = package.Length - ChecksumSize;
+
+            Span<byte> checksumHash = new byte[64];
+
+            SHA512.HashData(packageSpan.Slice(0, checksumOffset), checksumHash);
+
+            checksumHash.Slice(0, ChecksumSize).CopyTo(packageSpan.Slice(checksumOffset));
+
+            var unprotectedContent = new byte[content.Length].Fill(byte.MaxValue);
+
+            // The forged package passes the checksum gate but fails HMAC verification,
+            // which is reported as a BadPasswordException.
+            var ex = Assert.Throws<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, password));
+            Assert.Equal("Password is invalid or incorrect.", ex.Message);
+
+            // The output must be cleared when authentication fails.
+            Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() authentication failure.");
+        }
+
+        [Theory]
+        [InlineData(0x80000000u)] // First value with the high bit set (== int.MinValue when cast to int).
+        [InlineData(0x80000001u)]
+        [InlineData(0xC0000000u)]
+        [InlineData(0xFFFFFFFFu)] // Maximum 32-bit value (== -1 when cast to int).
+        public void UnprotectHighBitIterationsFails(uint iterations)
+        {
+            // The stored iterations field is a 32-bit big-endian value read as an int.
+            // Any value with the high bit set casts to a negative int and is rejected.
+            // This validation runs before the checksum/crypto path, so it always throws
+            // BadPackageException regardless of the (otherwise valid) checksum.
+
+            const string password = "user-password";
+            const string badPassword = "user-Password";
+
+            RngFillAction rng = (Span<byte> data) => data.Fill(97);
+
+            using var protector = new KeyProtector(rng);
+
+            var content = new byte[32].Fill(242);
+            var package = new byte[32 + protector.Overhead];
+
+            var packageSpan = package.AsSpan();
+
+            protector.Protect(content, package, password, 1);
+
+            BinaryPrimitives.WriteUInt32BigEndian(packageSpan.Slice(4, 4), iterations);
+
+            var ex = Assert.Throws<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
+            Assert.Equal("The package iterations count is invalid.", ex.Message);
+        }
+
+        [Fact]
         public void NullRngFillConstructorPass()
         {
             using var p = new KeyProtector(null);
@@ -873,17 +958,17 @@ namespace Neliva.Security.Cryptography.Tests
                 1,
                 "0000000000000000000000000000000000000000000000000000000000000000",
                 "",
-                "5042324b00000001000000000000000000000000000000000000000000000000000000000000000000000000000000009352c78cd3a888a7ea4334b4127b816709927f60bab7d0cb236f3784d5d7e1c67ab765acde1794eee4eb02f164de300a70d1dc5dddde363065d548984a0daed32ead13545025a1dcd273234ac7114cba",
+                "5042324b00000001000000000000000000000000000000000000000000000000000000000000000000000000000000009e60fa1608f6ce68319d93d96f1c89cd37fca092eae71ebc230feebddfd8e3920d6824314258d6d5cc6e6dacdf8d14ced33adf3568d1bd50861c39d2c06ebfa6f78de223e77298fbef6549f924630786",
             };
 
             yield return new object[]
             {
                 (byte)0xA5,
                 "Test password for KeyProtector",
-                4096,
+                3,
                 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
                 "6173736f6369617465642d64617461",
-                "5042324b00001000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a509be808865e6b3a493d825d8ca78230623c345f784ec89bf764fd6abc6df0ebda8e5ec6935f2cccb40ff4f33b7cf5cd39ceba70754aef70662a9ff7fc4c96c2052b171f30a420b6babb3acd9b486bf0c",
+                "5042324b00000003a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a513b4a5453b15d92169df6d25a4e775cc1dc0949e2c74a290815fa2da3fbea934ff695341a21b2efb6fd02a380a39b1ca7d5db0ab301a1bbd8bcea69d761c5acb9f5a05abdea5cb23e294160f5738d12f",
             };
         }
 

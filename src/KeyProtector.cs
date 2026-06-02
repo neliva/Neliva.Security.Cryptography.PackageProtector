@@ -158,10 +158,10 @@ namespace Neliva.Security.Cryptography
 
                 this._rngFill(salt);
 
-                Span<byte> tmp = stackalloc byte[64 + 32];
+                Span<byte> buf = stackalloc byte[64 + 32];
 
-                Span<byte> tmp64 = tmp.Slice(0, 64);
-                Span<byte> tmp32 = tmp.Slice(64, 32);
+                Span<byte> tmp64 = buf.Slice(0, 64);
+                Span<byte> tmp32 = buf.Slice(64, 32);
 
                 try
                 {
@@ -191,7 +191,7 @@ namespace Neliva.Security.Cryptography
                 }
                 finally
                 {
-                    CryptographicOperations.ZeroMemory(tmp);
+                    CryptographicOperations.ZeroMemory(buf);
                 }
 
                 int checksumOffset = outputPackageSize - ChecksumSize;
@@ -295,10 +295,10 @@ namespace Neliva.Security.Cryptography
                 throw new BadPackageException("The package iterations count is invalid.");
             }
 
-            Span<byte> tmp = stackalloc byte[64 + 32];
+            Span<byte> buf = stackalloc byte[64 + 32];
 
-            Span<byte> tmp64 = tmp.Slice(0, 64);
-            Span<byte> tmp32 = tmp.Slice(64, 32);
+            Span<byte> tmp64 = buf.Slice(0, 64);
+            Span<byte> tmp32 = buf.Slice(64, 32);
 
             int checksumOffset = package.Length - ChecksumSize;
 
@@ -348,7 +348,7 @@ namespace Neliva.Security.Cryptography
                 }
                 finally
                 {
-                    CryptographicOperations.ZeroMemory(tmp);
+                    CryptographicOperations.ZeroMemory(buf);
                 }
             }
             catch
@@ -384,7 +384,7 @@ namespace Neliva.Security.Cryptography
             ReadOnlySpan<byte> encLabel = new byte[] { (byte)'A', (byte)'E', (byte)'S', (byte)'2', (byte)'5', (byte)'6', (byte)'-', (byte)'C', (byte)'B', (byte)'C' };
             ReadOnlySpan<byte> macLabel = new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2', (byte)'-', (byte)'2', (byte)'5', (byte)'6' };
 
-            ReadOnlySpan<byte> versionContext = new byte[] { (byte)'V', (byte)'1' };
+            ReadOnlySpan<byte> versionContext = new byte[] { (byte)'P', (byte)'B', (byte)'2', (byte)'K' };
 
             using (var kdf = new SP800108HmacCounterKdf(key, HashAlgorithmName.SHA512))
             {
