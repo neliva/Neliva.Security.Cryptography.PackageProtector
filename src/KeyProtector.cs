@@ -158,34 +158,28 @@ namespace Neliva.Security.Cryptography
 
                 this._rngFill(salt);
 
-                byte[] tmp64 = new byte[64];
-                byte[] tmp32 = new byte[32];
+                Span<byte> tmp = stackalloc byte[64 + 32];
 
-                Span<byte> tmp64Span = tmp64;
-                Span<byte> tmp32Span = tmp32;
+                Span<byte> tmp64 = tmp.Slice(0, 64);
+                Span<byte> tmp32 = tmp.Slice(64, 32);
 
                 try
                 {
-                    PrehashPassword(password, output.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
+                    PrehashPassword(password, salt: output.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, destination: tmp64);
 
-                    PrehashedPbkdf2(tmp64Span, tmp64Span, iterations);
+                    PrehashedPbkdf2(prehashedPassword: tmp64, destination: tmp64, iterations);
 
-                    using (var hmac = new HMACSHA512(tmp64))
-                    {
-                        DeriveKeys(hmac, encryptionKey: tmp32Span, signingKey: tmp64Span);
+                    DeriveKeys(key: tmp64, encryptionKey: tmp32, signingKey: tmp64);
 
-                        hmac.Key = tmp64;
-
-                        hmac.ComputeHash(content, tmp64Span);
-                    }
+                    HMACSHA512.HashData(key: tmp64, source: content, destination: tmp64);
 
                     using (var aes = Aes.Create())
                     {
-                        aes.Key = tmp32;
+                        aes.SetKey(tmp32);
 
                         CbcNoPadding(
                             aes,
-                            tmp64Span.Slice(0, MacSize),
+                            tmp64.Slice(0, MacSize),
                             output.Slice(VersionSize + IterCounterSize + SaltSize));
 
                         CbcNoPadding(
@@ -197,15 +191,14 @@ namespace Neliva.Security.Cryptography
                 }
                 finally
                 {
-                    CryptographicOperations.ZeroMemory(tmp64Span);
-                    CryptographicOperations.ZeroMemory(tmp32Span);
+                    CryptographicOperations.ZeroMemory(tmp);
                 }
 
                 int checksumOffset = outputPackageSize - ChecksumSize;
 
-                SHA512.HashData(output.Slice(0, checksumOffset), tmp64Span);
+                SHA512.HashData(output.Slice(0, checksumOffset), tmp64);
 
-                tmp64Span.Slice(0, ChecksumSize).CopyTo(output.Slice(checksumOffset));
+                tmp64.Slice(0, ChecksumSize).CopyTo(output.Slice(checksumOffset));
 
                 return outputPackageSize;
             }
@@ -386,24 +379,17 @@ namespace Neliva.Security.Cryptography
                 aes.DecryptCbc(source, useIV, destination, PaddingMode.None);
         }
 
-        private static void DeriveKeys(KeyedHashAlgorithm alg, Span<byte> encryptionKey, Span<byte> signingKey)
-        {
-            ReadOnlySpan<byte> encLabel = new byte[] { (byte)'A', (byte)'E', (byte)'S', (byte)'2', (byte)'5', (byte)'6', (byte)'-', (byte)'C', (byte)'B', (byte)'C' };
-            ReadOnlySpan<byte> macLabel = new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2', (byte)'-', (byte)'2', (byte)'5', (byte)'6' };
-
-            alg.DeriveKey(encryptionKey, encLabel);
-            alg.DeriveKey(signingKey, macLabel);
-        }
-
         private static void DeriveKeys(ReadOnlySpan<byte> key, Span<byte> encryptionKey, Span<byte> signingKey)
         {
             ReadOnlySpan<byte> encLabel = new byte[] { (byte)'A', (byte)'E', (byte)'S', (byte)'2', (byte)'5', (byte)'6', (byte)'-', (byte)'C', (byte)'B', (byte)'C' };
             ReadOnlySpan<byte> macLabel = new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2', (byte)'-', (byte)'2', (byte)'5', (byte)'6' };
 
+            ReadOnlySpan<byte> versionContext = new byte[] { (byte)'V', (byte)'1' };
+
             using (var kdf = new SP800108HmacCounterKdf(key, HashAlgorithmName.SHA512))
             {
-                kdf.DeriveKey(encLabel, ReadOnlySpan<byte>.Empty, encryptionKey);
-                kdf.DeriveKey(macLabel, ReadOnlySpan<byte>.Empty, signingKey);
+                kdf.DeriveKey(label: encLabel, context: ReadOnlySpan<byte>.Empty, destination: encryptionKey);
+                kdf.DeriveKey(label: macLabel, context: ReadOnlySpan<byte>.Empty, destination: signingKey);
             }
         }
 
