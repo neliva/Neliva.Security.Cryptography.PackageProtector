@@ -119,14 +119,14 @@ namespace Neliva.Security.Cryptography
 
         /// <summary>
         /// Gets the max content length in bytes that can be protected by the
-        /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
+        /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{byte}, long, ReadOnlySpan{byte})"/>
         /// method.
         /// </summary>
         public int MaxContentSize => this._MaxContentSize;
 
         /// <summary>
         /// Gets the max package length in bytes that can be produced by the
-        /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
+        /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{byte}, long, ReadOnlySpan{byte})"/>
         /// method.
         /// </summary>
         public int MaxPackageSize => this._MaxPackageSize;
@@ -154,9 +154,6 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="package"/> destination.
         /// </returns>
-        /// <exception cref="ArgumentNullException">
-        /// The <paramref name="key"/> parameter is <c>null</c>.
-        /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
@@ -174,23 +171,18 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="PackageProtector"/> object has already been disposed.
         /// </exception>
-        public int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, ArraySegment<byte> associatedData = default)
+        public int Protect(ReadOnlySpan<byte> content, Span<byte> package, ReadOnlySpan<byte> key, long packageNumber, ReadOnlySpan<byte> associatedData = default)
         {
-            if (content.Count > this._MaxContentSize)
+            if (content.Length > this._MaxContentSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(content), "Content length is too large.");
             }
 
-            int outputPackageSize = this._IvAndHashSize + AlignBlock(content.Count);
+            int outputPackageSize = this._IvAndHashSize + AlignBlock(content.Length);
 
-            if (package.Count < outputPackageSize)
+            if (package.Length < outputPackageSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(package), "Insufficient space for package output.");
-            }
-
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
             }
 
             if (IsInvalidKeySize(key.Length))
@@ -203,12 +195,14 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(packageNumber), "Package number must not be negative.");
             }
 
-            if (associatedData.Count > this._MaxAssociatedDataSize)
+            if (associatedData.Length > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
 
-            if (MemoryExtensions.Overlaps<byte>(content, package.Slice(0, outputPackageSize)))
+            var output = package.Slice(0, outputPackageSize);
+
+            if (content.Overlaps(output))
             {
                 throw new InvalidOperationException($"The '{nameof(package)}' must not overlap in memory with the '{nameof(content)}'.");
             }
@@ -225,15 +219,11 @@ namespace Neliva.Security.Cryptography
             {
                 this._rngFill?.Invoke(kdfIV);
 
-                // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
-                if (content.Array != null)
-                {
-                    // Copy plain text to output buffer (after iv and hash).
-                    content.CopyTo(data);
-                }
+                // Copy plain text to output buffer (after iv and hash).
+                content.CopyTo(data);
 
                 // Pad data using PKCS7 scheme.
-                for (int pos = content.Count,
+                for (int pos = content.Length,
                     padLength = BlockSize - (pos % BlockSize),
                     padEnd = pos + padLength
                     ; pos < padEnd; pos++)
@@ -270,7 +260,7 @@ namespace Neliva.Security.Cryptography
             }
             catch
             {
-                Array.Clear(package.Array, package.Offset, outputPackageSize);
+                CryptographicOperations.ZeroMemory(output);
 
                 throw;
             }
