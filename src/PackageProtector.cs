@@ -41,10 +41,6 @@ namespace Neliva.Security.Cryptography
         private readonly int _MaxContentSize;
         private readonly int _MaxAssociatedDataSize;
 
-        private readonly byte[] _AesZeroIV;
-
-        private readonly Aes _Aes;
-
         private readonly RngFillAction _rngFill;
 
         private bool _IsDisposed;
@@ -105,16 +101,9 @@ namespace Neliva.Security.Cryptography
             this._MaxContentSize = packageSize - overhead;
             this._MaxAssociatedDataSize = BlockSize + BlockSize - ivSize;
 
-            this._AesZeroIV = new byte[BlockSize];
-
             this._rngFill = ivSize == 0 ?
                 null : // No need for RNG when IV size is zero.
                 rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
-
-            this._Aes = Aes.Create();
-
-            this._Aes.Padding = PaddingMode.None; // Padding is done manually.
-            this._Aes.Mode = CipherMode.CBC;
         }
 
         /// <summary>
@@ -535,19 +524,7 @@ namespace Neliva.Security.Cryptography
         /// </summary>
         public void Dispose()
         {
-            bool isDisposed = this._IsDisposed;
-
             this._IsDisposed = true;
-
-            if (!isDisposed)
-            {
-                var aes = this._Aes;
-
-                if (aes != null)
-                {
-                    aes.Dispose();
-                }
-            }
         }
     }
 }
