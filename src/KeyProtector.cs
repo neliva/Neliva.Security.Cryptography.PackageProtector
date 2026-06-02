@@ -388,8 +388,8 @@ namespace Neliva.Security.Cryptography
 
             using (var kdf = new SP800108HmacCounterKdf(key, HashAlgorithmName.SHA512))
             {
-                kdf.DeriveKey(label: encLabel, context: ReadOnlySpan<byte>.Empty, destination: encryptionKey);
-                kdf.DeriveKey(label: macLabel, context: ReadOnlySpan<byte>.Empty, destination: signingKey);
+                kdf.DeriveKey(label: encLabel, context: versionContext, destination: encryptionKey);
+                kdf.DeriveKey(label: macLabel, context: versionContext, destination: signingKey);
             }
         }
 

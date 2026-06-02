@@ -133,17 +133,19 @@ namespace Neliva.Security.Cryptography.Tests
             byte[] encLabel = encoder.GetBytes("AES256-CBC");
             byte[] macLabel = encoder.GetBytes("HMAC-SHA512-256");
 
+            byte[] versionContext = encoder.GetBytes("V1");
+
             byte[] encKey = new byte[32];
             byte[] macKey = new byte[64];
 
             using (var hmac = new HMACSHA512(derivedKey))
             {
-                hmac.DeriveKey(encKey, encLabel, null);
+                hmac.DeriveKey(encKey, encLabel, versionContext);
             }
 
             using (var hmac = new HMACSHA512(derivedKey))
             {
-                hmac.DeriveKey(macKey, macLabel, null);
+                hmac.DeriveKey(macKey, macLabel, versionContext);
             }
 
             ReadOnlySpan<byte> expectedContentHash = null;
@@ -871,17 +873,17 @@ namespace Neliva.Security.Cryptography.Tests
                 1,
                 "0000000000000000000000000000000000000000000000000000000000000000",
                 "",
-                "5042324b00000001000000000000000000000000000000000000000000000000000000000000000000000000000000008944d32c378724cea77c4d8d2ed8d98cc4fe7eb7dbcae71bfc5be33e1b6f0f93a3f33da0b5e27052d0e34eb459ef629da2c4cb46eeb4aff2720fc5121ab44b1ea8ac1d160b20c35b8ea855ac9124b7ce",
+                "5042324b00000001000000000000000000000000000000000000000000000000000000000000000000000000000000009352c78cd3a888a7ea4334b4127b816709927f60bab7d0cb236f3784d5d7e1c67ab765acde1794eee4eb02f164de300a70d1dc5dddde363065d548984a0daed32ead13545025a1dcd273234ac7114cba",
             };
 
             yield return new object[]
             {
                 (byte)0xA5,
-                "correct horse battery staple",
+                "Test password for KeyProtector",
                 4096,
                 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
                 "6173736f6369617465642d64617461",
-                "5042324b00001000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a597d6e87a2a543dbb7bc80780209e7c17097c1249ad9188c684a8d1305f1920fb014bf7d5112bbc3279ffaeb8988c47bfe6c999f889765a78129f08f0717a58c79ef295631700f3af889297eeef702cfa",
+                "5042324b00001000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a509be808865e6b3a493d825d8ca78230623c345f784ec89bf764fd6abc6df0ebda8e5ec6935f2cccb40ff4f33b7cf5cd39ceba70754aef70662a9ff7fc4c96c2052b171f30a420b6babb3acd9b486bf0c",
             };
         }
 
