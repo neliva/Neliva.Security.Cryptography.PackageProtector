@@ -366,11 +366,10 @@ namespace Neliva.Security.Cryptography
                 throw new ObjectDisposedException(this.GetType().FullName);
             }
 
-            byte[] tmpA = new byte[HashSize]; // Used for encKey and decrypted hash
-            byte[] tmpB = new byte[HashSize]; // Used for signKey and computed hash
+            Span<byte> buf = stackalloc byte[HashSize + HashSize];
 
-            Span<byte> tmpASpan = tmpA;
-            Span<byte> tmpBSpan = tmpB;
+            Span<byte> tmpASpan = buf.Slice(0, HashSize); // Used for encKey and decrypted hash
+            Span<byte> tmpBSpan = buf.Slice(HashSize, HashSize); // Used for signKey and computed hash
 
             try
             {
@@ -380,27 +379,23 @@ namespace Neliva.Security.Cryptography
 
                     DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmpASpan, tmpBSpan);
 
-                    using (var dec = this._Aes.CreateDecryptor(tmpA, this._AesZeroIV))
+                    using (var aes = Aes.Create())
                     {
+                        aes.SetKey(tmpASpan);
+
                         // Decrypt package hash
-                        dec.TransformBlock(
-                            package.Array,
-                            package.Offset + this._IvSize,
-                            HashSize,
-                            tmpA,
-                            0);
+                        aes.DecryptCbcNoPadding(
+                            package.Slice(this._IvSize, HashSize),
+                            tmpASpan);
 
                         // Decrypt (content + padding) directly into output.
-                        // IV for the block comes from the previous invocation of the method.
-                        dec.TransformBlock(
-                            package.Array,
-                            package.Offset + this._IvAndHashSize,
-                            package.Count - this._IvAndHashSize,
-                            content.Array,
-                            content.Offset);
+                        aes.DecryptCbcNoPadding(
+                            package.Slice(this._IvAndHashSize),
+                            content,
+                            package.Slice(this._IvAndHashSize - BlockSize, BlockSize));
                     }
 
-                    HMACSHA256.HashData(tmpB, data, tmpBSpan);
+                    HMACSHA256.HashData(tmpBSpan, data, tmpBSpan);
 
                     if (!CryptographicOperations.FixedTimeEquals(tmpASpan, tmpBSpan))
                     {
@@ -418,8 +413,7 @@ namespace Neliva.Security.Cryptography
                 }
                 finally
                 {
-                    CryptographicOperations.ZeroMemory(tmpASpan);
-                    CryptographicOperations.ZeroMemory(tmpBSpan);
+                    CryptographicOperations.ZeroMemory(buf);
                 }
             }
             catch
