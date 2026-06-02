@@ -117,7 +117,7 @@ namespace Neliva.Security.Cryptography
         {
             if (content.Length < MinContentSize || content.Length > MaxContentSize || (content.Length % BlockSize) != 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(content), "Content length is invalid or not aligned on the required boundary.");
+                throw new ArgumentOutOfRangeException(nameof(content), "Content length is invalid or not aligned to the required boundary.");
             }
 
             int outputPackageSize = content.Length + OverheadSize;
@@ -158,37 +158,28 @@ namespace Neliva.Security.Cryptography
 
                 this._rngFill(salt);
 
-                byte[] tmp64 = new byte[64];
-                byte[] tmp32 = new byte[32];
+                Span<byte> buf = stackalloc byte[64 + 32];
 
-                Span<byte> tmp64Span = tmp64;
-                Span<byte> tmp32Span = tmp32;
+                Span<byte> tmp64 = buf.Slice(0, 64);
+                Span<byte> tmp32 = buf.Slice(64, 32);
 
                 try
                 {
-                    PrehashPassword(password, output.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
+                    PrehashPassword(password, salt: output.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, destination: tmp64);
 
-                    // Safe to use the same span for input and output. Pbkdf2 consumes
-                    // the prehashed password into its internal HMAC key before writing
-                    // the derived bytes, so the in-place overwrite does not corrupt the input.
-                    PrehashedPbkdf2(tmp64Span, tmp64Span, iterations);
+                    PrehashedPbkdf2(prehashedPassword: tmp64, destination: tmp64, iterations);
 
-                    using (var hmac = new HMACSHA512(tmp64))
-                    {
-                        DeriveKeys(hmac, encryptionKey: tmp32Span, signingKey: tmp64Span);
+                    DeriveKeys(key: tmp64, encryptionKey: tmp32, signingKey: tmp64);
 
-                        hmac.Key = tmp64;
-
-                        hmac.ComputeHash(content, tmp64Span);
-                    }
+                    HMACSHA512.HashData(key: tmp64, source: content, destination: tmp64);
 
                     using (var aes = Aes.Create())
                     {
-                        aes.Key = tmp32;
+                        aes.SetKey(tmp32);
 
                         CbcNoPadding(
                             aes,
-                            tmp64Span.Slice(0, MacSize),
+                            tmp64.Slice(0, MacSize),
                             output.Slice(VersionSize + IterCounterSize + SaltSize));
 
                         CbcNoPadding(
@@ -200,15 +191,14 @@ namespace Neliva.Security.Cryptography
                 }
                 finally
                 {
-                    CryptographicOperations.ZeroMemory(tmp64Span);
-                    CryptographicOperations.ZeroMemory(tmp32Span);
+                    CryptographicOperations.ZeroMemory(buf);
                 }
 
                 int checksumOffset = outputPackageSize - ChecksumSize;
 
-                SHA512.HashData(output.Slice(0, checksumOffset), tmp64Span);
+                SHA512.HashData(output.Slice(0, checksumOffset), tmp64);
 
-                tmp64Span.Slice(0, ChecksumSize).CopyTo(output.Slice(checksumOffset));
+                tmp64.Slice(0, ChecksumSize).CopyTo(output.Slice(checksumOffset));
 
                 return outputPackageSize;
             }
@@ -266,7 +256,7 @@ namespace Neliva.Security.Cryptography
         {
             if (package.Length < MinPackageSize || package.Length > MaxPackageSize || (package.Length % BlockSize) != 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned on the required boundary.");
+                throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned to the required boundary.");
             }
 
             int outputContentSize = package.Length - OverheadSize;
@@ -302,20 +292,19 @@ namespace Neliva.Security.Cryptography
 
             if (iterations <= 0)
             {
-                throw new BadPackageException("The package iterations count is invalid.");
+                throw new BadPackageException("The package iteration count is invalid.");
             }
 
-            byte[] tmp64 = new byte[64];
-            byte[] tmp32 = new byte[32];
+            Span<byte> buf = stackalloc byte[64 + 32];
 
-            Span<byte> tmp64Span = tmp64;
-            Span<byte> tmp32Span = tmp32;
+            Span<byte> tmp64 = buf.Slice(0, 64);
+            Span<byte> tmp32 = buf.Slice(64, 32);
 
             int checksumOffset = package.Length - ChecksumSize;
 
-            SHA512.HashData(package.Slice(0, checksumOffset), tmp64Span);
+            SHA512.HashData(package.Slice(0, checksumOffset), tmp64);
 
-            if (!CryptographicOperations.FixedTimeEquals(package.Slice(checksumOffset), tmp64Span.Slice(0, ChecksumSize)))
+            if (!CryptographicOperations.FixedTimeEquals(package.Slice(checksumOffset), tmp64.Slice(0, ChecksumSize)))
             {
                 throw new BadPackageException("The package checksum is invalid.");
             }
@@ -324,41 +313,33 @@ namespace Neliva.Security.Cryptography
             {
                 try
                 {
-                    PrehashPassword(password, package.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, tmp64Span);
+                    PrehashPassword(password, salt: package.Slice(0, VersionSize + IterCounterSize + SaltSize), associatedData, destination: tmp64);
 
-                    // Safe to use the same span for input and output. Pbkdf2 consumes
-                    // the prehashed password into its internal HMAC key before writing
-                    // the derived bytes, so the in-place overwrite does not corrupt the input.
-                    PrehashedPbkdf2(tmp64Span, tmp64Span, iterations);
+                    PrehashedPbkdf2(prehashedPassword: tmp64, destination: tmp64, iterations);
 
-                    using (var hmac = new HMACSHA512(tmp64))
+                    DeriveKeys(key: tmp64, encryptionKey: tmp32, signingKey: tmp64);
+
+                    using (var aes = Aes.Create())
                     {
-                        DeriveKeys(hmac, encryptionKey: tmp32Span, signingKey: tmp64Span);
+                        aes.SetKey(tmp32);
 
-                        using (var aes = Aes.Create())
-                        {
-                            aes.Key = tmp32;
+                        CbcNoPadding(
+                            aes,
+                            package.Slice(VersionSize + IterCounterSize + SaltSize, MacSize),
+                            tmp32,
+                            encrypt: false);
 
-                            CbcNoPadding(
-                                aes,
-                                package.Slice(VersionSize + IterCounterSize + SaltSize, MacSize),
-                                tmp32Span,
-                                encrypt: false);
-
-                            CbcNoPadding(
-                                aes,
-                                package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize, outputContentSize),
-                                output,
-                                package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
-                                encrypt: false);
-                        }
-
-                        hmac.Key = tmp64;
-
-                        hmac.ComputeHash(output, tmp64Span);
+                        CbcNoPadding(
+                            aes,
+                            package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize, outputContentSize),
+                            output,
+                            package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
+                            encrypt: false);
                     }
 
-                    if (!CryptographicOperations.FixedTimeEquals(tmp64Span.Slice(0, MacSize), tmp32Span))
+                    HMACSHA512.HashData(key: tmp64, source: output, destination: tmp64);
+
+                    if (!CryptographicOperations.FixedTimeEquals(tmp64.Slice(0, MacSize), tmp32))
                     {
                         throw new BadPasswordException();
                     }
@@ -367,8 +348,7 @@ namespace Neliva.Security.Cryptography
                 }
                 finally
                 {
-                    CryptographicOperations.ZeroMemory(tmp64Span);
-                    CryptographicOperations.ZeroMemory(tmp32Span);
+                    CryptographicOperations.ZeroMemory(buf);
                 }
             }
             catch
@@ -399,13 +379,18 @@ namespace Neliva.Security.Cryptography
                 aes.DecryptCbc(source, useIV, destination, PaddingMode.None);
         }
 
-        private static void DeriveKeys(KeyedHashAlgorithm alg, Span<byte> encryptionKey, Span<byte> signingKey)
+        private static void DeriveKeys(ReadOnlySpan<byte> key, Span<byte> encryptionKey, Span<byte> signingKey)
         {
             ReadOnlySpan<byte> encLabel = new byte[] { (byte)'A', (byte)'E', (byte)'S', (byte)'2', (byte)'5', (byte)'6', (byte)'-', (byte)'C', (byte)'B', (byte)'C' };
             ReadOnlySpan<byte> macLabel = new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2', (byte)'-', (byte)'2', (byte)'5', (byte)'6' };
 
-            alg.DeriveKey(encryptionKey, encLabel);
-            alg.DeriveKey(signingKey, macLabel);
+            ReadOnlySpan<byte> versionContext = new byte[] { (byte)'P', (byte)'B', (byte)'2', (byte)'K' };
+
+            using (var kdf = new SP800108HmacCounterKdf(key, HashAlgorithmName.SHA512))
+            {
+                kdf.DeriveKey(label: encLabel, context: versionContext, destination: encryptionKey);
+                kdf.DeriveKey(label: macLabel, context: versionContext, destination: signingKey);
+            }
         }
 
         private static void PrehashPassword(ReadOnlySpan<char> password, ReadOnlySpan<byte> salt, ReadOnlySpan<byte> associatedData, Span<byte> destination)

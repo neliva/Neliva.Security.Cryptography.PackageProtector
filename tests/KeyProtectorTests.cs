@@ -3,6 +3,7 @@
 
 using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
@@ -132,17 +133,19 @@ namespace Neliva.Security.Cryptography.Tests
             byte[] encLabel = encoder.GetBytes("AES256-CBC");
             byte[] macLabel = encoder.GetBytes("HMAC-SHA512-256");
 
+            byte[] versionContext = encoder.GetBytes("PB2K");
+
             byte[] encKey = new byte[32];
             byte[] macKey = new byte[64];
 
             using (var hmac = new HMACSHA512(derivedKey))
             {
-                hmac.DeriveKey(encKey, encLabel, null);
+                hmac.DeriveKey(encKey, encLabel, versionContext);
             }
 
             using (var hmac = new HMACSHA512(derivedKey))
             {
-                hmac.DeriveKey(macKey, macLabel, null);
+                hmac.DeriveKey(macKey, macLabel, versionContext);
             }
 
             ReadOnlySpan<byte> expectedContentHash = null;
@@ -251,7 +254,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Protect(content, package, password, iterations));
 
             Assert.Equal("content", ex.ParamName);
-            Assert.Equal("Content length is invalid or not aligned on the required boundary. (Parameter 'content')", ex.Message);
+            Assert.Equal("Content length is invalid or not aligned to the required boundary. (Parameter 'content')", ex.Message);
         }
 
         [Theory]
@@ -273,7 +276,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Unprotect(package, content, password));
 
             Assert.Equal("package", ex.ParamName);
-            Assert.Equal("Package length is invalid or not aligned on the required boundary. (Parameter 'package')", ex.Message);
+            Assert.Equal("Package length is invalid or not aligned to the required boundary. (Parameter 'package')", ex.Message);
         }
 
         [Fact]
@@ -567,7 +570,7 @@ namespace Neliva.Security.Cryptography.Tests
             BinaryPrimitives.WriteUInt32BigEndian(packageSpan.Slice(4, 4), (uint)iterations);
 
             var ex = Assert.Throws<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
-            Assert.Equal("The package iterations count is invalid.", ex.Message);
+            Assert.Equal("The package iteration count is invalid.", ex.Message);
         }
 
         [Fact]
@@ -619,6 +622,91 @@ namespace Neliva.Security.Cryptography.Tests
 
             ex = Assert.Throws<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
             Assert.Equal("The package checksum is invalid.", ex.Message);
+        }
+
+        [Fact]
+        public void UnprotectTamperedCiphertextWithValidChecksumFails()
+        {
+            // The package checksum is an unkeyed SHA-512 digest, so it only protects
+            // against accidental corruption: an attacker who tampers with the ciphertext
+            // can always recompute a matching checksum. Authenticity is instead enforced
+            // by the encrypted HMAC, which is verified after decryption.
+            //
+            // This test documents that a forged package (tampered ciphertext + recomputed
+            // valid checksum) is still rejected, and that the rejection surfaces as a
+            // BadPasswordException (not BadPackageException), because the failure is
+            // detected by the HMAC comparison rather than the checksum gate.
+
+            const string password = "user-password";
+
+            RngFillAction rng = (Span<byte> data) => data.Fill(97);
+
+            using var protector = new KeyProtector(rng);
+
+            var content = new byte[32].Fill(242);
+            var package = new byte[32 + protector.Overhead];
+
+            var packageSpan = package.AsSpan();
+
+            protector.Protect(content, package, password, 1);
+
+            // Tamper with a byte inside the encrypted content region.
+            // Layout: Version(4) | Iterations(4) | Salt(40) | HMAC(32) | KeyData | Checksum(16).
+            // The encrypted content begins right after the encrypted HMAC at offset 80.
+            const int ciphertextOffset = 4 + 4 + 40 + 32;
+
+            packageSpan[ciphertextOffset] ^= 0x01;
+
+            // Recompute a valid checksum over the tampered package so the checksum gate passes.
+            int checksumOffset = package.Length - ChecksumSize;
+
+            Span<byte> checksumHash = new byte[64];
+
+            SHA512.HashData(packageSpan.Slice(0, checksumOffset), checksumHash);
+
+            checksumHash.Slice(0, ChecksumSize).CopyTo(packageSpan.Slice(checksumOffset));
+
+            var unprotectedContent = new byte[content.Length].Fill(byte.MaxValue);
+
+            // The forged package passes the checksum gate but fails HMAC verification,
+            // which is reported as a BadPasswordException.
+            var ex = Assert.Throws<BadPasswordException>(() => protector.Unprotect(package, unprotectedContent, password));
+            Assert.Equal("Password is invalid or incorrect.", ex.Message);
+
+            // The output must be cleared when authentication fails.
+            Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() authentication failure.");
+        }
+
+        [Theory]
+        [InlineData(0x80000000u)] // First value with the high bit set (== int.MinValue when cast to int).
+        [InlineData(0x80000001u)]
+        [InlineData(0xC0000000u)]
+        [InlineData(0xFFFFFFFFu)] // Maximum 32-bit value (== -1 when cast to int).
+        public void UnprotectHighBitIterationsFails(uint iterations)
+        {
+            // The stored iterations field is a 32-bit big-endian value read as an int.
+            // Any value with the high bit set casts to a negative int and is rejected.
+            // This validation runs before the checksum/crypto path, so it always throws
+            // BadPackageException regardless of the (otherwise valid) checksum.
+
+            const string password = "user-password";
+            const string badPassword = "user-Password";
+
+            RngFillAction rng = (Span<byte> data) => data.Fill(97);
+
+            using var protector = new KeyProtector(rng);
+
+            var content = new byte[32].Fill(242);
+            var package = new byte[32 + protector.Overhead];
+
+            var packageSpan = package.AsSpan();
+
+            protector.Protect(content, package, password, 1);
+
+            BinaryPrimitives.WriteUInt32BigEndian(packageSpan.Slice(4, 4), iterations);
+
+            var ex = Assert.Throws<BadPackageException>(() => protector.Unprotect(package, content, badPassword));
+            Assert.Equal("The package iteration count is invalid.", ex.Message);
         }
 
         [Fact]
@@ -855,6 +943,73 @@ namespace Neliva.Security.Cryptography.Tests
                 Assert.Equal(contentLen, unprotectedLen);
                 Assert.Equal(content, unprotected);
             }
+        }
+
+        // Well known test vectors. The salt is supplied by a deterministic RNG so the
+        // produced package is fully reproducible. These vectors guard against any
+        // accidental change to the wire format or cryptographic primitives.
+        public static IEnumerable<object[]> KnownVectors()
+        {
+            // saltFill, password, iterations, content (hex), associatedData (hex), expected package (hex)
+            yield return new object[]
+            {
+                (byte)0x00,
+                string.Empty,
+                1,
+                "0000000000000000000000000000000000000000000000000000000000000000",
+                "",
+                "5042324b00000001000000000000000000000000000000000000000000000000000000000000000000000000000000009e60fa1608f6ce68319d93d96f1c89cd37fca092eae71ebc230feebddfd8e3920d6824314258d6d5cc6e6dacdf8d14ced33adf3568d1bd50861c39d2c06ebfa6f78de223e77298fbef6549f924630786",
+            };
+
+            yield return new object[]
+            {
+                (byte)0xA5,
+                "Test password for KeyProtector",
+                3,
+                "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+                "6173736f6369617465642d64617461",
+                "5042324b00000003a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a513b4a5453b15d92169df6d25a4e775cc1dc0949e2c74a290815fa2da3fbea934ff695341a21b2efb6fd02a380a39b1ca7d5db0ab301a1bbd8bcea69d761c5acb9f5a05abdea5cb23e294160f5738d12f",
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(KnownVectors))]
+        public void ProtectKnownVectorPass(byte saltFill, string password, int iterations, string contentHex, string associatedDataHex, string expectedPackageHex)
+        {
+            RngFillAction rng = (Span<byte> data) => data.Fill(saltFill);
+
+            using var protector = new KeyProtector(rng);
+
+            byte[] content = Convert.FromHexString(contentHex);
+            byte[] associatedData = Convert.FromHexString(associatedDataHex);
+
+            byte[] package = new byte[content.Length + protector.Overhead];
+
+            int protectedLength = protector.Protect(content, package, password, iterations, associatedData);
+
+            Assert.Equal(package.Length, protectedLength);
+            Assert.Equal(expectedPackageHex, Convert.ToHexString(package).ToLowerInvariant());
+        }
+
+        [Theory]
+        [MemberData(nameof(KnownVectors))]
+        public void UnprotectKnownVectorPass(byte saltFill, string password, int iterations, string contentHex, string associatedDataHex, string expectedPackageHex)
+        {
+            _ = saltFill;
+            _ = iterations;
+
+            using var protector = new KeyProtector();
+
+            byte[] expectedContent = Convert.FromHexString(contentHex);
+            byte[] associatedData = Convert.FromHexString(associatedDataHex);
+            byte[] package = Convert.FromHexString(expectedPackageHex);
+
+            byte[] content = new byte[package.Length - protector.Overhead];
+
+            int unprotectedLength = protector.Unprotect(package, content, password, associatedData);
+
+            Assert.Equal(expectedContent.Length, unprotectedLength);
+            Assert.Equal(expectedContent, content);
         }
     }
 }

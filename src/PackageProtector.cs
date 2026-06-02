@@ -82,7 +82,7 @@ namespace Neliva.Security.Cryptography
                     break;
 
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(ivSize), "IV size must be 0, 16 or 32 bytes.");
+                    throw new ArgumentOutOfRangeException(nameof(ivSize), "IV size must be 0, 16, or 32 bytes.");
             }
 
             int minPackageSize = ivSize + HashSize + BlockSize;
@@ -344,7 +344,7 @@ namespace Neliva.Security.Cryptography
         {
             if (this.IsInvalidPackageSize(package.Count))
             {
-                throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned on the required boundary.");
+                throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned to the required boundary.");
             }
 
             int dataLength = package.Count - this._IvAndHashSize;
