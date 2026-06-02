@@ -241,41 +241,31 @@ namespace Neliva.Security.Cryptography
                     data[pos] = (byte)padLength;
                 }
 
-                byte[] encKey = new byte[HashSize];
-                byte[] signKey = new byte[HashSize];
+                Span<byte> buf = stackalloc byte[HashSize + HashSize];
 
-                Span<byte> encKeySpan = encKey;
-                Span<byte> signKeySpan = signKey;
+                Span<byte> encKey = buf.Slice(0, HashSize);
+                Span<byte> signKey = buf.Slice(HashSize, HashSize);
 
                 try
                 {
-                    using (var hmac = new HMACSHA256(key))
+                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
+
+                    // Sign plaintext and padding, then prepend hash to padded plaintext.
+                    HMACSHA256.HashData(signKey, data, package.Slice(this._IvSize, HashSize));
+
+                    using (var aes = Aes.Create())
                     {
-                        DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKeySpan, signKeySpan);
+                        aes.SetKey(encKey);
 
-                        hmac.Key = signKey;
-
-                        // Sign plaintext and padding, then prepend hash to padded plaintext.
-                        hmac.ComputeHash(data, package.Slice(this._IvSize, HashSize));
-                    }
-
-                    using (var enc = this._Aes.CreateEncryptor(encKey, this._AesZeroIV))
-                    {
                         // Encrypt buffer in place.
-                        enc.TransformBlock(
-                            package.Array,
-                            package.Offset + this._IvSize,
-                            outputPackageSize - this._IvSize,
-                            package.Array,
-                            package.Offset + this._IvSize);
+                        aes.EncryptCbcNoPadding(package.Slice(this._IvSize, outputPackageSize - this._IvSize), package.Slice(this._IvSize));
                     }
 
                     return outputPackageSize;
                 }
                 finally
                 {
-                    CryptographicOperations.ZeroMemory(encKeySpan);
-                    CryptographicOperations.ZeroMemory(signKeySpan);
+                    CryptographicOperations.ZeroMemory(buf);
                 }
             }
             catch
@@ -489,6 +479,14 @@ namespace Neliva.Security.Cryptography
             const int MaxKeySize = 64;
 
             return value < MinKeySize || value > MaxKeySize;
+        }
+
+        private static void DeriveKeys(ReadOnlySpan<byte> key, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
+        {
+            using (var hmac = new HMACSHA256(key.ToArray()))
+            {
+                DeriveKeys(hmac, packageNumber, packageSize, ivArg1, ivArg2, encryptionKey, signingKey);
+            }
         }
 
         internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
