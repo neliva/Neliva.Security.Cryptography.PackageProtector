@@ -177,13 +177,11 @@ namespace Neliva.Security.Cryptography
                     {
                         aes.SetKey(tmp32);
 
-                        CbcNoPadding(
-                            aes,
+                        aes.EncryptCbcNoPadding(
                             tmp64.Slice(0, MacSize),
                             output.Slice(VersionSize + IterCounterSize + SaltSize));
 
-                        CbcNoPadding(
-                            aes,
+                        aes.EncryptCbcNoPadding(
                             content,
                             output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize),
                             output.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize));
@@ -323,18 +321,14 @@ namespace Neliva.Security.Cryptography
                     {
                         aes.SetKey(tmp32);
 
-                        CbcNoPadding(
-                            aes,
+                        aes.DecryptCbcNoPadding(
                             package.Slice(VersionSize + IterCounterSize + SaltSize, MacSize),
-                            tmp32,
-                            encrypt: false);
+                            tmp32);
 
-                        CbcNoPadding(
-                            aes,
+                        aes.DecryptCbcNoPadding(
                             package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize, outputContentSize),
                             output,
-                            package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize),
-                            encrypt: false);
+                            package.Slice(VersionSize + IterCounterSize + SaltSize + MacSize - BlockSize, BlockSize));
                     }
 
                     HMACSHA512.HashData(key: tmp64, source: output, destination: tmp64);
@@ -366,17 +360,6 @@ namespace Neliva.Security.Cryptography
         public void Dispose()
         {
             this._IsDisposed = true;
-        }
-
-        private static void CbcNoPadding(Aes aes, ReadOnlySpan<byte> source, Span<byte> destination, ReadOnlySpan<byte> iv = default, bool encrypt = true)
-        {
-            ReadOnlySpan<byte> zeroIV = new byte[BlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-
-            var useIV = iv.IsEmpty ? zeroIV : iv;
-
-            _ = encrypt ?
-                aes.EncryptCbc(source, useIV, destination, PaddingMode.None) :
-                aes.DecryptCbc(source, useIV, destination, PaddingMode.None);
         }
 
         private static void DeriveKeys(ReadOnlySpan<byte> key, Span<byte> encryptionKey, Span<byte> signingKey)
