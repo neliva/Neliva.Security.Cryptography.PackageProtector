@@ -41,10 +41,6 @@ namespace Neliva.Security.Cryptography
         private readonly int _MaxContentSize;
         private readonly int _MaxAssociatedDataSize;
 
-        private readonly byte[] _AesZeroIV;
-
-        private readonly Aes _Aes;
-
         private readonly RngFillAction _rngFill;
 
         private bool _IsDisposed;
@@ -105,28 +101,21 @@ namespace Neliva.Security.Cryptography
             this._MaxContentSize = packageSize - overhead;
             this._MaxAssociatedDataSize = BlockSize + BlockSize - ivSize;
 
-            this._AesZeroIV = new byte[BlockSize];
-
             this._rngFill = ivSize == 0 ?
                 null : // No need for RNG when IV size is zero.
                 rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
-
-            this._Aes = Aes.Create();
-
-            this._Aes.Padding = PaddingMode.None; // Padding is done manually.
-            this._Aes.Mode = CipherMode.CBC;
         }
 
         /// <summary>
         /// Gets the max content length in bytes that can be protected by the
-        /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
+        /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{byte}, long, ReadOnlySpan{byte})"/>
         /// method.
         /// </summary>
         public int MaxContentSize => this._MaxContentSize;
 
         /// <summary>
         /// Gets the max package length in bytes that can be produced by the
-        /// <see cref="Protect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
+        /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{byte}, long, ReadOnlySpan{byte})"/>
         /// method.
         /// </summary>
         public int MaxPackageSize => this._MaxPackageSize;
@@ -154,9 +143,6 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="package"/> destination.
         /// </returns>
-        /// <exception cref="ArgumentNullException">
-        /// The <paramref name="key"/> parameter is <c>null</c>.
-        /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
@@ -174,23 +160,18 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="PackageProtector"/> object has already been disposed.
         /// </exception>
-        public int Protect(ArraySegment<byte> content, ArraySegment<byte> package, byte[] key, long packageNumber, ArraySegment<byte> associatedData = default)
+        public int Protect(ReadOnlySpan<byte> content, Span<byte> package, ReadOnlySpan<byte> key, long packageNumber, ReadOnlySpan<byte> associatedData = default)
         {
-            if (content.Count > this._MaxContentSize)
+            if (content.Length > this._MaxContentSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(content), "Content length is too large.");
             }
 
-            int outputPackageSize = this._IvAndHashSize + AlignBlock(content.Count);
+            int outputPackageSize = this._IvAndHashSize + AlignBlock(content.Length);
 
-            if (package.Count < outputPackageSize)
+            if (package.Length < outputPackageSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(package), "Insufficient space for package output.");
-            }
-
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
             }
 
             if (IsInvalidKeySize(key.Length))
@@ -203,12 +184,14 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(packageNumber), "Package number must not be negative.");
             }
 
-            if (associatedData.Count > this._MaxAssociatedDataSize)
+            if (associatedData.Length > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
 
-            if (MemoryExtensions.Overlaps<byte>(content, package.Slice(0, outputPackageSize)))
+            var output = package.Slice(0, outputPackageSize);
+
+            if (content.Overlaps(output))
             {
                 throw new InvalidOperationException($"The '{nameof(package)}' must not overlap in memory with the '{nameof(content)}'.");
             }
@@ -225,15 +208,11 @@ namespace Neliva.Security.Cryptography
             {
                 this._rngFill?.Invoke(kdfIV);
 
-                // If ArraySegment is 'default' or 'null' then Array property will be 'null'.
-                if (content.Array != null)
-                {
-                    // Copy plain text to output buffer (after iv and hash).
-                    content.CopyTo(data);
-                }
+                // Copy plain text to output buffer (after iv and hash).
+                content.CopyTo(data);
 
                 // Pad data using PKCS7 scheme.
-                for (int pos = content.Count,
+                for (int pos = content.Length,
                     padLength = BlockSize - (pos % BlockSize),
                     padEnd = pos + padLength
                     ; pos < padEnd; pos++)
@@ -241,46 +220,36 @@ namespace Neliva.Security.Cryptography
                     data[pos] = (byte)padLength;
                 }
 
-                byte[] encKey = new byte[HashSize];
-                byte[] signKey = new byte[HashSize];
+                Span<byte> buf = stackalloc byte[HashSize + HashSize];
 
-                Span<byte> encKeySpan = encKey;
-                Span<byte> signKeySpan = signKey;
+                Span<byte> encKey = buf.Slice(0, HashSize);
+                Span<byte> signKey = buf.Slice(HashSize, HashSize);
 
                 try
                 {
-                    using (var hmac = new HMACSHA256(key))
+                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
+
+                    // Sign plaintext and padding, then prepend hash to padded plaintext.
+                    HMACSHA256.HashData(signKey, data, package.Slice(this._IvSize, HashSize));
+
+                    using (var aes = Aes.Create())
                     {
-                        DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKeySpan, signKeySpan);
+                        aes.SetKey(encKey);
 
-                        hmac.Key = signKey;
-
-                        // Sign plaintext and padding, then prepend hash to padded plaintext.
-                        hmac.ComputeHash(data, package.Slice(this._IvSize, HashSize));
-                    }
-
-                    using (var enc = this._Aes.CreateEncryptor(encKey, this._AesZeroIV))
-                    {
                         // Encrypt buffer in place.
-                        enc.TransformBlock(
-                            package.Array,
-                            package.Offset + this._IvSize,
-                            outputPackageSize - this._IvSize,
-                            package.Array,
-                            package.Offset + this._IvSize);
+                        aes.EncryptCbcNoPadding(package.Slice(this._IvSize, outputPackageSize - this._IvSize), package.Slice(this._IvSize));
                     }
 
                     return outputPackageSize;
                 }
                 finally
                 {
-                    CryptographicOperations.ZeroMemory(encKeySpan);
-                    CryptographicOperations.ZeroMemory(signKeySpan);
+                    CryptographicOperations.ZeroMemory(buf);
                 }
             }
             catch
             {
-                Array.Clear(package.Array, package.Offset, outputPackageSize);
+                CryptographicOperations.ZeroMemory(output);
 
                 throw;
             }
@@ -309,9 +278,6 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="content"/> destination.
         /// </returns>
-        /// <exception cref="ArgumentNullException">
-        /// The <paramref name="key"/> parameter is <c>null</c>.
-        /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="package"/> length is not correct.
         /// - or -
@@ -340,23 +306,18 @@ namespace Neliva.Security.Cryptography
         /// If the <paramref name="package"/> cannot be validated
         /// then the <paramref name="content"/> is cleared.
         /// </remarks>
-        public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData = default)
+        public int Unprotect(ReadOnlySpan<byte> package, Span<byte> content, ReadOnlySpan<byte> key, long packageNumber, ReadOnlySpan<byte> associatedData = default)
         {
-            if (this.IsInvalidPackageSize(package.Count))
+            if (this.IsInvalidPackageSize(package.Length))
             {
                 throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned to the required boundary.");
             }
 
-            int dataLength = package.Count - this._IvAndHashSize;
+            int dataLength = package.Length - this._IvAndHashSize;
 
-            if (content.Count < dataLength)
+            if (content.Length < dataLength)
             {
                 throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
-            }
-
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
             }
 
             if (IsInvalidKeySize(key.Length))
@@ -369,14 +330,14 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(packageNumber), "Package number must not be negative.");
             }
 
-            if (associatedData.Count > this._MaxAssociatedDataSize)
+            if (associatedData.Length > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
 
             var data = content.Slice(0, dataLength); // content + padding
 
-            if (MemoryExtensions.Overlaps<byte>(package, data))
+            if (package.Overlaps(data))
             {
                 throw new InvalidOperationException($"The '{nameof(content)}' must not overlap in memory with the '{nameof(package)}'.");
             }
@@ -386,47 +347,36 @@ namespace Neliva.Security.Cryptography
                 throw new ObjectDisposedException(this.GetType().FullName);
             }
 
-            byte[] tmpA = new byte[HashSize]; // Used for encKey and decrypted hash
-            byte[] tmpB = new byte[HashSize]; // Used for signKey and computed hash
+            Span<byte> buf = stackalloc byte[HashSize + HashSize];
 
-            Span<byte> tmpASpan = tmpA;
-            Span<byte> tmpBSpan = tmpB;
+            Span<byte> tmpASpan = buf.Slice(0, HashSize); // Used for encKey and decrypted hash
+            Span<byte> tmpBSpan = buf.Slice(HashSize, HashSize); // Used for signKey and computed hash
 
             try
             {
                 try
                 {
-                    using (var hmac = new HMACSHA256(key))
+                    var kdfIV = package.Slice(0, this._IvSize);
+
+                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmpASpan, tmpBSpan);
+
+                    using (var aes = Aes.Create())
                     {
-                        var kdfIV = package.Slice(0, this._IvSize);
+                        aes.SetKey(tmpASpan);
 
-                        DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmpASpan, tmpBSpan);
+                        // Decrypt package hash
+                        aes.DecryptCbcNoPadding(
+                            package.Slice(this._IvSize, HashSize),
+                            tmpASpan);
 
-                        using (var dec = this._Aes.CreateDecryptor(tmpA, this._AesZeroIV))
-                        {
-                            // Decrypt package hash
-                            dec.TransformBlock(
-                                package.Array,
-                                package.Offset + this._IvSize,
-                                HashSize,
-                                tmpA,
-                                0);
-
-                            // Decrypt (content + padding) directly into output.
-                            // IV for the block comes from the previous invocation of the method.
-                            dec.TransformBlock(
-                                package.Array,
-                                package.Offset + this._IvAndHashSize,
-                                package.Count - this._IvAndHashSize,
-                                content.Array,
-                                content.Offset);
-                        }
-
-                        hmac.Key = tmpB;
-
-                        // Sign plaintext and padding.
-                        hmac.ComputeHash(data, tmpBSpan);
+                        // Decrypt (content + padding) directly into output.
+                        aes.DecryptCbcNoPadding(
+                            package.Slice(this._IvAndHashSize),
+                            data,
+                            package.Slice(this._IvAndHashSize - BlockSize, BlockSize));
                     }
+
+                    HMACSHA256.HashData(tmpBSpan, data, tmpBSpan);
 
                     if (!CryptographicOperations.FixedTimeEquals(tmpASpan, tmpBSpan))
                     {
@@ -440,17 +390,16 @@ namespace Neliva.Security.Cryptography
                         throw new BadPackageException();
                     }
 
-                    return data.Count - padLength;
+                    return data.Length - padLength;
                 }
                 finally
                 {
-                    CryptographicOperations.ZeroMemory(tmpASpan);
-                    CryptographicOperations.ZeroMemory(tmpBSpan);
+                    CryptographicOperations.ZeroMemory(buf);
                 }
             }
             catch
             {
-                Array.Clear(data.Array, data.Offset, data.Count);
+                CryptographicOperations.ZeroMemory(data);
 
                 throw;
             }
@@ -489,6 +438,14 @@ namespace Neliva.Security.Cryptography
             const int MaxKeySize = 64;
 
             return value < MinKeySize || value > MaxKeySize;
+        }
+
+        private static void DeriveKeys(ReadOnlySpan<byte> key, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
+        {
+            using (var hmac = new HMACSHA256(key.ToArray()))
+            {
+                DeriveKeys(hmac, packageNumber, packageSize, ivArg1, ivArg2, encryptionKey, signingKey);
+            }
         }
 
         internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
@@ -567,19 +524,7 @@ namespace Neliva.Security.Cryptography
         /// </summary>
         public void Dispose()
         {
-            bool isDisposed = this._IsDisposed;
-
             this._IsDisposed = true;
-
-            if (!isDisposed)
-            {
-                var aes = this._Aes;
-
-                if (aes != null)
-                {
-                    aes.Dispose();
-                }
-            }
         }
     }
 }

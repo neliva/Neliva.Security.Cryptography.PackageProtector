@@ -251,7 +251,7 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[p.MaxContentSize];
             var package = new byte[p.MaxPackageSize];
 
-            var ex = Assert.Throws<ArgumentNullException>(() => p.Protect(content, package, null, 0, null));
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Protect(content, package, null, 0, null));
             Assert.Equal("key", ex.ParamName);
         }
 
@@ -262,7 +262,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[p.MaxPackageSize];
 
-            var ex = Assert.Throws<ArgumentNullException>(() => p.Unprotect(package, package, null, 0, null));
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, null, 0, null));
             Assert.Equal("key", ex.ParamName);
         }
 
@@ -1336,7 +1336,7 @@ namespace Neliva.Security.Cryptography.Tests
         public void ProtectValidationPrecedencePass()
         {
             // When multiple arguments are invalid at once, Protect must report them
-            // in this documented order: content -> package -> key(null) -> key(size)
+            // in this documented order: content -> package -> key(size)
             // -> packageNumber -> associatedData.
             using var p = new PackageProtector(packageSize: 128);
 
@@ -1358,8 +1358,8 @@ namespace Neliva.Security.Cryptography.Tests
                 () => p.Protect(validContent, tinyPackage, null, -1, hugeAssociatedData));
             Assert.Equal("package", exPackage.ParamName);
 
-            // key (null) wins over packageNumber, associatedData.
-            var exKeyNull = Assert.Throws<ArgumentNullException>(
+            // key (empty/bad size) wins over packageNumber, associatedData.
+            var exKeyNull = Assert.Throws<ArgumentOutOfRangeException>(
                 () => p.Protect(validContent, validPackage, null, -1, hugeAssociatedData));
             Assert.Equal("key", exKeyNull.ParamName);
 
@@ -1383,7 +1383,7 @@ namespace Neliva.Security.Cryptography.Tests
         public void UnprotectValidationPrecedencePass()
         {
             // When multiple arguments are invalid at once, Unprotect must report them
-            // in this documented order: package -> content -> key(null) -> key(size)
+            // in this documented order: package -> content -> key(size)
             // -> packageNumber -> associatedData.
             using var p = new PackageProtector(packageSize: 128);
 
@@ -1405,8 +1405,8 @@ namespace Neliva.Security.Cryptography.Tests
                 () => p.Unprotect(validPackage, tinyContent, null, -1, hugeAssociatedData));
             Assert.Equal("content", exContent.ParamName);
 
-            // key (null) wins over packageNumber, associatedData.
-            var exKeyNull = Assert.Throws<ArgumentNullException>(
+            // key (empty/bad size) wins over packageNumber, associatedData.
+            var exKeyNull = Assert.Throws<ArgumentOutOfRangeException>(
                 () => p.Unprotect(validPackage, validContent, null, -1, hugeAssociatedData));
             Assert.Equal("key", exKeyNull.ParamName);
 
