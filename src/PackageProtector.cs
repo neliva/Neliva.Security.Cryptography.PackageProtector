@@ -383,7 +383,7 @@ namespace Neliva.Security.Cryptography
                         // Decrypt (content + padding) directly into output.
                         aes.DecryptCbcNoPadding(
                             package.Slice(this._IvAndHashSize),
-                            content,
+                            data,
                             package.Slice(this._IvAndHashSize - BlockSize, BlockSize));
                     }
 
