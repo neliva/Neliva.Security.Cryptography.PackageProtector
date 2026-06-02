@@ -289,9 +289,6 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="content"/> destination.
         /// </returns>
-        /// <exception cref="ArgumentNullException">
-        /// The <paramref name="key"/> parameter is <c>null</c>.
-        /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="package"/> length is not correct.
         /// - or -
@@ -320,23 +317,18 @@ namespace Neliva.Security.Cryptography
         /// If the <paramref name="package"/> cannot be validated
         /// then the <paramref name="content"/> is cleared.
         /// </remarks>
-        public int Unprotect(ArraySegment<byte> package, ArraySegment<byte> content, byte[] key, long packageNumber, ArraySegment<byte> associatedData = default)
+        public int Unprotect(ReadOnlySpan<byte> package, Span<byte> content, ReadOnlySpan<byte> key, long packageNumber, ReadOnlySpan<byte> associatedData = default)
         {
-            if (this.IsInvalidPackageSize(package.Count))
+            if (this.IsInvalidPackageSize(package.Length))
             {
                 throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned to the required boundary.");
             }
 
-            int dataLength = package.Count - this._IvAndHashSize;
+            int dataLength = package.Length - this._IvAndHashSize;
 
-            if (content.Count < dataLength)
+            if (content.Length < dataLength)
             {
                 throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
-            }
-
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
             }
 
             if (IsInvalidKeySize(key.Length))
@@ -349,14 +341,14 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(packageNumber), "Package number must not be negative.");
             }
 
-            if (associatedData.Count > this._MaxAssociatedDataSize)
+            if (associatedData.Length > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
 
             var data = content.Slice(0, dataLength); // content + padding
 
-            if (MemoryExtensions.Overlaps<byte>(package, data))
+            if (package.Overlaps(data))
             {
                 throw new InvalidOperationException($"The '{nameof(content)}' must not overlap in memory with the '{nameof(package)}'.");
             }
@@ -409,7 +401,7 @@ namespace Neliva.Security.Cryptography
                         throw new BadPackageException();
                     }
 
-                    return data.Count - padLength;
+                    return data.Length - padLength;
                 }
                 finally
                 {
@@ -418,7 +410,7 @@ namespace Neliva.Security.Cryptography
             }
             catch
             {
-                Array.Clear(data.Array, data.Offset, data.Count);
+                CryptographicOperations.ZeroMemory(data);
 
                 throw;
             }

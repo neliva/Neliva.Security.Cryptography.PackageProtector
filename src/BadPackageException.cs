@@ -11,7 +11,7 @@ namespace Neliva.Security.Cryptography
     /// corrupted, or when decryption fails due to an invalid key.
     /// </summary>
     /// <seealso cref="PackageProtector.UnprotectAsync(System.IO.Stream, System.IO.Stream, byte[], ArraySegment{byte}, System.Threading.CancellationToken)"/>
-    /// <seealso cref="PackageProtector.Unprotect(ArraySegment{byte}, ArraySegment{byte}, byte[], long, ArraySegment{byte})"/>
+    /// <seealso cref="PackageProtector.Unprotect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{byte}, long, ReadOnlySpan{byte})"/>
     /// <seealso cref="KeyProtector.Unprotect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{char}, ReadOnlySpan{byte})"/>
     public sealed class BadPackageException : CryptographicException
     {
