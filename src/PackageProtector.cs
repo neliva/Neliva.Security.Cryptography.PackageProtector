@@ -376,37 +376,31 @@ namespace Neliva.Security.Cryptography
             {
                 try
                 {
-                    using (var hmac = new HMACSHA256(key))
+                    var kdfIV = package.Slice(0, this._IvSize);
+
+                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmpASpan, tmpBSpan);
+
+                    using (var dec = this._Aes.CreateDecryptor(tmpA, this._AesZeroIV))
                     {
-                        var kdfIV = package.Slice(0, this._IvSize);
+                        // Decrypt package hash
+                        dec.TransformBlock(
+                            package.Array,
+                            package.Offset + this._IvSize,
+                            HashSize,
+                            tmpA,
+                            0);
 
-                        DeriveKeys(hmac, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmpASpan, tmpBSpan);
-
-                        using (var dec = this._Aes.CreateDecryptor(tmpA, this._AesZeroIV))
-                        {
-                            // Decrypt package hash
-                            dec.TransformBlock(
-                                package.Array,
-                                package.Offset + this._IvSize,
-                                HashSize,
-                                tmpA,
-                                0);
-
-                            // Decrypt (content + padding) directly into output.
-                            // IV for the block comes from the previous invocation of the method.
-                            dec.TransformBlock(
-                                package.Array,
-                                package.Offset + this._IvAndHashSize,
-                                package.Count - this._IvAndHashSize,
-                                content.Array,
-                                content.Offset);
-                        }
-
-                        hmac.Key = tmpB;
-
-                        // Sign plaintext and padding.
-                        hmac.ComputeHash(data, tmpBSpan);
+                        // Decrypt (content + padding) directly into output.
+                        // IV for the block comes from the previous invocation of the method.
+                        dec.TransformBlock(
+                            package.Array,
+                            package.Offset + this._IvAndHashSize,
+                            package.Count - this._IvAndHashSize,
+                            content.Array,
+                            content.Offset);
                     }
+
+                    HMACSHA256.HashData(tmpB, data, tmpBSpan);
 
                     if (!CryptographicOperations.FixedTimeEquals(tmpASpan, tmpBSpan))
                     {
