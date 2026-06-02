@@ -3,6 +3,7 @@
 
 using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
@@ -855,6 +856,73 @@ namespace Neliva.Security.Cryptography.Tests
                 Assert.Equal(contentLen, unprotectedLen);
                 Assert.Equal(content, unprotected);
             }
+        }
+
+        // Well known test vectors. The salt is supplied by a deterministic RNG so the
+        // produced package is fully reproducible. These vectors guard against any
+        // accidental change to the wire format or cryptographic primitives.
+        public static IEnumerable<object[]> KnownVectors()
+        {
+            // saltFill, password, iterations, content (hex), associatedData (hex), expected package (hex)
+            yield return new object[]
+            {
+                (byte)0x00,
+                string.Empty,
+                1,
+                "0000000000000000000000000000000000000000000000000000000000000000",
+                "",
+                "5042324b00000001000000000000000000000000000000000000000000000000000000000000000000000000000000008944d32c378724cea77c4d8d2ed8d98cc4fe7eb7dbcae71bfc5be33e1b6f0f93a3f33da0b5e27052d0e34eb459ef629da2c4cb46eeb4aff2720fc5121ab44b1ea8ac1d160b20c35b8ea855ac9124b7ce",
+            };
+
+            yield return new object[]
+            {
+                (byte)0xA5,
+                "correct horse battery staple",
+                4096,
+                "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+                "6173736f6369617465642d64617461",
+                "5042324b00001000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a597d6e87a2a543dbb7bc80780209e7c17097c1249ad9188c684a8d1305f1920fb014bf7d5112bbc3279ffaeb8988c47bfe6c999f889765a78129f08f0717a58c79ef295631700f3af889297eeef702cfa",
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(KnownVectors))]
+        public void ProtectKnownVectorPass(byte saltFill, string password, int iterations, string contentHex, string associatedDataHex, string expectedPackageHex)
+        {
+            RngFillAction rng = (Span<byte> data) => data.Fill(saltFill);
+
+            using var protector = new KeyProtector(rng);
+
+            byte[] content = Convert.FromHexString(contentHex);
+            byte[] associatedData = Convert.FromHexString(associatedDataHex);
+
+            byte[] package = new byte[content.Length + protector.Overhead];
+
+            int protectedLength = protector.Protect(content, package, password, iterations, associatedData);
+
+            Assert.Equal(package.Length, protectedLength);
+            Assert.Equal(expectedPackageHex, Convert.ToHexString(package).ToLowerInvariant());
+        }
+
+        [Theory]
+        [MemberData(nameof(KnownVectors))]
+        public void UnprotectKnownVectorPass(byte saltFill, string password, int iterations, string contentHex, string associatedDataHex, string expectedPackageHex)
+        {
+            _ = saltFill;
+            _ = iterations;
+
+            using var protector = new KeyProtector();
+
+            byte[] expectedContent = Convert.FromHexString(contentHex);
+            byte[] associatedData = Convert.FromHexString(associatedDataHex);
+            byte[] package = Convert.FromHexString(expectedPackageHex);
+
+            byte[] content = new byte[package.Length - protector.Overhead];
+
+            int unprotectedLength = protector.Unprotect(package, content, password, associatedData);
+
+            Assert.Equal(expectedContent.Length, unprotectedLength);
+            Assert.Equal(expectedContent, content);
         }
     }
 }

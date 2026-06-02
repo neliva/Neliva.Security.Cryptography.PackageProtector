@@ -1425,5 +1425,66 @@ namespace Neliva.Security.Cryptography.Tests
                 () => p.Unprotect(validPackage, validContent, new byte[32], 0, hugeAssociatedData));
             Assert.Equal("associatedData", exAad.ParamName);
         }
+
+        // Well known test vectors. Using ivSize 0 makes protection fully deterministic
+        // (no random IV), so the produced package is reproducible. These vectors guard
+        // against any accidental change to the wire format or cryptographic primitives.
+        public static IEnumerable<object[]> KnownVectors()
+        {
+            // key (hex), packageNumber, content (hex), associatedData (hex), expected package (hex)
+            yield return new object[]
+            {
+                "0000000000000000000000000000000000000000000000000000000000000000",
+                0L,
+                "",
+                "",
+                "590f24d12b4faf918babd1bd097c7818150084662c11ede3d487b42ad9ff3d2c5134199f2fb55e7e9328ac075debfdd3",
+            };
+
+            yield return new object[]
+            {
+                "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+                1L,
+                "00112233445566778899aabbccddeeff",
+                "6164",
+                "d4371eb4e1db03b9b7151aa888bc7479f3ed019cc0a74850958bbdf4fe07a2911ebca781f0a9b588a50348ed1fc8c9ecd1958a0bd4e97a9716895d1a00635779",
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(KnownVectors))]
+        public void ProtectKnownVectorPass(string keyHex, long packageNumber, string contentHex, string associatedDataHex, string expectedPackageHex)
+        {
+            using var protector = new PackageProtector(ivSize: 0, packageSize: 64);
+
+            byte[] key = Convert.FromHexString(keyHex);
+            byte[] content = Convert.FromHexString(contentHex);
+            byte[] associatedData = Convert.FromHexString(associatedDataHex);
+
+            byte[] package = new byte[protector.MaxPackageSize];
+
+            int protectedLength = protector.Protect(content, package, key, packageNumber, associatedData);
+
+            Assert.Equal(expectedPackageHex, Convert.ToHexString(package, 0, protectedLength).ToLowerInvariant());
+        }
+
+        [Theory]
+        [MemberData(nameof(KnownVectors))]
+        public void UnprotectKnownVectorPass(string keyHex, long packageNumber, string contentHex, string associatedDataHex, string expectedPackageHex)
+        {
+            using var protector = new PackageProtector(ivSize: 0, packageSize: 64);
+
+            byte[] key = Convert.FromHexString(keyHex);
+            byte[] expectedContent = Convert.FromHexString(contentHex);
+            byte[] associatedData = Convert.FromHexString(associatedDataHex);
+            byte[] package = Convert.FromHexString(expectedPackageHex);
+
+            byte[] content = new byte[package.Length];
+
+            int unprotectedLength = protector.Unprotect(package, content, key, packageNumber, associatedData);
+
+            Assert.Equal(expectedContent.Length, unprotectedLength);
+            Assert.Equal(expectedContent, content[..unprotectedLength]);
+        }
     }
 }
