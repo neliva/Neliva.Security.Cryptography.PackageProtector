@@ -43,9 +43,6 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
-        /// <exception cref="ObjectDisposedException">
-        /// The <see cref="PackageProtector"/> object has already been disposed.
-        /// </exception>
         public async Task<long> ProtectAsync(Stream content, Stream package, byte[] key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (content == null)
@@ -71,11 +68,6 @@ namespace Neliva.Security.Cryptography
             if (associatedData.Length > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
-            }
-
-            if (this._IsDisposed)
-            {
-                throw new ObjectDisposedException(this.GetType().FullName);
             }
 
             var pool = ArrayPool<byte>.Shared;
@@ -189,9 +181,6 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="key"/>,
         /// or <paramref name="associatedData"/> parameter is not valid.
         /// </exception>
-        /// <exception cref="ObjectDisposedException">
-        /// The <see cref="PackageProtector"/> object has already been disposed.
-        /// </exception>
         public async Task<long> UnprotectAsync(Stream package, Stream content, byte[] key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (package == null)
@@ -217,11 +206,6 @@ namespace Neliva.Security.Cryptography
             if (associatedData.Length > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
-            }
-
-            if (this._IsDisposed)
-            {
-                throw new ObjectDisposedException(this.GetType().FullName);
             }
 
             var pool = ArrayPool<byte>.Shared;
