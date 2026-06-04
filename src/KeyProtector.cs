@@ -74,6 +74,8 @@ namespace Neliva.Security.Cryptography
         /// </summary>
         public int Overhead => OverheadSize;
 
+        protected virtual void FillRandom(Span<byte> data) => RandomNumberGenerator.Fill(data);
+
         /// <summary>
         /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.
         /// </summary>
