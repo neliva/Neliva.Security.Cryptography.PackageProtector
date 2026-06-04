@@ -10,19 +10,19 @@ namespace Neliva.Security.Cryptography
     /// The exception that is thrown when a package is invalid or
     /// corrupted, or when decryption fails due to an invalid key.
     /// </summary>
-    /// <seealso cref="PackageProtector.UnprotectAsync(System.IO.Stream, System.IO.Stream, byte[], ArraySegment{byte}, System.Threading.CancellationToken)"/>
+    /// <seealso cref="PackageProtector.UnprotectAsync(System.IO.Stream, System.IO.Stream, byte[], ReadOnlyMemory{byte}, System.Threading.CancellationToken)"/>
     /// <seealso cref="PackageProtector.Unprotect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{byte}, long, ReadOnlySpan{byte})"/>
     /// <seealso cref="KeyProtector.Unprotect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{char}, ReadOnlySpan{byte})"/>
     public sealed class BadPackageException : CryptographicException
     {
-        private const string BadPackageMsg = "Package is invalid or corrupted.";
+        private const string DefaultMessage = "Package is invalid or corrupted.";
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BadPackageException"/> class
         /// with default properties.
         /// </summary>
         public BadPackageException() 
-            : base(BadPackageMsg)
+            : base(DefaultMessage)
         {
         }
 
@@ -34,7 +34,7 @@ namespace Neliva.Security.Cryptography
         /// The error message that explains the reason for the exception.
         /// </param>
         public BadPackageException(string message)
-            : base(string.IsNullOrEmpty(message) ? BadPackageMsg : message)
+            : base(message ?? DefaultMessage)
         {
         }
 
@@ -53,7 +53,7 @@ namespace Neliva.Security.Cryptography
         /// handles the inner exception.
         /// </param>
         public BadPackageException(string message, Exception innerException)
-            : base(string.IsNullOrEmpty(message) ? BadPackageMsg : message, innerException)
+            : base(message ?? DefaultMessage, innerException)
         {
         }
     }

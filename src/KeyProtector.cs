@@ -369,7 +369,7 @@ namespace Neliva.Security.Cryptography
 
             ReadOnlySpan<byte> versionContext = new byte[] { (byte)'P', (byte)'B', (byte)'2', (byte)'K' };
 
-            using (var kdf = new SP800108HmacCounterKdf(key, HashAlgorithmName.SHA512))
+            using (var kdf = new PackageKey(key))
             {
                 kdf.DeriveKey(label: encLabel, context: versionContext, destination: encryptionKey);
                 kdf.DeriveKey(label: macLabel, context: versionContext, destination: signingKey);

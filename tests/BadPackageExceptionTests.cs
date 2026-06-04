@@ -39,16 +39,14 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Fact]
-        public void CreateBadPackageExceptionEmptyMessageUsesDefaultPass()
+        public void CreateBadPackageExceptionEmptyMessageIsPreservedPass()
         {
-            var defaultMsg = new BadPackageException().Message;
-
             var ex = new BadPackageException(string.Empty);
-            Assert.Equal(defaultMsg, ex.Message);
+            Assert.Equal(string.Empty, ex.Message);
 
             var argEx = new ArgumentException();
             ex = new BadPackageException(string.Empty, argEx);
-            Assert.Equal(defaultMsg, ex.Message);
+            Assert.Equal(string.Empty, ex.Message);
             Assert.Equal(argEx, ex.InnerException);
         }
     }
