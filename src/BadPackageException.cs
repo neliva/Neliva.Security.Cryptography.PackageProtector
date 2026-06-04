@@ -10,7 +10,7 @@ namespace Neliva.Security.Cryptography
     /// The exception that is thrown when a package is invalid or
     /// corrupted, or when decryption fails due to an invalid key.
     /// </summary>
-    /// <seealso cref="PackageProtector.UnprotectAsync(System.IO.Stream, System.IO.Stream, byte[], ArraySegment{byte}, System.Threading.CancellationToken)"/>
+    /// <seealso cref="PackageProtector.UnprotectAsync(System.IO.Stream, System.IO.Stream, byte[], ReadOnlyMemory{byte}, System.Threading.CancellationToken)"/>
     /// <seealso cref="PackageProtector.Unprotect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{byte}, long, ReadOnlySpan{byte})"/>
     /// <seealso cref="KeyProtector.Unprotect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{char}, ReadOnlySpan{byte})"/>
     public sealed class BadPackageException : CryptographicException

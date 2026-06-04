@@ -46,7 +46,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="PackageProtector"/> object has already been disposed.
         /// </exception>
-        public async Task<long> ProtectAsync(Stream content, Stream package, byte[] key, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
+        public async Task<long> ProtectAsync(Stream content, Stream package, byte[] key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (content == null)
             {
@@ -68,7 +68,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(key), "Key length must be between 32 and 64 bytes.");
             }
 
-            if (associatedData.Count > this._MaxAssociatedDataSize)
+            if (associatedData.Length > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
@@ -111,7 +111,7 @@ namespace Neliva.Security.Cryptography
 
                     if (offset > 0)
                     {
-                        int bytesProtected = this.Protect(contentBuffer.Slice(0, offset), packageBuffer, key, packageNumber, associatedData);
+                        int bytesProtected = this.Protect(contentBuffer.Slice(0, offset), packageBuffer, key, packageNumber, associatedData.Span);
 
                         await package.WriteAsync(packageBuffer.Slice(0, bytesProtected), cancellationToken).ConfigureAwait(false);
 
@@ -128,7 +128,7 @@ namespace Neliva.Security.Cryptography
                 // For empty content write end of stream marker.
                 if (lastPackageContentSize == this._MaxContentSize)
                 {
-                    int bytesProtected = this.Protect(default, packageBuffer, key, packageNumber, associatedData);
+                    int bytesProtected = this.Protect(default, packageBuffer, key, packageNumber, associatedData.Span);
 
                     await package.WriteAsync(packageBuffer.Slice(0, bytesProtected), cancellationToken).ConfigureAwait(false);
 
@@ -192,7 +192,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ObjectDisposedException">
         /// The <see cref="PackageProtector"/> object has already been disposed.
         /// </exception>
-        public async Task<long> UnprotectAsync(Stream package, Stream content, byte[] key, ArraySegment<byte> associatedData = default, CancellationToken cancellationToken = default)
+        public async Task<long> UnprotectAsync(Stream package, Stream content, byte[] key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (package == null)
             {
@@ -214,7 +214,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(key), "Key length must be between 32 and 64 bytes.");
             }
 
-            if (associatedData.Count > this._MaxAssociatedDataSize)
+            if (associatedData.Length > this._MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
@@ -269,7 +269,7 @@ namespace Neliva.Security.Cryptography
                             throw new InvalidDataException("Invalid package length. The stream is truncated or corrupted.");
                         }
 
-                        int bytesUnprotected = this.Unprotect(packageBuffer.Slice(0, offset), contentBuffer, key, packageNumber, associatedData);
+                        int bytesUnprotected = this.Unprotect(packageBuffer.Slice(0, offset), contentBuffer, key, packageNumber, associatedData.Span);
 
                         if (bytesUnprotected != 0)
                         {
