@@ -35,7 +35,7 @@ namespace Neliva.Security.Cryptography
     /// Authenticity is provided solely by the encrypted <c>HMAC</c>.
     /// </para>
     /// </remarks>
-    public sealed class KeyProtector : IDisposable
+    public sealed class KeyProtector
     {
         private const int SaltSize = 40;
         private const int VersionSize = sizeof(uint);
@@ -55,8 +55,6 @@ namespace Neliva.Security.Cryptography
         private static readonly UTF8Encoding SafeEncoding = new UTF8Encoding(false, true);
 
         private readonly RngFillAction _rngFill;
-
-        private bool _IsDisposed;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="KeyProtector"/> class.
@@ -110,9 +108,6 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
         /// </exception>
-        /// <exception cref="ObjectDisposedException">
-        /// The <see cref="KeyProtector"/> object has already been disposed.
-        /// </exception>
         public int Protect(ReadOnlySpan<byte> content, Span<byte> package, ReadOnlySpan<char> password, int iterations, ReadOnlySpan<byte> associatedData = default)
         {
             if (content.Length < MinContentSize || content.Length > MaxContentSize || (content.Length % BlockSize) != 0)
@@ -142,11 +137,6 @@ namespace Neliva.Security.Cryptography
             if (output.Overlaps(content))
             {
                 throw new InvalidOperationException($"The '{nameof(package)}' must not overlap in memory with the '{nameof(content)}'.");
-            }
-
-            if (this._IsDisposed)
-            {
-                throw new ObjectDisposedException(this.GetType().FullName);
             }
 
             try
@@ -237,9 +227,6 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="package"/> and <paramref name="content"/> overlap in memory.
         /// </exception>
-        /// <exception cref="ObjectDisposedException">
-        /// The <see cref="KeyProtector"/> object has already been disposed.
-        /// </exception>
         /// <exception cref="BadPackageException">
         /// The <paramref name="package"/> version is invalid.
         /// - or -
@@ -274,11 +261,6 @@ namespace Neliva.Security.Cryptography
             if (output.Overlaps(package))
             {
                 throw new InvalidOperationException($"The '{nameof(content)}' must not overlap in memory with the '{nameof(package)}'.");
-            }
-
-            if (this._IsDisposed)
-            {
-                throw new ObjectDisposedException(this.GetType().FullName);
             }
 
             if (BinaryPrimitives.ReadUInt32BigEndian(package) != Version)
@@ -351,15 +333,6 @@ namespace Neliva.Security.Cryptography
 
                 throw;
             }
-        }
-
-        /// <summary>
-        /// Releases all resources used by the current instance
-        /// of the <see cref="KeyProtector"/> class.
-        /// </summary>
-        public void Dispose()
-        {
-            this._IsDisposed = true;
         }
 
         private static void DeriveKeys(ReadOnlySpan<byte> key, Span<byte> encryptionKey, Span<byte> signingKey)

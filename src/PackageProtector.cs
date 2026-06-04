@@ -29,7 +29,7 @@ namespace Neliva.Security.Cryptography
     /// </code>
     /// </para>
     /// </remarks>
-    public sealed partial class PackageProtector : IDisposable
+    public sealed partial class PackageProtector
     {
         private const int BlockSize = 16; // AES block size.
         private const int HashSize = 32;  // HMAC-SHA256 hash and key size, AES256 key size.
@@ -42,8 +42,6 @@ namespace Neliva.Security.Cryptography
         private readonly int _MaxAssociatedDataSize;
 
         private readonly RngFillAction _rngFill;
-
-        private bool _IsDisposed;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PackageProtector"/> class.
@@ -157,9 +155,6 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
         /// </exception>
-        /// <exception cref="ObjectDisposedException">
-        /// The <see cref="PackageProtector"/> object has already been disposed.
-        /// </exception>
         public int Protect(ReadOnlySpan<byte> content, Span<byte> package, ReadOnlySpan<byte> key, long packageNumber, ReadOnlySpan<byte> associatedData = default)
         {
             if (content.Length > this._MaxContentSize)
@@ -194,11 +189,6 @@ namespace Neliva.Security.Cryptography
             if (content.Overlaps(output))
             {
                 throw new InvalidOperationException($"The '{nameof(package)}' must not overlap in memory with the '{nameof(content)}'.");
-            }
-
-            if (this._IsDisposed)
-            {
-                throw new ObjectDisposedException(this.GetType().FullName);
             }
 
             var data = package.Slice(this._IvAndHashSize, outputPackageSize - this._IvAndHashSize);  // content + padding
@@ -292,9 +282,6 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="package"/> and <paramref name="content"/> overlap in memory.
         /// </exception>
-        /// <exception cref="ObjectDisposedException">
-        /// The <see cref="PackageProtector"/> object has already been disposed.
-        /// </exception>
         /// <exception cref="BadPackageException">
         /// Package is invalid or corrupted.
         /// - or -
@@ -340,11 +327,6 @@ namespace Neliva.Security.Cryptography
             if (package.Overlaps(data))
             {
                 throw new InvalidOperationException($"The '{nameof(content)}' must not overlap in memory with the '{nameof(package)}'.");
-            }
-
-            if (this._IsDisposed)
-            {
-                throw new ObjectDisposedException(this.GetType().FullName);
             }
 
             Span<byte> buf = stackalloc byte[HashSize + HashSize];
@@ -500,15 +482,6 @@ namespace Neliva.Security.Cryptography
             data[4] = SignPurpose;
 
             hmac.ComputeHash(data, signingKey);
-        }
-
-        /// <summary>
-        /// Releases all resources used by the current instance
-        /// of the <see cref="PackageProtector"/> class.
-        /// </summary>
-        public void Dispose()
-        {
-            this._IsDisposed = true;
         }
     }
 }
