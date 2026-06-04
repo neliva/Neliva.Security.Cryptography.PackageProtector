@@ -15,14 +15,14 @@ namespace Neliva.Security.Cryptography
     /// <seealso cref="KeyProtector.Unprotect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{char}, ReadOnlySpan{byte})"/>
     public sealed class BadPackageException : CryptographicException
     {
-        private const string BadPackageMsg = "Package is invalid or corrupted.";
+        private const string DefaultMessage = "Package is invalid or corrupted.";
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BadPackageException"/> class
         /// with default properties.
         /// </summary>
         public BadPackageException() 
-            : base(BadPackageMsg)
+            : base(DefaultMessage)
         {
         }
 
@@ -34,7 +34,7 @@ namespace Neliva.Security.Cryptography
         /// The error message that explains the reason for the exception.
         /// </param>
         public BadPackageException(string message)
-            : base(string.IsNullOrEmpty(message) ? BadPackageMsg : message)
+            : base(message ?? DefaultMessage)
         {
         }
 
@@ -53,7 +53,7 @@ namespace Neliva.Security.Cryptography
         /// handles the inner exception.
         /// </param>
         public BadPackageException(string message, Exception innerException)
-            : base(string.IsNullOrEmpty(message) ? BadPackageMsg : message, innerException)
+            : base(message ?? DefaultMessage, innerException)
         {
         }
     }

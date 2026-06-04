@@ -12,14 +12,14 @@ namespace Neliva.Security.Cryptography
     /// <seealso cref="KeyProtector.Unprotect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{char}, ReadOnlySpan{byte})"/>
     public sealed class BadPasswordException : CryptographicException
     {
-        private const string BadPasswordMsg = "Password is invalid or incorrect.";
+        private const string DefaultMessage = "Password is invalid or incorrect.";
 
         /// <summary>
         /// Initializes a new instance of the <see cref="BadPasswordException"/> class
         /// with default properties.
         /// </summary>
         public BadPasswordException() 
-            : base(BadPasswordMsg)
+            : base(DefaultMessage)
         {
         }
 
@@ -31,7 +31,7 @@ namespace Neliva.Security.Cryptography
         /// The error message that explains the reason for the exception.
         /// </param>
         public BadPasswordException(string message)
-            : base(string.IsNullOrEmpty(message) ? BadPasswordMsg : message)
+            : base(message ?? DefaultMessage)
         {
         }
 
@@ -50,7 +50,7 @@ namespace Neliva.Security.Cryptography
         /// handles the inner exception.
         /// </param>
         public BadPasswordException(string message, Exception innerException)
-            : base(string.IsNullOrEmpty(message) ? BadPasswordMsg : message, innerException)
+            : base(message ?? DefaultMessage, innerException)
         {
         }
     }
