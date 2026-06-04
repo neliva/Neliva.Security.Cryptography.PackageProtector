@@ -39,16 +39,14 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Fact]
-        public void CreateBadPasswordExceptionEmptyMessageUsesDefaultPass()
+        public void CreateBadPasswordExceptionEmptyMessageIsPreservedPass()
         {
-            var defaultMsg = new BadPasswordException().Message;
-
             var ex = new BadPasswordException(string.Empty);
-            Assert.Equal(defaultMsg, ex.Message);
+            Assert.Equal(string.Empty, ex.Message);
 
             var argEx = new ArgumentException();
             ex = new BadPasswordException(string.Empty, argEx);
-            Assert.Equal(defaultMsg, ex.Message);
+            Assert.Equal(string.Empty, ex.Message);
             Assert.Equal(argEx, ex.InnerException);
         }
     }
