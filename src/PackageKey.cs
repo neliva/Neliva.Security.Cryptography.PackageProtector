@@ -21,8 +21,8 @@ namespace Neliva.Security.Cryptography
     /// </remarks>
     public sealed class PackageKey : IDisposable
     {
-        const int MinKeySize = 32;
-        const int MaxKeySize = 64;
+        private const int MinKeySize = 32;
+        private const int MaxKeySize = 64;
 
         // The max number of message bytes that we can input into SHA512 to
         // be processed in a single block is 111 bytes, due to:
@@ -37,7 +37,7 @@ namespace Neliva.Security.Cryptography
         //
         // The max length of the KDF Label+Context that keeps the entire HMAC message
         // inside one block is 102 bytes.
-        const int MaxLabelContextLength = 102;
+        private const int MaxLabelContextLength = 102;
 
         private readonly SP800108HmacCounterKdf _kdf;
 
