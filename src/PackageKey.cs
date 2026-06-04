@@ -9,6 +9,16 @@ namespace Neliva.Security.Cryptography
     /// <summary>
     /// Derives keys from a master key using the SP800-108 HMAC-SHA512 KDF in Counter Mode.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A single instance is initialized with a master key and can derive multiple
+    /// keys by varying the <c>label</c> and <c>context</c> inputs.
+    /// </para>
+    /// <para>
+    /// The combined length of the <c>label</c> and <c>context</c> is limited to 102 bytes
+    /// so the entire HMAC-SHA512 message fits within a single hash block.
+    /// </para>
+    /// </remarks>
     public sealed class PackageKey : IDisposable
     {
         const int MinKeySize = 32;
@@ -54,26 +64,49 @@ namespace Neliva.Security.Cryptography
         /// Derives keying material into the <paramref name="destination"/> span.
         /// </summary>
         /// <param name="label">
-        /// A span that identifies the purpose for the derived keying material.
+        /// A non-empty span that identifies the purpose for the derived keying material.
         /// </param>
         /// <param name="context">
-        /// A span containing the information related to the derived keying material.
+        /// A non-empty span containing the information related to the derived keying material.
         /// It may include identities of parties who are deriving and/or using the
         /// derived keying material and, optionally, a nonce known by the parties who
         /// derive the keys.
         /// </param>
         /// <param name="destination">
         /// A span that receives the derived keying material.
+        /// The length must be between 32 and 64 bytes.
         /// </param>
         /// <exception cref="ArgumentException">
+        /// The <paramref name="label"/> is empty.
+        /// - or -
+        /// The <paramref name="context"/> is empty.
+        /// - or -
         /// The combined length of <paramref name="label"/> and <paramref name="context"/>
         /// exceeds 102 bytes.
         /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="destination"/> length is less than 32 bytes or greater than 64 bytes.
+        /// </exception>
         public void DeriveKey(ReadOnlySpan<byte> label, ReadOnlySpan<byte> context, Span<byte> destination)
         {
-            if (label.Length + context.Length > MaxLabelContextLength)
+            if (label.IsEmpty)
             {
-                throw new ArgumentException($"The combined length of label and context is too long.");
+                throw new ArgumentException("Label must not be empty.", nameof(label));
+            }
+
+            if (context.IsEmpty)
+            {
+                throw new ArgumentException("Context must not be empty.", nameof(context));
+            }
+
+            if (label.Length > (MaxLabelContextLength - context.Length))
+            {
+                throw new ArgumentException("The combined length of label and context must not exceed 102 bytes.");
+            }
+
+            if (destination.Length < MinKeySize || destination.Length > MaxKeySize)
+            {
+                throw new ArgumentOutOfRangeException(nameof(destination), "Destination length must be between 32 and 64 bytes.");
             }
 
             this._kdf.DeriveKey(label, context, destination);
