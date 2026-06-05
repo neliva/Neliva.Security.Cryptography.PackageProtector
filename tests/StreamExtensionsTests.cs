@@ -35,7 +35,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var protector = new TestPackageProtector();
 
-            var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => protector.ProtectAsync(null, Stream.Null, new byte[32]));
+            var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => protector.ProtectAsync(null, Stream.Null, new PackageKey(new byte[32])));
             Assert.Equal("content", ex.ParamName);
         }
 
@@ -44,7 +44,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var protector = new TestPackageProtector();
 
-            var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => protector.ProtectAsync(Stream.Null, null, new byte[32]));
+            var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => protector.ProtectAsync(Stream.Null, null, new PackageKey(new byte[32])));
             Assert.Equal("package", ex.ParamName);
         }
 
@@ -53,7 +53,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var protector = new TestPackageProtector();
 
-            var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => protector.UnprotectAsync(null, Stream.Null, new byte[32]));
+            var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => protector.UnprotectAsync(null, Stream.Null, new PackageKey(new byte[32])));
             Assert.Equal("package", ex.ParamName);
         }
 
@@ -62,7 +62,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var protector = new TestPackageProtector();
 
-            var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => protector.UnprotectAsync(Stream.Null, null, new byte[32]));
+            var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => protector.UnprotectAsync(Stream.Null, null, new PackageKey(new byte[32])));
             Assert.Equal("content", ex.ParamName);
         }
 
@@ -85,36 +85,6 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Theory]
-        [InlineData(0)]
-        [InlineData(16)]
-        [InlineData(31)]
-        [InlineData(65)]
-        [InlineData(128)]
-        public async Task ProtectBadKeySizeFail(int keySize)
-        {
-            var protector = new TestPackageProtector();
-
-            var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => protector.ProtectAsync(Stream.Null, Stream.Null, new byte[keySize]));
-            Assert.Equal("key", ex.ParamName);
-            Assert.StartsWith("Key length must be between 32 and 64 bytes.", ex.Message);
-        }
-
-        [Theory]
-        [InlineData(0)]
-        [InlineData(16)]
-        [InlineData(31)]
-        [InlineData(65)]
-        [InlineData(128)]
-        public async Task UnprotectBadKeySizeFail(int keySize)
-        {
-            var protector = new TestPackageProtector();
-
-            var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => protector.UnprotectAsync(Stream.Null, Stream.Null, new byte[keySize]));
-            Assert.Equal("key", ex.ParamName);
-            Assert.StartsWith("Key length must be between 32 and 64 bytes.", ex.Message);
-        }
-
-        [Theory]
         [InlineData(0, 33)]
         [InlineData(16, 17)]
         [InlineData(32, 1)]
@@ -125,7 +95,7 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[p.MaxContentSize];
             var package = new byte[p.MaxPackageSize];
 
-            var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new byte[32], new byte[associatedDataSize]));
+            var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new PackageKey(new byte[32]), new byte[associatedDataSize]));
             Assert.Equal("associatedData", ex.ParamName);
             Assert.StartsWith("Associated data length is too large.", ex.Message);
         }
@@ -140,7 +110,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[p.MaxPackageSize];
 
-            var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new byte[32], new byte[associatedDataSize]));
+            var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new PackageKey(new byte[32]), new byte[associatedDataSize]));
             Assert.Equal("associatedData", ex.ParamName);
             Assert.StartsWith("Associated data length is too large.", ex.Message);
         }
@@ -150,7 +120,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[64].Fill(33);
+            using var key = new PackageKey(new byte[64].Fill(33));
 
             var package = new MemoryStream();
             var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
@@ -169,7 +139,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(183);
+            using var key = new PackageKey(new byte[32].Fill(183));
 
             var package = new MemoryStream();
             var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
@@ -188,7 +158,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(203);
+            using var key = new PackageKey(new byte[32].Fill(203));
 
             var package = new MemoryStream();
             var content = new MemoryStream(new byte[MinPackageSize * 6 - (p.MaxPackageSize - p.MaxContentSize)]);
@@ -213,7 +183,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(249);
+            using var key = new PackageKey(new byte[32].Fill(249));
 
             var package = new MemoryStream();
             var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
@@ -233,7 +203,8 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(239);
+            var keyBytes = new byte[32].Fill(239);
+            using var key = new PackageKey(keyBytes);
 
             var package = new MemoryStream();
             var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
@@ -242,9 +213,10 @@ namespace Neliva.Security.Cryptography.Tests
 
             package.Position = 0;
 
-            key[3] ^= 1;
+            keyBytes[3] ^= 1;
+            using var wrongKey = new PackageKey(keyBytes);
 
-            var ex = await Assert.ThrowsAsync<BadPackageException>(() => p.UnprotectAsync(package, Stream.Null, key));
+            var ex = await Assert.ThrowsAsync<BadPackageException>(() => p.UnprotectAsync(package, Stream.Null, wrongKey));
             Assert.Equal("Package is invalid or corrupted.", ex.Message);
         }
 
@@ -254,7 +226,7 @@ namespace Neliva.Security.Cryptography.Tests
             var p = new TestPackageProtector(packageSize: MinPackageSize);
             var p1 = new TestPackageProtector(packageSize: MinPackageSize + BlockSize);
 
-            var key = new byte[32].Fill(200);
+            using var key = new PackageKey(new byte[32].Fill(200));
 
             var package = new MemoryStream();
             var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
@@ -272,7 +244,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[64].Fill(199);
+            using var key = new PackageKey(new byte[64].Fill(199));
 
             var package = new MemoryStream();
             var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
@@ -290,7 +262,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(199);
+            using var key = new PackageKey(new byte[32].Fill(199));
 
             var package = new MemoryStream();
             var content = new MemoryStream(new byte[MinPackageSize * 4 - (p.MaxPackageSize - p.MaxContentSize)]);
@@ -308,7 +280,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(199);
+            using var key = new PackageKey(new byte[32].Fill(199));
 
             var ex = await Assert.ThrowsAsync<InvalidDataException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, key));
             Assert.Equal("Missing end-of-stream marker. The stream is truncated or corrupted.", ex.Message);
@@ -322,7 +294,7 @@ namespace Neliva.Security.Cryptography.Tests
             // so a package placed at the wrong position must fail authentication.
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(71);
+            using var key = new PackageKey(new byte[32].Fill(71));
 
             // Four full data packages followed by an empty end-of-stream marker.
             var content = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(123));
@@ -347,7 +319,7 @@ namespace Neliva.Security.Cryptography.Tests
             // Attack: swap the first and last data packages.
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(55);
+            using var key = new PackageKey(new byte[32].Fill(55));
 
             // Three full data packages plus an empty end-of-stream marker.
             var content = new MemoryStream(new byte[p.MaxContentSize * 3].Fill(88));
@@ -374,7 +346,7 @@ namespace Neliva.Security.Cryptography.Tests
             // original position, so it must fail at the substituted position.
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(144);
+            using var key = new PackageKey(new byte[32].Fill(144));
 
             var content = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(212));
 
@@ -400,7 +372,7 @@ namespace Neliva.Security.Cryptography.Tests
             // first remaining package fails authentication.
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(91);
+            using var key = new PackageKey(new byte[32].Fill(91));
 
             var content = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(17));
 
@@ -429,7 +401,7 @@ namespace Neliva.Security.Cryptography.Tests
             // ends without a marker.
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(64);
+            using var key = new PackageKey(new byte[32].Fill(64));
 
             // Three full packages plus a short (data-carrying) marker package.
             var content = new MemoryStream(new byte[p.MaxContentSize * 3 + 7].Fill(201));
@@ -454,7 +426,7 @@ namespace Neliva.Security.Cryptography.Tests
             // package must fail authentication.
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(33);
+            using var key = new PackageKey(new byte[32].Fill(33));
 
             var adA = new byte[1].Fill(1);
             var adB = new byte[1].Fill(2);
@@ -487,8 +459,8 @@ namespace Neliva.Security.Cryptography.Tests
             // different key. The key binding makes the spliced package fail.
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var keyA = new byte[32].Fill(40);
-            var keyB = new byte[32].Fill(41);
+            using var keyA = new PackageKey(new byte[32].Fill(40));
+            using var keyB = new PackageKey(new byte[32].Fill(41));
 
             var contentA = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(99));
             var contentB = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(99));
@@ -519,7 +491,7 @@ namespace Neliva.Security.Cryptography.Tests
             // original position, so it fails when relocated.
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(150);
+            using var key = new PackageKey(new byte[32].Fill(150));
 
             // Four full data packages plus an empty marker (package index 4).
             var content = new MemoryStream(new byte[p.MaxContentSize * 4].Fill(5));
@@ -555,7 +527,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32].Fill(199);
+            using var key = new PackageKey(new byte[32].Fill(199));
 
             var content = new MemoryStream();
             content.SetLength(MinPackageSize - 13);
@@ -569,7 +541,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: 256);
 
-            var key = CreateArray(61, 209);
+            var key = new PackageKey(CreateArray(61, 209));
 
             var data = new List<byte[]>()
             {
@@ -632,7 +604,7 @@ namespace Neliva.Security.Cryptography.Tests
             // up to 16 associated-data bytes).
             var p = PackageProtector.System;
 
-            var key = CreateArray(32, 209);
+            var key = new PackageKey(CreateArray(32, 209));
             var associatedData = CreateArray(16, 77);
 
             // Spans several packages to exercise chunked stream protection.
@@ -658,7 +630,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32];
+            using var key = new PackageKey(new byte[32]);
             var content = new MemoryStream(new byte[MinPackageSize * 4]);
             var package = new MemoryStream();
 
@@ -674,7 +646,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
 
-            var key = new byte[32];
+            using var key = new PackageKey(new byte[32]);
 
             var package = new MemoryStream();
             var src = new MemoryStream(new byte[MinPackageSize]);
@@ -693,7 +665,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var p = new TestPackageProtector(packageSize: 128);
 
-            var key = new byte[32].Fill(5);
+            using var key = new PackageKey(new byte[32].Fill(5));
             var data = new byte[p.MaxContentSize * 3 + 17].Fill(42);
 
             var content = new ShortReadStream(data, maxRead: 7);
@@ -748,7 +720,7 @@ namespace Neliva.Security.Cryptography.Tests
             // marker semantics.
             var p = new TestPackageProtector(ivSize: ivSize, packageSize: 256);
 
-            var key = new byte[32].Fill(91);
+            using var key = new PackageKey(new byte[32].Fill(91));
 
             // Choose a content length that does NOT align on a package boundary so
             // the last package is a short package and no extra end-of-stream marker
@@ -779,7 +751,7 @@ namespace Neliva.Security.Cryptography.Tests
             // ProtectAsync and UnprotectAsync.
             var p = new TestPackageProtector(ivSize: 16, packageSize: 128);
 
-            var key = new byte[32].Fill(71);
+            using var key = new PackageKey(new byte[32].Fill(71));
             var associatedData = new byte[16].Fill(123);
 
             var contentBytes = new byte[p.MaxContentSize * 2 + 9].Fill(44);
@@ -810,7 +782,7 @@ namespace Neliva.Security.Cryptography.Tests
             // package must be appended. Verify exact output length and round-trip.
             var p = new TestPackageProtector(packageSize: 128);
 
-            var key = new byte[32].Fill(17);
+            using var key = new PackageKey(new byte[32].Fill(17));
 
             int contentLength = p.MaxContentSize * 3;
             var contentBytes = new byte[contentLength].Fill(88);
@@ -840,7 +812,7 @@ namespace Neliva.Security.Cryptography.Tests
             // package, and unprotecting it must yield zero content bytes.
             var p = new TestPackageProtector(packageSize: 128);
 
-            var key = new byte[32].Fill(53);
+            using var key = new PackageKey(new byte[32].Fill(53));
 
             var package = new MemoryStream();
 
@@ -866,7 +838,7 @@ namespace Neliva.Security.Cryptography.Tests
             // to the package stream.
             var p = new TestPackageProtector(packageSize: 128);
 
-            var key = new byte[32].Fill(61);
+            using var key = new PackageKey(new byte[32].Fill(61));
 
             var contentBytes = new byte[p.MaxContentSize + 5].Fill(200);
 
@@ -880,9 +852,11 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public async Task ProtectValidationPrecedencePass()
         {
-            // Validation order: content -> package -> key -> key size ->
+            // Validation order: content -> package -> key ->
             // associatedData. Each check must take precedence over the next.
             var p = new TestPackageProtector(packageSize: 128);
+
+            using var validKey = new PackageKey(new byte[32]);
 
             // content null wins over everything.
             var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.ProtectAsync(null, null, null));
@@ -892,25 +866,23 @@ namespace Neliva.Security.Cryptography.Tests
             ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.ProtectAsync(Stream.Null, null, null));
             Assert.Equal("package", ex.ParamName);
 
-            // key null wins over key size.
+            // key null wins over associatedData.
             ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.ProtectAsync(Stream.Null, Stream.Null, null));
             Assert.Equal("key", ex.ParamName);
 
-            // key size wins over associatedData.
-            var exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new byte[16], new byte[1024]));
-            Assert.Equal("key", exRange.ParamName);
-
             // associatedData is reported last.
-            exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new byte[32], new byte[1024]));
+            var exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, validKey, new byte[1024]));
             Assert.Equal("associatedData", exRange.ParamName);
         }
 
         [Fact]
         public async Task UnprotectValidationPrecedencePass()
         {
-            // Validation order: package -> content -> key -> key size ->
+            // Validation order: package -> content -> key ->
             // associatedData. Each check must take precedence over the next.
             var p = new TestPackageProtector(packageSize: 128);
+
+            using var validKey = new PackageKey(new byte[32]);
 
             // package null wins over everything.
             var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.UnprotectAsync(null, null, null));
@@ -920,16 +892,12 @@ namespace Neliva.Security.Cryptography.Tests
             ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.UnprotectAsync(Stream.Null, null, null));
             Assert.Equal("content", ex.ParamName);
 
-            // key null wins over key size.
+            // key null wins over associatedData.
             ex = await Assert.ThrowsAsync<ArgumentNullException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, null));
             Assert.Equal("key", ex.ParamName);
 
-            // key size wins over associatedData.
-            var exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new byte[16], new byte[1024]));
-            Assert.Equal("key", exRange.ParamName);
-
             // associatedData is reported last.
-            exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new byte[32], new byte[1024]));
+            var exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, validKey, new byte[1024]));
             Assert.Equal("associatedData", exRange.ParamName);
         }
 
@@ -945,7 +913,7 @@ namespace Neliva.Security.Cryptography.Tests
             // round-trip successfully.
             var p = new TestPackageProtector(packageSize: 128);
 
-            var key = new byte[keySize].Fill(97);
+            using var key = new PackageKey(new byte[keySize].Fill(97));
 
             var contentBytes = new byte[p.MaxContentSize * 2 + 11].Fill(13);
 
@@ -974,7 +942,7 @@ namespace Neliva.Security.Cryptography.Tests
             // identically to protect and unprotect.
             var p = new TestPackageProtector(ivSize: 16, packageSize: 128);
 
-            var key = new byte[32].Fill(151);
+            using var key = new PackageKey(new byte[32].Fill(151));
             var associatedData = new byte[associatedDataSize].Fill(211);
 
             var contentBytes = new byte[p.MaxContentSize + 7].Fill(60);
@@ -999,7 +967,7 @@ namespace Neliva.Security.Cryptography.Tests
             // fail with the associatedData out-of-range message.
             var p = new TestPackageProtector(ivSize: 16, packageSize: 128);
 
-            var key = new byte[32].Fill(181);
+            using var key = new PackageKey(new byte[32].Fill(181));
 
             // Max associated data size is (32 - ivSize) bytes.
             int maxAssociatedDataSize = 32 - 16;
@@ -1038,7 +1006,7 @@ namespace Neliva.Security.Cryptography.Tests
             // short final package path.
             var p = new TestPackageProtector(packageSize: 128);
 
-            var key = new byte[32].Fill(120);
+            using var key = new PackageKey(new byte[32].Fill(120));
 
             int contentLength = p.MaxContentSize + extra;
             var contentBytes = new byte[contentLength].Fill(48);
@@ -1063,7 +1031,7 @@ namespace Neliva.Security.Cryptography.Tests
             // interchangeable across protect and unprotect.
             var p = new TestPackageProtector(packageSize: 128);
 
-            var key = new byte[32].Fill(64);
+            using var key = new PackageKey(new byte[32].Fill(64));
 
             var contentBytes = new byte[p.MaxContentSize + 1].Fill(200);
 

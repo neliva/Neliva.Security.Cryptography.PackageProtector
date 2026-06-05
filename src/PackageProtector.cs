@@ -102,14 +102,14 @@ namespace Neliva.Security.Cryptography
 
         /// <summary>
         /// Gets the max content length in bytes that can be protected by the
-        /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{byte}, long, ReadOnlySpan{byte})"/>
+        /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, PackageKey, long, ReadOnlySpan{byte})"/>
         /// method.
         /// </summary>
         public int MaxContentSize => this._MaxContentSize;
 
         /// <summary>
         /// Gets the max package length in bytes that can be produced by the
-        /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, ReadOnlySpan{byte}, long, ReadOnlySpan{byte})"/>
+        /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, PackageKey, long, ReadOnlySpan{byte})"/>
         /// method.
         /// </summary>
         public int MaxPackageSize => this._MaxPackageSize;
@@ -146,9 +146,10 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="package"/> destination.
         /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// The <paramref name="key"/> parameter is <c>null</c>.
+        /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
-        /// - or -
         /// The <paramref name="content"/> length is greater than <see cref="MaxContentSize"/>.
         /// - or -
         /// The <paramref name="package"/> destination space is insufficient.
@@ -160,7 +161,7 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
         /// </exception>
-        public int Protect(ReadOnlySpan<byte> content, Span<byte> package, ReadOnlySpan<byte> key, long packageNumber, ReadOnlySpan<byte> associatedData = default)
+        public int Protect(ReadOnlySpan<byte> content, Span<byte> package, PackageKey key, long packageNumber, ReadOnlySpan<byte> associatedData = default)
         {
             if (content.Length > this._MaxContentSize)
             {
@@ -174,9 +175,9 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(package), "Insufficient space for package output.");
             }
 
-            if (IsInvalidKeySize(key.Length))
+            if (key == null)
             {
-                throw new ArgumentOutOfRangeException(nameof(key), "Key length must be between 32 and 64 bytes.");
+                throw new ArgumentNullException(nameof(key));
             }
 
             if (packageNumber < 0L)
@@ -273,10 +274,11 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="content"/> destination.
         /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// The <paramref name="key"/> parameter is <c>null</c>.
+        /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="package"/> length is not correct.
-        /// - or -
-        /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// - or -
         /// The <paramref name="content"/> destination space is insufficient.
         /// - or -
@@ -298,7 +300,7 @@ namespace Neliva.Security.Cryptography
         /// If the <paramref name="package"/> cannot be validated
         /// then the <paramref name="content"/> is cleared.
         /// </remarks>
-        public int Unprotect(ReadOnlySpan<byte> package, Span<byte> content, ReadOnlySpan<byte> key, long packageNumber, ReadOnlySpan<byte> associatedData = default)
+        public int Unprotect(ReadOnlySpan<byte> package, Span<byte> content, PackageKey key, long packageNumber, ReadOnlySpan<byte> associatedData = default)
         {
             if (this.IsInvalidPackageSize(package.Length))
             {
@@ -312,9 +314,9 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
             }
 
-            if (IsInvalidKeySize(key.Length))
+            if (key == null)
             {
-                throw new ArgumentOutOfRangeException(nameof(key), "Key length must be between 32 and 64 bytes.");
+                throw new ArgumentNullException(nameof(key));
             }
 
             if (packageNumber < 0L)
@@ -418,24 +420,7 @@ namespace Neliva.Security.Cryptography
             return value < this._MinPackageSize || value > this._MaxPackageSize || IsNotAlignedBlock(value);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static bool IsInvalidKeySize(int value)
-        {
-            const int MinKeySize = 32;
-            const int MaxKeySize = 64;
-
-            return value < MinKeySize || value > MaxKeySize;
-        }
-
-        private static void DeriveKeys(ReadOnlySpan<byte> key, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
-        {
-            using (var hmac = new HMACSHA512(key.ToArray()))
-            {
-                DeriveKeys(hmac, packageNumber, packageSize, ivArg1, ivArg2, encryptionKey, signingKey);
-            }
-        }
-
-        internal static void DeriveKeys(HMACSHA512 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
+        internal static void DeriveKeys(PackageKey packageKey, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
         {
             const byte SignPurpose = 0x00;
             const byte EncryptPurpose = 0xff;
@@ -468,11 +453,11 @@ namespace Neliva.Security.Cryptography
             context[41] = (byte)(packageSize >> 8);
             context[42] = (byte)packageSize;;
 
-            hmac.DeriveKey(encryptionKey, label, context);
+            packageKey.DeriveKey(label, context, encryptionKey);
 
             label[0] = SignPurpose;
 
-            hmac.DeriveKey(signingKey, label, context);
+            packageKey.DeriveKey(label, context, signingKey);
         }
 
         /// <summary>

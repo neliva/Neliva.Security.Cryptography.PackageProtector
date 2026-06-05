@@ -39,11 +39,9 @@ namespace Neliva.Security.Cryptography
         /// parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
-        /// - or -
         /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
-        public async Task<long> ProtectAsync(Stream content, Stream package, byte[] key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
+        public async Task<long> ProtectAsync(Stream content, Stream package, PackageKey key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (content == null)
             {
@@ -58,11 +56,6 @@ namespace Neliva.Security.Cryptography
             if (key == null)
             {
                 throw new ArgumentNullException(nameof(key));
-            }
-
-            if (IsInvalidKeySize(key.Length))
-            {
-                throw new ArgumentOutOfRangeException(nameof(key), "Key length must be between 32 and 64 bytes.");
             }
 
             if (associatedData.Length > this._MaxAssociatedDataSize)
@@ -164,8 +157,6 @@ namespace Neliva.Security.Cryptography
         /// parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
-        /// - or -
         /// The <paramref name="associatedData"/> parameter length is too large.
         /// </exception>
         /// <exception cref="InvalidDataException">
@@ -181,7 +172,7 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="key"/>,
         /// or <paramref name="associatedData"/> parameter is not valid.
         /// </exception>
-        public async Task<long> UnprotectAsync(Stream package, Stream content, byte[] key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
+        public async Task<long> UnprotectAsync(Stream package, Stream content, PackageKey key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
             if (package == null)
             {
@@ -196,11 +187,6 @@ namespace Neliva.Security.Cryptography
             if (key == null)
             {
                 throw new ArgumentNullException(nameof(key));
-            }
-
-            if (IsInvalidKeySize(key.Length))
-            {
-                throw new ArgumentOutOfRangeException(nameof(key), "Key length must be between 32 and 64 bytes.");
             }
 
             if (associatedData.Length > this._MaxAssociatedDataSize)
