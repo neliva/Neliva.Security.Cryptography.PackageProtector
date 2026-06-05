@@ -268,34 +268,39 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(0)]
         [InlineData(16)]
         [InlineData(32)]
-        public void ProtectRngActionCallbackPass(int ivSize)
+        public void ProtectFillRandomOverridePass(int ivSize)
         {
-            byte[] rngVal = Array.Empty<byte>();
+            int callCount = 0;
+            byte[] filledIV = Array.Empty<byte>();
 
-            RngFillAction rng = (Span<byte> data) =>
+            RngFillAction fillRandom = (Span<byte> data) =>
             {
-                if (data.Length == 0 || rngVal.Length != 0)
+                callCount++;
+
+                if (data.Length != ivSize)
                 {
-                    throw new XunitException("Callback is not operating properly.");
+                    throw new XunitException("FillRandom received an unexpected span length.");
                 }
 
-                rngVal = new byte[data.Length].Fill((byte)data.Length);
+                filledIV = new byte[data.Length].Fill((byte)data.Length);
 
-                rngVal.AsSpan().CopyTo(data);
+                filledIV.AsSpan().CopyTo(data);
             };
 
-            var protector = new TestPackageProtector(rng, ivSize: ivSize, packageSize: 128);
+            var protector = new TestPackageProtector(fillRandom, ivSize: ivSize, packageSize: 128);
 
             var content = new byte[1].Fill(100);
             var package = new byte[protector.MaxPackageSize];
 
             protector.Protect(content, package, new byte[32].Fill(32), 0, null);
 
-            Assert.Equal(ivSize, rngVal.Length);
+            // FillRandom is invoked exactly once to generate the IV.
+            Assert.Equal(1, callCount);
+            Assert.Equal(ivSize, filledIV.Length);
 
             var pkgIV = new ArraySegment<byte>(package, 0, ivSize).ToArray();
 
-            Assert.Equal(rngVal, pkgIV);
+            Assert.Equal(filledIV, pkgIV);
         }
 
         [Theory]
