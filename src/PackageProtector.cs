@@ -429,13 +429,13 @@ namespace Neliva.Security.Cryptography
 
         private static void DeriveKeys(ReadOnlySpan<byte> key, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
         {
-            using (var hmac = new HMACSHA256(key.ToArray()))
+            using (var hmac = new HMACSHA512(key.ToArray()))
             {
                 DeriveKeys(hmac, packageNumber, packageSize, ivArg1, ivArg2, encryptionKey, signingKey);
             }
         }
 
-        internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
+        internal static void DeriveKeys(HMACSHA512 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
         {
             const byte SignPurpose = 0x00;
             const byte EncryptPurpose = 0xff;

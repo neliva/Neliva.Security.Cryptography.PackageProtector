@@ -652,7 +652,7 @@ namespace Neliva.Security.Cryptography.Tests
             var encKey = new byte[32];
             var sigKey = new byte[32];
 
-            using (var hmac = new HMACSHA256(masterKey))
+            using (var hmac = new HMACSHA512(masterKey))
             {
                 PackageProtector.DeriveKeys(hmac, 42, 4096, kdfIV, associatedData, encKey, sigKey);
             }
@@ -680,7 +680,7 @@ namespace Neliva.Security.Cryptography.Tests
             var encKey = new byte[32];
             var sigKey = new byte[32];
 
-            using (var hmac = new HMACSHA256(masterKey))
+            using (var hmac = new HMACSHA512(masterKey))
             {
                 for (int i = 0; i < iv1.Length; i++)
                 {
@@ -705,7 +705,7 @@ namespace Neliva.Security.Cryptography.Tests
             var encKey = new byte[32];
             var sigKey = new byte[32];
 
-            using (var hmac = new HMACSHA256(masterKey))
+            using (var hmac = new HMACSHA512(masterKey))
             {
                 Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(hmac, 42, 4096, new byte[33], new byte[0], encKey, sigKey));
                 Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(hmac, 42, 4096, new byte[0], new byte[33], encKey, sigKey));
@@ -739,7 +739,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             foreach (var a in argsList)
             {
-                using (var hmac = new HMACSHA256(masterKey))
+                using (var hmac = new HMACSHA512(masterKey))
                 {
                     PackageProtector.DeriveKeys(hmac, a.Item1, a.Item2, kdfIV, a.Item3, encKey, sigKey);
                 }
@@ -1080,9 +1080,9 @@ namespace Neliva.Security.Cryptography.Tests
             Span<byte> context = stackalloc byte[sizeof(ulong) + 16 + 16 + 3];
             context.Clear();
 
-            using (var hmac = new HMACSHA256(masterKey))
+            using (var hmac = new HMACSHA512(masterKey))
             {
-                var derivedKey = new byte[hmac.HashSize / 8];
+                var derivedKey = new byte[HashSize];
 
                 BinaryPrimitives.WriteUInt64BigEndian(context.Slice(0, sizeof(ulong)), (ulong)packageNumber);
 
@@ -1559,7 +1559,7 @@ namespace Neliva.Security.Cryptography.Tests
                 0L,
                 "",
                 "",
-                "590f24d12b4faf918babd1bd097c7818150084662c11ede3d487b42ad9ff3d2c5134199f2fb55e7e9328ac075debfdd3",
+                "e1c9f5e8137adea7d176b74572aa05bfb1dc9041401e4204a49ee8d1bc89f697ce065f6e396cdd5856ace30a702ad40b",
             };
 
             yield return new object[]
@@ -1568,7 +1568,7 @@ namespace Neliva.Security.Cryptography.Tests
                 1L,
                 "00112233445566778899aabbccddeeff",
                 "6164",
-                "d4371eb4e1db03b9b7151aa888bc7479f3ed019cc0a74850958bbdf4fe07a2911ebca781f0a9b588a50348ed1fc8c9ecd1958a0bd4e97a9716895d1a00635779",
+                "aaccbf141521b957e8a30f3a5a2bcfc4c8ab4f2a58fd8ac23bb25cb14351872d6922d9d9fe87bca326c12ee5084fc2946e7400b070a9683bb9aa0fc955536207",
             };
         }
 
