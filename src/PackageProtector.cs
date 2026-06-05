@@ -179,10 +179,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(package), "Insufficient space for package output.");
             }
 
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
+            ArgumentNullException.ThrowIfNull(key);
 
             if (packageNumber < 0L)
             {
@@ -318,10 +315,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
             }
 
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
+            ArgumentNullException.ThrowIfNull(key);
 
             if (packageNumber < 0L)
             {
@@ -430,20 +424,9 @@ namespace Neliva.Security.Cryptography
         /// </exception>
         public async Task<long> ProtectAsync(Stream content, Stream package, PackageKey key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
-            if (content == null)
-            {
-                throw new ArgumentNullException(nameof(content));
-            }
-
-            if (package == null)
-            {
-                throw new ArgumentNullException(nameof(package));
-            }
-
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
+            ArgumentNullException.ThrowIfNull(content);
+            ArgumentNullException.ThrowIfNull(package);
+            ArgumentNullException.ThrowIfNull(key);
 
             if (associatedData.Length > this._MaxAssociatedDataSize)
             {
@@ -561,20 +544,9 @@ namespace Neliva.Security.Cryptography
         /// </exception>
         public async Task<long> UnprotectAsync(Stream package, Stream content, PackageKey key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
-            if (package == null)
-            {
-                throw new ArgumentNullException(nameof(package));
-            }
-
-            if (content == null)
-            {
-                throw new ArgumentNullException(nameof(content));
-            }
-
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
+            ArgumentNullException.ThrowIfNull(package);
+            ArgumentNullException.ThrowIfNull(content);
+            ArgumentNullException.ThrowIfNull(key);
 
             if (associatedData.Length > this._MaxAssociatedDataSize)
             {
