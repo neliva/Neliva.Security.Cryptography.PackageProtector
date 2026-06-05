@@ -1199,6 +1199,120 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.Equal(content, new ArraySegment<byte>(output, 0, bytesUnprotected).ToArray());
         }
 
+        [Fact]
+        public void SystemReturnsSingletonInstancePass()
+        {
+            // The System property exposes a single shared, lazily-initialized
+            // instance. Repeated access must return the same reference.
+            var first = PackageProtector.System;
+            var second = PackageProtector.System;
+
+            Assert.NotNull(first);
+            Assert.Same(first, second);
+        }
+
+        [Fact]
+        public void SystemIsPackageProtectorWithDefaultConfigPass()
+        {
+            // The System protector uses the default configuration:
+            // ivSize 16 and packageSize 65536, giving an overhead of 49 bytes
+            // (ivSize + HashSize + 1) and a max content of (packageSize - overhead).
+            var system = PackageProtector.System;
+
+            Assert.IsAssignableFrom<PackageProtector>(system);
+
+            const int DefaultPackageSize = 64 * 1024;
+            const int DefaultOverhead = BlockSize + HashSize + 1;
+
+            Assert.Equal(DefaultPackageSize, system.MaxPackageSize);
+            Assert.Equal(DefaultPackageSize - DefaultOverhead, system.MaxContentSize);
+        }
+
+        [Fact]
+        public void SystemRoundTripPass()
+        {
+            // The System protector uses the default cryptographically strong RNG.
+            // A round-trip through Protect/Unprotect must succeed bit-for-bit.
+            var system = PackageProtector.System;
+
+            var key = new byte[32].Fill(13);
+
+            // Default ivSize is 16, so MaxAssociatedDataSize is 32 - 16 = 16.
+            var associatedData = new byte[16].Fill(42);
+
+            var content = new byte[200].Fill(200);
+
+            var package = new byte[content.Length + system.MaxPackageSize];
+
+            int bytesProtected = system.Protect(content, package, key, 9, associatedData);
+
+            var output = new byte[bytesProtected];
+
+            int bytesUnprotected = system.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), output, key, 9, associatedData);
+
+            Assert.Equal(content.Length, bytesUnprotected);
+            Assert.Equal(content, new ArraySegment<byte>(output, 0, bytesUnprotected).ToArray());
+        }
+
+        [Fact]
+        public void SystemProducesRandomIvPass()
+        {
+            // The System protector sources a fresh random IV for each Protect
+            // call (default ivSize is 16). Two packages over identical inputs
+            // must therefore differ in both the IV prefix and the encrypted body.
+            const int IvSize = 16;
+
+            var system = PackageProtector.System;
+
+            var key = new byte[32].Fill(11);
+            var content = new byte[64].Fill(42);
+
+            var pkg1 = new byte[content.Length + system.MaxPackageSize];
+            var pkg2 = new byte[content.Length + system.MaxPackageSize];
+
+            int len1 = system.Protect(content, pkg1, key, 7, null);
+            int len2 = system.Protect(content, pkg2, key, 7, null);
+
+            Assert.Equal(len1, len2);
+
+            var body1 = new ArraySegment<byte>(pkg1, 0, len1).ToArray();
+            var body2 = new ArraySegment<byte>(pkg2, 0, len2).ToArray();
+
+            Assert.NotEqual(body1, body2);
+
+            // Difference must include the random IV prefix.
+            Assert.NotEqual(
+                new ArraySegment<byte>(pkg1, 0, IvSize).ToArray(),
+                new ArraySegment<byte>(pkg2, 0, IvSize).ToArray());
+        }
+
+        [Fact]
+        public void SystemRoundTripAcrossInstancesPass()
+        {
+            // A package produced by the System protector must be decryptable by
+            // any other instance with the same parameters, confirming there is no
+            // hidden per-instance state and that the random IV is embedded in the
+            // package.
+            var system = PackageProtector.System;
+            var other = new TestPackageProtector(ivSize: BlockSize, packageSize: 64 * 1024);
+
+            var key = new byte[64].Fill(17);
+            var associatedData = new byte[16].Fill(9);
+
+            var content = new byte[128].Fill(123);
+
+            var package = new byte[content.Length + system.MaxPackageSize];
+
+            int bytesProtected = system.Protect(content, package, key, 99, associatedData);
+
+            var output = new byte[bytesProtected];
+
+            int bytesUnprotected = other.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), output, key, 99, associatedData);
+
+            Assert.Equal(content.Length, bytesUnprotected);
+            Assert.Equal(content, new ArraySegment<byte>(output, 0, bytesUnprotected).ToArray());
+        }
+
         [Theory]
         [InlineData(0, 16)]
         [InlineData(0, 32)]

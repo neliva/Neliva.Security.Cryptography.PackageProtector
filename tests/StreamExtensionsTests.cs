@@ -624,6 +624,36 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Fact]
+        public async Task SystemStreamRoundTripPass()
+        {
+            // The System protector is the default public instance. A multi-package
+            // stream round-trip through the async API must succeed bit-for-bit,
+            // including when associated data is supplied (default ivSize 16 allows
+            // up to 16 associated-data bytes).
+            var p = PackageProtector.System;
+
+            var key = CreateArray(32, 209);
+            var associatedData = CreateArray(16, 77);
+
+            // Spans several packages to exercise chunked stream protection.
+            var content = CreateArray((p.MaxContentSize * 2) + 123, 200);
+
+            var encrypted = new MemoryStream();
+
+            await p.ProtectAsync(new MemoryStream(content), encrypted, key, associatedData, CancellationToken.None);
+
+            encrypted.Position = 0;
+
+            var decrypted = new MemoryStream();
+
+            var decryptedLength = await p.UnprotectAsync(encrypted, decrypted, key, associatedData, CancellationToken.None);
+
+            Assert.Equal(content.Length, decryptedLength);
+            Assert.Equal(content.Length, decrypted.Length);
+            Assert.Equal(content, decrypted.GetBuffer().Take((int)decrypted.Length).ToArray());
+        }
+
+        [Fact]
         public async Task ProtectAsyncPreCancelledFail()
         {
             var p = new TestPackageProtector(packageSize: MinPackageSize);
