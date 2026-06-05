@@ -52,7 +52,7 @@ namespace Neliva.Security.Cryptography
 
         private const uint Version = ((uint)'P' << 24) | ((uint)'B' << 16) | ((uint)'2' << 8) | (uint)'K';
 
-        private static readonly UTF8Encoding SafeEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+        private static readonly UTF8Encoding Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
         /// <summary>
         /// Gets the system <see cref="KeyProtector"/> implementation, which uses
@@ -362,7 +362,7 @@ namespace Neliva.Security.Cryptography
             const byte BLOCK_SIZE = 128; // The HMACSHA512 recommended key size
             const byte HASH_SIZE = 64; // The HMACSHA512 output hash size
 
-            int pswBytesCapacity = SafeEncoding.GetMaxByteCount(password.Length);
+            int pswBytesCapacity = Encoding.GetMaxByteCount(password.Length);
             int bufSize = BLOCK_SIZE + pswBytesCapacity;
 
             byte[] bufArray = ArrayPool<byte>.Shared.Rent(bufSize);
@@ -371,7 +371,7 @@ namespace Neliva.Security.Cryptography
 
             try
             {
-                int pswBytesCount = SafeEncoding.GetBytes(password, buf.Slice(BLOCK_SIZE));
+                int pswBytesCount = Encoding.GetBytes(password, buf.Slice(BLOCK_SIZE));
 
                 // The combined size of the key and the UTF8 password bytes.
                 buf = buf.Slice(0, BLOCK_SIZE + pswBytesCount);
