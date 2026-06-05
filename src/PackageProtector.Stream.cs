@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Neliva.Security.Cryptography
 {
-    public partial class PackageProtector
+    public abstract partial class PackageProtector
     {
         /// <summary>
         /// Protects the <paramref name="content"/> stream into the

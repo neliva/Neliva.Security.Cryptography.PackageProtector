@@ -29,7 +29,7 @@ namespace Neliva.Security.Cryptography
     /// </code>
     /// </para>
     /// </remarks>
-    public partial class PackageProtector
+    public abstract partial class PackageProtector
     {
         private const int BlockSize = 16; // AES block size.
         private const int HashSize = 32;  // HMAC-SHA256 hash and key size, AES256 key size.
@@ -59,7 +59,7 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="packageSize"/> parameter is less than
         /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>16777200</c> bytes.
         /// </exception>
-        public PackageProtector(int ivSize = BlockSize, int packageSize = 64 * 1024)
+        protected PackageProtector(int ivSize = BlockSize, int packageSize = 64 * 1024)
         {
             switch (ivSize)
             {
