@@ -35,7 +35,7 @@ namespace Neliva.Security.Cryptography
     /// Authenticity is provided solely by the encrypted <c>HMAC</c>.
     /// </para>
     /// </remarks>
-    public sealed class KeyProtector
+    public class KeyProtector
     {
         private const int SaltSize = 40;
         private const int VersionSize = sizeof(uint);
@@ -54,19 +54,11 @@ namespace Neliva.Security.Cryptography
 
         private static readonly UTF8Encoding SafeEncoding = new UTF8Encoding(false, true);
 
-        private readonly RngFillAction _rngFill;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="KeyProtector"/> class.
         /// </summary>
-        /// <param name="rngFill">
-        /// A callback to fill a span with cryptographically strong random bytes.
-        /// When not provided, a default <see cref="RandomNumberGenerator.Fill"/>
-        /// implementation is used.
-        /// </param>
-        public KeyProtector(RngFillAction rngFill = null)
+        public KeyProtector()
         {
-            this._rngFill = rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
         }
 
         /// <summary>
@@ -74,6 +66,13 @@ namespace Neliva.Security.Cryptography
         /// </summary>
         public int Overhead => OverheadSize;
 
+        /// <summary>
+        /// Fills the provided <paramref name="data"/> span with
+        /// cryptographically strong random bytes.
+        /// </summary>
+        /// <param name="data">
+        /// The span to fill with cryptographically strong random bytes.
+        /// </param>
         protected virtual void FillRandom(Span<byte> data) => RandomNumberGenerator.Fill(data);
 
         /// <summary>
@@ -148,7 +147,7 @@ namespace Neliva.Security.Cryptography
 
                 var salt = output.Slice(VersionSize + IterCounterSize, SaltSize);
 
-                this._rngFill(salt);
+                this.FillRandom(salt);
 
                 Span<byte> buf = stackalloc byte[64 + 32];
 

@@ -20,6 +20,24 @@ namespace Neliva.Security.Cryptography.Tests
 
         private static ReadOnlySpan<byte> Version => new byte[] { (byte)'P', (byte)'B', (byte)'2', (byte)'K' };
 
+        // Test double that overrides FillRandom to supply deterministic
+        // "random" bytes (for example a fixed salt) so that produced packages
+        // are fully reproducible during testing.
+        private sealed class TestKeyProtector : KeyProtector
+        {
+            private readonly RngFillAction _fillRandom;
+
+            public TestKeyProtector(RngFillAction fillRandom)
+            {
+                this._fillRandom = fillRandom;
+            }
+
+            protected override void FillRandom(Span<byte> data)
+            {
+                this._fillRandom(data);
+            }
+        }
+
         [Theory]
         [InlineData(0, 32, 0)]
         [InlineData(1, 48, 1)]
@@ -73,7 +91,7 @@ namespace Neliva.Security.Cryptography.Tests
                 data.Fill(fillByte);
             };
 
-            var protector = new KeyProtector(rng);
+            var protector = new TestKeyProtector(rng);
 
             const byte contentByte = 226;
 
@@ -192,7 +210,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData("user-password", 1, 0, "user-password", 1, 0, (byte)0, true)]
         public void IncorrectParamsUnprotectFails(string protectPass, int protectIters, int protectAdLen, string unprotectPass, int unprotectIters, int unprotectAdLen, byte unprotectAdVal, bool unprotectBadSalt)
         {
-            var protector = new KeyProtector(rng => rng.Fill(33));
+            var protector = new TestKeyProtector(rng => rng.Fill(33));
 
             var protectAd = new byte[protectAdLen];
             var unprotectAd = new byte[unprotectAdLen].Fill(unprotectAdVal);
@@ -435,7 +453,7 @@ namespace Neliva.Security.Cryptography.Tests
                 throw new Exception(exStr);
             };
 
-            var protector = new KeyProtector(rng);
+            var protector = new TestKeyProtector(rng);
 
             var content = new byte[32].Fill(223);
             var package = new byte[32 + protector.Overhead].Fill(88);
@@ -457,7 +475,7 @@ namespace Neliva.Security.Cryptography.Tests
                 data.Fill((byte)data.Length);
             };
 
-            var protector = new KeyProtector(rng);
+            var protector = new TestKeyProtector(rng);
 
             var content = new byte[32].Fill(242);
             var package = new byte[32 + protector.Overhead];
@@ -497,7 +515,7 @@ namespace Neliva.Security.Cryptography.Tests
                 data.Fill((byte)data.Length);
             };
 
-            var protector = new KeyProtector(rng);
+            var protector = new TestKeyProtector(rng);
 
             var content = new byte[32].Fill(242);
             var package = new byte[32 + protector.Overhead];
@@ -523,7 +541,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             RngFillAction rng = (Span<byte> data) => data.Fill(97);
 
-            var protector = new KeyProtector(rng);
+            var protector = new TestKeyProtector(rng);
 
             var content = new byte[32].Fill(242);
             var package = new byte[32 + protector.Overhead];
@@ -546,7 +564,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             RngFillAction rng = (Span<byte> data) => data.Fill(97);
 
-            var protector = new KeyProtector(rng);
+            var protector = new TestKeyProtector(rng);
 
             var content = new byte[32].Fill(242);
             var package = new byte[32 + protector.Overhead];
@@ -569,7 +587,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             RngFillAction rng = (Span<byte> data) => data.Fill(97);
 
-            var protector = new KeyProtector(rng);
+            var protector = new TestKeyProtector(rng);
 
             var content = new byte[32].Fill(242);
             var package = new byte[32 + protector.Overhead];
@@ -606,7 +624,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             RngFillAction rng = (Span<byte> data) => data.Fill(97);
 
-            var protector = new KeyProtector(rng);
+            var protector = new TestKeyProtector(rng);
 
             var content = new byte[32].Fill(242);
             var package = new byte[32 + protector.Overhead];
@@ -659,7 +677,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             RngFillAction rng = (Span<byte> data) => data.Fill(97);
 
-            var protector = new KeyProtector(rng);
+            var protector = new TestKeyProtector(rng);
 
             var content = new byte[32].Fill(242);
             var package = new byte[32 + protector.Overhead];
@@ -675,16 +693,16 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Fact]
-        public void NullRngFillConstructorPass()
+        public void DefaultConstructorPass()
         {
-            var p = new KeyProtector(null);
+            var p = new KeyProtector();
             Assert.Equal(96, p.Overhead);
         }
 
         [Fact]
         public void ProtectInvalidUtf8PasswordFails()
         {
-            var protector = new KeyProtector(d => d.Fill(1));
+            var protector = new TestKeyProtector(d => d.Fill(1));
 
             var content = new byte[32];
             var package = new byte[32 + protector.Overhead];
@@ -935,7 +953,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             RngFillAction rng = (Span<byte> data) => data.Fill(saltFill);
 
-            var protector = new KeyProtector(rng);
+            var protector = new TestKeyProtector(rng);
 
             byte[] content = Convert.FromHexString(contentHex);
             byte[] associatedData = Convert.FromHexString(associatedDataHex);
