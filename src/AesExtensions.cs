@@ -19,14 +19,14 @@ namespace Neliva.Security.Cryptography
         {
             ReadOnlySpan<byte> useIV = iv.IsEmpty ? ZeroIV : iv;
 
-            _ = aes.EncryptCbc(plaintext, useIV, destination, PaddingMode.None);
+            aes.EncryptCbc(plaintext, useIV, destination, PaddingMode.None);
         }
 
         public static void DecryptCbcNoPadding(this Aes aes, ReadOnlySpan<byte> ciphertext, Span<byte> destination, ReadOnlySpan<byte> iv = default)
         {
             ReadOnlySpan<byte> useIV = iv.IsEmpty ? ZeroIV : iv;
 
-            _ = aes.DecryptCbc(ciphertext, useIV, destination, PaddingMode.None);
+            aes.DecryptCbc(ciphertext, useIV, destination, PaddingMode.None);
         }
     }
 }

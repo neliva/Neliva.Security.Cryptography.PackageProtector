@@ -20,10 +20,41 @@ namespace Neliva.Security.Cryptography.Tests
         private const int MinPackageSize = BlockSize + BlockSize + HashSize;
         private const int MaxPackageSize = (16 * 1024 * 1024) - BlockSize;
 
+        // Test double that overrides FillRandom to supply deterministic
+        // "random" bytes (for example a fixed IV) so that produced packages
+        // are reproducible during testing. When constructed without a delegate,
+        // it defers to the default (cryptographically strong) RNG.
+        private sealed class TestPackageProtector : PackageProtector
+        {
+            private readonly RngFillAction _fillRandom;
+
+            public TestPackageProtector(int ivSize = BlockSize, int packageSize = 64 * 1024)
+                : base(ivSize, packageSize)
+            {
+            }
+
+            public TestPackageProtector(RngFillAction fillRandom, int ivSize = BlockSize, int packageSize = 64 * 1024)
+                : base(ivSize, packageSize)
+            {
+                this._fillRandom = fillRandom;
+            }
+
+            protected override void FillRandom(Span<byte> data)
+            {
+                if (this._fillRandom is null)
+                {
+                    base.FillRandom(data);
+                    return;
+                }
+
+                this._fillRandom(data);
+            }
+        }
+
         [Fact]
         public void ProtectOverlapFail()
         {
-            var protector = new PackageProtector(packageSize: 64);
+            var protector = new TestPackageProtector(packageSize: 64);
 
             var buf = new byte[protector.MaxPackageSize * 2];
 
@@ -40,7 +71,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void ProtectNoOverlapPass()
         {
-            var protector = new PackageProtector(packageSize: 64);
+            var protector = new TestPackageProtector(packageSize: 64);
 
             var buf = new byte[protector.MaxPackageSize * 2];
 
@@ -56,7 +87,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void UnprotectOverlapFail()
         {
-            var protector = new PackageProtector(packageSize: 64);
+            var protector = new TestPackageProtector(packageSize: 64);
 
             var buf = new byte[protector.MaxPackageSize * 2];
 
@@ -73,7 +104,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void UnprotectNoOverlapPass()
         {
-            var protector = new PackageProtector(packageSize: 64);
+            var protector = new TestPackageProtector(packageSize: 64);
 
             var buf = new byte[protector.MaxPackageSize * 2];
 
@@ -97,7 +128,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(48)]
         public void NewPackageProtectorInvalidIvSizeFail(int ivSize)
         {
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new PackageProtector(ivSize: ivSize));
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new TestPackageProtector(ivSize: ivSize));
 
             Assert.Equal(nameof(ivSize), ex.ParamName);
             Assert.Equal("IV size must be 0, 16, or 32 bytes. (Parameter 'ivSize')", ex.Message);
@@ -109,7 +140,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(32)]
         public void NewPackageProtectorValidIvSizePass(int ivSize)
         {
-            var p = new PackageProtector(ivSize: ivSize);
+            var p = new TestPackageProtector(ivSize: ivSize);
         }
 
         [Theory]
@@ -151,7 +182,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(32, MaxPackageSize + 1)]
         public void NewPackageProtectorInvalidPackageSizeFail(int ivSize, int packageSize)
         {
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new PackageProtector(ivSize: ivSize, packageSize: packageSize));
+            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new TestPackageProtector(ivSize: ivSize, packageSize: packageSize));
 
             Assert.Equal(nameof(packageSize), ex.ParamName);
             Assert.Equal("Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 16777200 bytes. (Parameter 'packageSize')", ex.Message);
@@ -175,7 +206,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(32, MaxPackageSize - BlockSize)]
         public void NewPackageProtectorValidPackageSizePass(int ivSize, int packageSize)
         {
-            var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+            var p = new TestPackageProtector(ivSize: ivSize, packageSize: packageSize);
 
             int overhead = ivSize + HashSize + 1;
 
@@ -195,7 +226,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(128)]
         public void ProtectInvalidKeySizeFail(int keySize)
         {
-            var p = new PackageProtector(packageSize: 128);
+            var p = new TestPackageProtector(packageSize: 128);
 
             var content = new byte[p.MaxContentSize];
             var package = new byte[p.MaxPackageSize];
@@ -213,7 +244,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(128)]
         public void UnprotectInvalidKeySizeFail(int keySize)
         {
-            var p = new PackageProtector(packageSize: 128);
+            var p = new TestPackageProtector(packageSize: 128);
 
             var package = new byte[p.MaxPackageSize];
 
@@ -225,7 +256,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void ProtectNullKeyFail()
         {
-            var p = new PackageProtector(packageSize: 128);
+            var p = new TestPackageProtector(packageSize: 128);
 
             var content = new byte[p.MaxContentSize];
             var package = new byte[p.MaxPackageSize];
@@ -237,7 +268,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void UnprotectNullKeyFail()
         {
-            var p = new PackageProtector(packageSize: 128);
+            var p = new TestPackageProtector(packageSize: 128);
 
             var package = new byte[p.MaxPackageSize];
 
@@ -249,34 +280,39 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(0)]
         [InlineData(16)]
         [InlineData(32)]
-        public void ProtectRngActionCallbackPass(int ivSize)
+        public void ProtectFillRandomOverridePass(int ivSize)
         {
-            byte[] rngVal = Array.Empty<byte>();
+            int callCount = 0;
+            byte[] filledIV = Array.Empty<byte>();
 
-            RngFillAction rng = (Span<byte> data) =>
+            RngFillAction fillRandom = (Span<byte> data) =>
             {
-                if (data.Length == 0 || rngVal.Length != 0)
+                callCount++;
+
+                if (data.Length != ivSize)
                 {
-                    throw new XunitException("Callback is not operating properly.");
+                    throw new XunitException("FillRandom received an unexpected span length.");
                 }
 
-                rngVal = new byte[data.Length].Fill((byte)data.Length);
+                filledIV = new byte[data.Length].Fill((byte)data.Length);
 
-                rngVal.AsSpan().CopyTo(data);
+                filledIV.AsSpan().CopyTo(data);
             };
 
-            var protector = new PackageProtector(ivSize: ivSize, packageSize: 128, rngFill: rng);
+            var protector = new TestPackageProtector(fillRandom, ivSize: ivSize, packageSize: 128);
 
             var content = new byte[1].Fill(100);
             var package = new byte[protector.MaxPackageSize];
 
             protector.Protect(content, package, new byte[32].Fill(32), 0, null);
 
-            Assert.Equal(ivSize, rngVal.Length);
+            // FillRandom is invoked exactly once to generate the IV.
+            Assert.Equal(1, callCount);
+            Assert.Equal(ivSize, filledIV.Length);
 
             var pkgIV = new ArraySegment<byte>(package, 0, ivSize).ToArray();
 
-            Assert.Equal(rngVal, pkgIV);
+            Assert.Equal(filledIV, pkgIV);
         }
 
         [Theory]
@@ -301,7 +337,7 @@ namespace Neliva.Security.Cryptography.Tests
                 throw new Exception(exStr);
             };
 
-            var protector = new PackageProtector(ivSize: ivSize, packageSize: 80, rngFill: rng);
+            var protector = new TestPackageProtector(rng, ivSize: ivSize, packageSize: 80);
 
             var content = new byte[1].Fill(100);
             var package = new byte[protector.MaxPackageSize];
@@ -321,7 +357,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void ProtectInvalidPackageNumberFail()
         {
-            var p = new PackageProtector(packageSize: 128);
+            var p = new TestPackageProtector(packageSize: 128);
 
             var content = new byte[p.MaxContentSize];
             var package = new byte[p.MaxPackageSize];
@@ -334,7 +370,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void UnprotectInvalidPackageNumberFail()
         {
-            var p = new PackageProtector(packageSize: 128);
+            var p = new TestPackageProtector(packageSize: 128);
 
             var package = new byte[p.MaxPackageSize];
 
@@ -349,7 +385,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(32, 1)]
         public void ProtectInvalidAssociatedDataFail(int ivSize, int associatedDataSize)
         {
-            var p = new PackageProtector(ivSize: ivSize, packageSize: 128);
+            var p = new TestPackageProtector(ivSize: ivSize, packageSize: 128);
 
             var content = new byte[p.MaxContentSize];
             var package = new byte[p.MaxPackageSize];
@@ -365,7 +401,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(32, 1)]
         public void UnprotectInvalidAssociatedDataSizeFail(int ivSize, int associatedDataSize)
         {
-            var p = new PackageProtector(ivSize: ivSize, packageSize: 128);
+            var p = new TestPackageProtector(ivSize: ivSize, packageSize: 128);
 
             var package = new byte[p.MaxPackageSize];
 
@@ -380,7 +416,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(32, 80)]
         public void ProtectInvalidPackageSizeFail(int ivSize, int packageSize)
         {
-            var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+            var p = new TestPackageProtector(ivSize: ivSize, packageSize: packageSize);
 
             var content = new byte[p.MaxContentSize];
             var package = new byte[p.MaxPackageSize - 1];
@@ -396,7 +432,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(32, 80)]
         public void ProtectInvalidContentSizeFail(int ivSize, int packageSize)
         {
-            var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+            var p = new TestPackageProtector(ivSize: ivSize, packageSize: packageSize);
 
             var content = new byte[p.MaxContentSize + 1];
             var package = new byte[p.MaxPackageSize];
@@ -412,7 +448,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(32, 80)]
         public void UnprotectInvalidContentSizeFail(int ivSize, int packageSize)
         {
-            var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+            var p = new TestPackageProtector(ivSize: ivSize, packageSize: packageSize);
 
             var package = new byte[p.MaxPackageSize];
 
@@ -432,7 +468,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(32, 80, 81)]
         public void UnprotectInvalidPackageSizeFail(int ivSize, int packageSize, int invalidPackageSize)
         {
-            var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+            var p = new TestPackageProtector(ivSize: ivSize, packageSize: packageSize);
 
             var package = new byte[invalidPackageSize];
 
@@ -452,7 +488,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(32, 80 + 16, 80 + 16 + 1)]
         public void UnprotectInvalidPackageSize2Fail(int ivSize, int packageSize, int invalidPackageSize)
         {
-            var p = new PackageProtector(ivSize: ivSize, packageSize: packageSize);
+            var p = new TestPackageProtector(ivSize: ivSize, packageSize: packageSize);
 
             var package = new byte[invalidPackageSize];
 
@@ -466,7 +502,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void ProtectNullOrDefaultContentPass()
         {
-            var p = new PackageProtector(packageSize: 128);
+            var p = new TestPackageProtector(packageSize: 128);
 
             p.Protect(null, new byte[128], new byte[32], 0, new byte[1]);
             p.Protect(default, new byte[128], new byte[32], 0, new byte[1]);
@@ -476,7 +512,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void ProtectNullOrDefaultAssociatedDataPass()
         {
-            var p = new PackageProtector(packageSize: 128);
+            var p = new TestPackageProtector(packageSize: 128);
 
             p.Protect(new byte[1], new byte[128], new byte[32], 0, null);
             p.Protect(new byte[1], new byte[128], new byte[33], 0, default);
@@ -486,7 +522,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void UnprotectNullOrDefaultAssociatedDataPass()
         {
-            var protector = new PackageProtector(packageSize: 64);
+            var protector = new TestPackageProtector(packageSize: 64);
 
             var p = new byte[64];
             var c = new byte[64];
@@ -523,7 +559,7 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[64].Fill(4);
             var associatedData = new byte[associatedDataSize].Fill((byte)associatedDataSize);
 
-            var protector = new PackageProtector(ivSize, packageSize);
+            var protector = new TestPackageProtector(ivSize, packageSize);
             {
                 var content = new ArraySegment<byte>(new byte[protector.MaxContentSize].Fill(7));
 
@@ -551,7 +587,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             foreach (var packageSize in new int[] { MinPackageSize, MinPackageSize + BlockSize, MaxPackageSize })
             {
-                var protector = new PackageProtector(packageSize: packageSize);
+                var protector = new TestPackageProtector(packageSize: packageSize);
                 {
                     var content = ArraySegment<byte>.Empty;
 
@@ -584,7 +620,7 @@ namespace Neliva.Security.Cryptography.Tests
             byte[] packageBuffer = new byte[PackageSize];
             byte[] unprotectedContentBuffer = new byte[PackageSize];
 
-            var protector = new PackageProtector(packageSize: PackageSize);
+            var protector = new TestPackageProtector(packageSize: PackageSize);
 
             for (int contentSize = protector.MaxContentSize; contentSize >= 0; contentSize--)
             {
@@ -719,7 +755,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void UnprotectWrongKeyFail()
         {
-            var protector = new PackageProtector(packageSize: MinPackageSize);
+            var protector = new TestPackageProtector(packageSize: MinPackageSize);
 
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
@@ -742,7 +778,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void UnprotectWrongPackageNumberFail()
         {
-            var protector = new PackageProtector(packageSize: MinPackageSize);
+            var protector = new TestPackageProtector(packageSize: MinPackageSize);
 
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
@@ -763,7 +799,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void UnprotectWrongPackageSizeFail()
         {
-            var protector = new PackageProtector(packageSize: MinPackageSize);
+            var protector = new TestPackageProtector(packageSize: MinPackageSize);
 
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
@@ -776,7 +812,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var unprotectedContent = new ArraySegment<byte>(new byte[MinPackageSize]);
 
-            var protector1 = new PackageProtector(packageSize: MinPackageSize + BlockSize);
+            var protector1 = new TestPackageProtector(packageSize: MinPackageSize + BlockSize);
 
             Assert.Throws<BadPackageException>(() => protector1.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
 
@@ -786,7 +822,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void UnprotectWrongAssociatedDataFail()
         {
-            var protector = new PackageProtector(packageSize: MinPackageSize);
+            var protector = new TestPackageProtector(packageSize: MinPackageSize);
 
             var key = new byte[32].Fill(4);
 
@@ -813,7 +849,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void UnprotectCorruptedPackageFail()
         {
-            var protector = new PackageProtector(packageSize: MinPackageSize);
+            var protector = new TestPackageProtector(packageSize: MinPackageSize);
 
             var key = new byte[32].Fill(4);
             var associatedData = new byte[13].Fill(7);
@@ -849,7 +885,7 @@ namespace Neliva.Security.Cryptography.Tests
             // output. Covers the IV region, the MAC region, and the encrypted body.
             const int PackageSize = 128; // Multiple AES blocks beyond the minimum.
 
-            var protector = new PackageProtector(ivSize: ivSize, packageSize: PackageSize);
+            var protector = new TestPackageProtector(ivSize: ivSize, packageSize: PackageSize);
 
             var key = new byte[32].Fill(4);
 
@@ -888,7 +924,7 @@ namespace Neliva.Security.Cryptography.Tests
             // any IV byte must cause a MAC failure and clear the output.
             const int PackageSize = 128;
 
-            var protector = new PackageProtector(ivSize: ivSize, packageSize: PackageSize);
+            var protector = new TestPackageProtector(ivSize: ivSize, packageSize: PackageSize);
 
             var key = new byte[32].Fill(4);
             var associatedData = new byte[32 - ivSize].Fill(7);
@@ -929,7 +965,7 @@ namespace Neliva.Security.Cryptography.Tests
             // survives protection and unprotection.
             const int PackageSize = 128;
 
-            var protector = new PackageProtector(ivSize: 16, packageSize: PackageSize);
+            var protector = new TestPackageProtector(ivSize: 16, packageSize: PackageSize);
 
             var key = new byte[32].Fill(4);
             var associatedData = new byte[16].Fill(7);
@@ -959,7 +995,7 @@ namespace Neliva.Security.Cryptography.Tests
             // a different package number, including boundary values.
             const int PackageSize = 128;
 
-            var protector = new PackageProtector(ivSize: 16, packageSize: PackageSize);
+            var protector = new TestPackageProtector(ivSize: 16, packageSize: PackageSize);
 
             var key = new byte[32].Fill(4);
             var associatedData = new byte[16].Fill(7);
@@ -982,7 +1018,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             byte[] ZeroIV = new byte[BlockSize];
 
-            var protector = new PackageProtector(packageSize: MinPackageSize);
+            var protector = new TestPackageProtector(packageSize: MinPackageSize);
 
             var key = new byte[32].Fill(93);
             var associatedData = new byte[13].Fill(56);
@@ -1089,7 +1125,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             // Semantic security: same plaintext + key + packageNumber + associatedData
             // must yield distinct ciphertexts when a random IV is used.
-            var protector = new PackageProtector(ivSize: ivSize, packageSize: 128);
+            var protector = new TestPackageProtector(ivSize: ivSize, packageSize: 128);
 
             var key = new byte[32].Fill(11);
             var content = new byte[protector.MaxContentSize].Fill(42);
@@ -1117,7 +1153,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             // With ivSize=0 the construction is deterministic by design.
             // Identical inputs must yield byte-identical output (no hidden randomness).
-            var protector = new PackageProtector(ivSize: 0, packageSize: 128);
+            var protector = new TestPackageProtector(ivSize: 0, packageSize: 128);
 
             var key = new byte[32].Fill(11);
             var associatedData = new byte[16].Fill(33);
@@ -1146,8 +1182,8 @@ namespace Neliva.Security.Cryptography.Tests
             // MaxAssociatedDataSize == 32 - ivSize, so use a size valid for all ivSizes.
             var associatedData = ArraySegment<byte>.Empty;
 
-            var pA = new PackageProtector(ivSize: ivSize, packageSize: 256);
-            var pB = new PackageProtector(ivSize: ivSize, packageSize: 256);
+            var pA = new TestPackageProtector(ivSize: ivSize, packageSize: 256);
+            var pB = new TestPackageProtector(ivSize: ivSize, packageSize: 256);
 
             var content = new byte[pA.MaxContentSize - 13].Fill(99);
 
@@ -1158,6 +1194,120 @@ namespace Neliva.Security.Cryptography.Tests
             var output = new byte[pB.MaxPackageSize];
 
             int bytesUnprotected = pB.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), output, key, 12345, associatedData);
+
+            Assert.Equal(content.Length, bytesUnprotected);
+            Assert.Equal(content, new ArraySegment<byte>(output, 0, bytesUnprotected).ToArray());
+        }
+
+        [Fact]
+        public void SystemReturnsSingletonInstancePass()
+        {
+            // The System property exposes a single shared, lazily-initialized
+            // instance. Repeated access must return the same reference.
+            var first = PackageProtector.System;
+            var second = PackageProtector.System;
+
+            Assert.NotNull(first);
+            Assert.Same(first, second);
+        }
+
+        [Fact]
+        public void SystemIsPackageProtectorWithDefaultConfigPass()
+        {
+            // The System protector uses the default configuration:
+            // ivSize 16 and packageSize 65536, giving an overhead of 49 bytes
+            // (ivSize + HashSize + 1) and a max content of (packageSize - overhead).
+            var system = PackageProtector.System;
+
+            Assert.IsAssignableFrom<PackageProtector>(system);
+
+            const int DefaultPackageSize = 64 * 1024;
+            const int DefaultOverhead = BlockSize + HashSize + 1;
+
+            Assert.Equal(DefaultPackageSize, system.MaxPackageSize);
+            Assert.Equal(DefaultPackageSize - DefaultOverhead, system.MaxContentSize);
+        }
+
+        [Fact]
+        public void SystemRoundTripPass()
+        {
+            // The System protector uses the default cryptographically strong RNG.
+            // A round-trip through Protect/Unprotect must succeed bit-for-bit.
+            var system = PackageProtector.System;
+
+            var key = new byte[32].Fill(13);
+
+            // Default ivSize is 16, so MaxAssociatedDataSize is 32 - 16 = 16.
+            var associatedData = new byte[16].Fill(42);
+
+            var content = new byte[200].Fill(200);
+
+            var package = new byte[content.Length + system.MaxPackageSize];
+
+            int bytesProtected = system.Protect(content, package, key, 9, associatedData);
+
+            var output = new byte[bytesProtected];
+
+            int bytesUnprotected = system.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), output, key, 9, associatedData);
+
+            Assert.Equal(content.Length, bytesUnprotected);
+            Assert.Equal(content, new ArraySegment<byte>(output, 0, bytesUnprotected).ToArray());
+        }
+
+        [Fact]
+        public void SystemProducesRandomIvPass()
+        {
+            // The System protector sources a fresh random IV for each Protect
+            // call (default ivSize is 16). Two packages over identical inputs
+            // must therefore differ in both the IV prefix and the encrypted body.
+            const int IvSize = 16;
+
+            var system = PackageProtector.System;
+
+            var key = new byte[32].Fill(11);
+            var content = new byte[64].Fill(42);
+
+            var pkg1 = new byte[content.Length + system.MaxPackageSize];
+            var pkg2 = new byte[content.Length + system.MaxPackageSize];
+
+            int len1 = system.Protect(content, pkg1, key, 7, null);
+            int len2 = system.Protect(content, pkg2, key, 7, null);
+
+            Assert.Equal(len1, len2);
+
+            var body1 = new ArraySegment<byte>(pkg1, 0, len1).ToArray();
+            var body2 = new ArraySegment<byte>(pkg2, 0, len2).ToArray();
+
+            Assert.NotEqual(body1, body2);
+
+            // Difference must include the random IV prefix.
+            Assert.NotEqual(
+                new ArraySegment<byte>(pkg1, 0, IvSize).ToArray(),
+                new ArraySegment<byte>(pkg2, 0, IvSize).ToArray());
+        }
+
+        [Fact]
+        public void SystemRoundTripAcrossInstancesPass()
+        {
+            // A package produced by the System protector must be decryptable by
+            // any other instance with the same parameters, confirming there is no
+            // hidden per-instance state and that the random IV is embedded in the
+            // package.
+            var system = PackageProtector.System;
+            var other = new TestPackageProtector(ivSize: BlockSize, packageSize: 64 * 1024);
+
+            var key = new byte[64].Fill(17);
+            var associatedData = new byte[16].Fill(9);
+
+            var content = new byte[128].Fill(123);
+
+            var package = new byte[content.Length + system.MaxPackageSize];
+
+            int bytesProtected = system.Protect(content, package, key, 99, associatedData);
+
+            var output = new byte[bytesProtected];
+
+            int bytesUnprotected = other.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), output, key, 99, associatedData);
 
             Assert.Equal(content.Length, bytesUnprotected);
             Assert.Equal(content, new ArraySegment<byte>(output, 0, bytesUnprotected).ToArray());
@@ -1181,8 +1331,8 @@ namespace Neliva.Security.Cryptography.Tests
 
             var key = new byte[32].Fill(5);
 
-            var pProtect = new PackageProtector(ivSize: protectIvSize, packageSize: PackageSize);
-            var pUnprotect = new PackageProtector(ivSize: unprotectIvSize, packageSize: PackageSize);
+            var pProtect = new TestPackageProtector(ivSize: protectIvSize, packageSize: PackageSize);
+            var pUnprotect = new TestPackageProtector(ivSize: unprotectIvSize, packageSize: PackageSize);
 
             var content = new byte[pProtect.MaxContentSize].Fill(7);
 
@@ -1215,7 +1365,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             int maxAssociatedDataSize = 32 - ivSize;
 
-            var protector = new PackageProtector(ivSize: ivSize, packageSize: PackageSize);
+            var protector = new TestPackageProtector(ivSize: ivSize, packageSize: PackageSize);
 
             var content = new byte[protector.MaxContentSize - 1].Fill(9);
 
@@ -1249,7 +1399,7 @@ namespace Neliva.Security.Cryptography.Tests
             // package, for each ivSize.
             const int PackageSize = 128;
 
-            var protector = new PackageProtector(ivSize: ivSize, packageSize: PackageSize);
+            var protector = new TestPackageProtector(ivSize: ivSize, packageSize: PackageSize);
 
             var associatedData = new byte[32 - ivSize].Fill(7);
 
@@ -1287,7 +1437,7 @@ namespace Neliva.Security.Cryptography.Tests
             var key = new byte[32].Fill(4);
             var associatedData = new byte[32 - ivSize].Fill(7);
 
-            var protector = new PackageProtector(ivSize: ivSize, packageSize: PackageSize);
+            var protector = new TestPackageProtector(ivSize: ivSize, packageSize: PackageSize);
 
             int expectedPackageSize = ivSize + HashSize + BlockSize;
 
@@ -1309,7 +1459,7 @@ namespace Neliva.Security.Cryptography.Tests
             // When multiple arguments are invalid at once, Protect must report them
             // in this documented order: content -> package -> key(size)
             // -> packageNumber -> associatedData.
-            var p = new PackageProtector(packageSize: 128);
+            var p = new TestPackageProtector(packageSize: 128);
 
             var tooLargeContent = new byte[p.MaxContentSize + 1];
             var validContent = new byte[p.MaxContentSize];
@@ -1356,7 +1506,7 @@ namespace Neliva.Security.Cryptography.Tests
             // When multiple arguments are invalid at once, Unprotect must report them
             // in this documented order: package -> content -> key(size)
             // -> packageNumber -> associatedData.
-            var p = new PackageProtector(packageSize: 128);
+            var p = new TestPackageProtector(packageSize: 128);
 
             var invalidPackage = new byte[1];
             var validPackage = new byte[p.MaxPackageSize];
@@ -1426,7 +1576,7 @@ namespace Neliva.Security.Cryptography.Tests
         [MemberData(nameof(KnownVectors))]
         public void ProtectKnownVectorPass(string keyHex, long packageNumber, string contentHex, string associatedDataHex, string expectedPackageHex)
         {
-            var protector = new PackageProtector(ivSize: 0, packageSize: 64);
+            var protector = new TestPackageProtector(ivSize: 0, packageSize: 64);
 
             byte[] key = Convert.FromHexString(keyHex);
             byte[] content = Convert.FromHexString(contentHex);
@@ -1443,7 +1593,7 @@ namespace Neliva.Security.Cryptography.Tests
         [MemberData(nameof(KnownVectors))]
         public void UnprotectKnownVectorPass(string keyHex, long packageNumber, string contentHex, string associatedDataHex, string expectedPackageHex)
         {
-            var protector = new PackageProtector(ivSize: 0, packageSize: 64);
+            var protector = new TestPackageProtector(ivSize: 0, packageSize: 64);
 
             byte[] key = Convert.FromHexString(keyHex);
             byte[] expectedContent = Convert.FromHexString(contentHex);

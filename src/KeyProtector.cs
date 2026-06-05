@@ -35,7 +35,7 @@ namespace Neliva.Security.Cryptography
     /// Authenticity is provided solely by the encrypted <c>HMAC</c>.
     /// </para>
     /// </remarks>
-    public sealed class KeyProtector
+    public abstract class KeyProtector
     {
         private const int SaltSize = 40;
         private const int VersionSize = sizeof(uint);
@@ -52,27 +52,35 @@ namespace Neliva.Security.Cryptography
 
         private const uint Version = ((uint)'P' << 24) | ((uint)'B' << 16) | ((uint)'2' << 8) | (uint)'K';
 
-        private static readonly UTF8Encoding SafeEncoding = new UTF8Encoding(false, true);
+        private static readonly UTF8Encoding SafeEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
-        private readonly RngFillAction _rngFill;
+        /// <summary>
+        /// Gets the system <see cref="KeyProtector"/> implementation, which uses
+        /// <see cref="RandomNumberGenerator.Fill(Span{byte})"/> for
+        /// cryptographically strong randomness.
+        /// </summary>
+        public static KeyProtector System { get; } = new SystemKeyProtector();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="KeyProtector"/> class.
         /// </summary>
-        /// <param name="rngFill">
-        /// A callback to fill a span with cryptographically strong random bytes.
-        /// When not provided, a default <see cref="RandomNumberGenerator.Fill"/>
-        /// implementation is used.
-        /// </param>
-        public KeyProtector(RngFillAction rngFill = null)
+        protected KeyProtector()
         {
-            this._rngFill = rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
         }
 
         /// <summary>
         /// Gets the number of bytes added to content during protection.
         /// </summary>
         public int Overhead => OverheadSize;
+
+        /// <summary>
+        /// Fills the provided span with cryptographically strong random bytes.
+        /// Override to customize the randomness source.
+        /// </summary>
+        /// <param name="data">
+        /// The span to fill with cryptographically strong random bytes.
+        /// </param>
+        protected virtual void FillRandom(Span<byte> data) => RandomNumberGenerator.Fill(data);
 
         /// <summary>
         /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.
@@ -146,7 +154,7 @@ namespace Neliva.Security.Cryptography
 
                 var salt = output.Slice(VersionSize + IterCounterSize, SaltSize);
 
-                this._rngFill(salt);
+                this.FillRandom(salt);
 
                 Span<byte> buf = stackalloc byte[64 + 32];
 
@@ -406,6 +414,13 @@ namespace Neliva.Security.Cryptography
             };
 
             Rfc2898DeriveBytes.Pbkdf2(prehashedPassword, salt, destination, iterations, HashAlgorithmName.SHA512);
+        }
+
+        /// <summary>
+        /// System default key protector implementation.
+        /// </summary>
+        private sealed class  SystemKeyProtector : KeyProtector
+        {            
         }
     }
 }

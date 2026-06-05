@@ -3,7 +3,7 @@
 
 using System;
 
-namespace Neliva.Security.Cryptography
+namespace Neliva.Security.Cryptography.Tests
 {
     /// <summary>
     /// Encapsulates a method that fills a span with
