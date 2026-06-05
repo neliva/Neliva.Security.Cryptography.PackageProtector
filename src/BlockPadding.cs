@@ -12,15 +12,15 @@ namespace Neliva.Security.Cryptography
     internal static class BlockPadding
     {
         /// <summary>
-        /// Validates the PKCS7 padding in the last block of <paramref name="buffer"/>
+        /// Validates the PKCS7 padding in the last block of <paramref name="data"/>
         /// and returns the number of padding bytes.
         /// </summary>
         /// <param name="blockSize">
         /// The block size, in bytes, that the padding is aligned to.
         /// Must be between 1 and <see cref="byte.MaxValue"/> inclusive.
         /// </param>
-        /// <param name="buffer">
-        /// The buffer whose final block contains the PKCS7 padding to validate.
+        /// <param name="data">
+        /// The data whose final block contains the PKCS7 padding to validate.
         /// Its length must be a non-zero multiple of <paramref name="blockSize"/>.
         /// </param>
         /// <returns>
@@ -30,16 +30,16 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="blockSize"/> is less than 1 or greater than <see cref="byte.MaxValue"/>.
         /// - or -
-        /// The <paramref name="buffer"/> is empty.
+        /// The <paramref name="data"/> is empty.
         /// - or -
-        /// The <paramref name="buffer"/> length is not a multiple of <paramref name="blockSize"/>.
+        /// The <paramref name="data"/> length is not a multiple of <paramref name="blockSize"/>.
         /// </exception>
         /// <remarks>
-        /// The padding is verified in constant time with respect to the buffer
+        /// The padding is verified in constant time with respect to the data
         /// contents, so the execution time does not reveal whether the padding is
         /// valid or how many padding bytes are present.
         /// <para>
-        /// The <paramref name="buffer"/> must be authenticated (for example, by a
+        /// The <paramref name="data"/> must be authenticated (for example, by a
         /// verified message authentication code) before this method is called.
         /// Although the verification is constant time, the return value itself
         /// reveals whether the padding is valid. Calling this method on
@@ -48,32 +48,32 @@ namespace Neliva.Security.Cryptography
         /// padding oracle that can be used to decrypt or forge data without the key.
         /// </para>
         /// </remarks>
-        public static int GetPKCS7PaddingLength(int blockSize, ReadOnlySpan<byte> buffer)
+        public static int GetPKCS7PaddingLength(int blockSize, ReadOnlySpan<byte> data)
         {
             if (blockSize <= 0 || blockSize > byte.MaxValue)
             {
                 throw new ArgumentOutOfRangeException(nameof(blockSize), "Block size must be between 1 and 255.");
             }
 
-            int bufferLength = buffer.Length;
+            int dataLength = data.Length;
 
-            if (bufferLength == 0)
+            if (dataLength == 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(buffer), "Buffer is empty.");
+                throw new ArgumentOutOfRangeException(nameof(data), "Data is empty.");
             }
 
-            if ((bufferLength % blockSize) != 0)
+            if ((dataLength % blockSize) != 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(buffer), "Buffer length is not a multiple of block size.");
+                throw new ArgumentOutOfRangeException(nameof(data), "Data length is not a multiple of block size.");
             }
 
-            uint padLength = buffer[bufferLength - 1];
+            uint padLength = data[dataLength - 1];
             uint mask = ConstantTimeGE((uint)blockSize, padLength) & ConstantTimeGE(padLength, 1);
 
             for (int i = 0; i < blockSize; i++)
             {
                 uint bmask = ConstantTimeGE(padLength, (uint)i + 1);
-                uint b = buffer[(bufferLength - 1) - i];
+                uint b = data[(dataLength - 1) - i];
                 mask &= ~(bmask & (padLength ^ b));
             }
 

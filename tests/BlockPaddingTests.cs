@@ -16,16 +16,16 @@ namespace Neliva.Security.Cryptography.Tests
             ArgumentException ex;
 
             ex = Assert.Throws<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(4, null));
-            Assert.Equal("buffer", ex.ParamName);
-            Assert.Equal("Buffer is empty. (Parameter 'buffer')", ex.Message);
+            Assert.Equal("data", ex.ParamName);
+            Assert.Equal("Data is empty. (Parameter 'data')", ex.Message);
 
             ex = Assert.Throws<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(4, default));
-            Assert.Equal("buffer", ex.ParamName);
-            Assert.Equal("Buffer is empty. (Parameter 'buffer')", ex.Message);
+            Assert.Equal("data", ex.ParamName);
+            Assert.Equal("Data is empty. (Parameter 'data')", ex.Message);
 
             ex = Assert.Throws<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(4, Span<byte>.Empty));
-            Assert.Equal("buffer", ex.ParamName);
-            Assert.Equal("Buffer is empty. (Parameter 'buffer')", ex.Message);
+            Assert.Equal("data", ex.ParamName);
+            Assert.Equal("Data is empty. (Parameter 'data')", ex.Message);
 
 
             ex = Assert.Throws<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(-1, new byte[16]));
@@ -42,16 +42,16 @@ namespace Neliva.Security.Cryptography.Tests
 
 
             ex = Assert.Throws<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(15, new byte[16]));
-            Assert.Equal("buffer", ex.ParamName);
-            Assert.Equal("Buffer length is not a multiple of block size. (Parameter 'buffer')", ex.Message);
+            Assert.Equal("data", ex.ParamName);
+            Assert.Equal("Data length is not a multiple of block size. (Parameter 'data')", ex.Message);
 
             ex = Assert.Throws<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(17, new byte[32]));
-            Assert.Equal("buffer", ex.ParamName);
-            Assert.Equal("Buffer length is not a multiple of block size. (Parameter 'buffer')", ex.Message);
+            Assert.Equal("data", ex.ParamName);
+            Assert.Equal("Data length is not a multiple of block size. (Parameter 'data')", ex.Message);
 
             ex = Assert.Throws<ArgumentOutOfRangeException>(() => BlockPadding.GetPKCS7PaddingLength(16, new byte[15]));
-            Assert.Equal("buffer", ex.ParamName);
-            Assert.Equal("Buffer length is not a multiple of block size. (Parameter 'buffer')", ex.Message);
+            Assert.Equal("data", ex.ParamName);
+            Assert.Equal("Data length is not a multiple of block size. (Parameter 'data')", ex.Message);
 
             // Inner boundaries of the valid blockSize range must not throw.
             Assert.Equal(1, BlockPadding.GetPKCS7PaddingLength(1, new byte[] { 1 }));
