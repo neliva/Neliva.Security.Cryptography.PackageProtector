@@ -108,8 +108,8 @@ namespace Neliva.Security.Cryptography
         public int MaxPackageSize => this._MaxPackageSize;
 
         /// <summary>
-        /// Fills the provided <paramref name="data"/> span with
-        /// cryptographically strong random bytes.
+        /// Fills the provided span with cryptographically strong random bytes.
+        /// Override to customize the randomness source.
         /// </summary>
         /// <param name="data">
         /// The span to fill with cryptographically strong random bytes.

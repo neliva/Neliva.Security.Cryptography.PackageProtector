@@ -22,10 +22,15 @@ namespace Neliva.Security.Cryptography.Tests
 
         // Test double that overrides FillRandom to supply deterministic
         // "random" bytes (for example a fixed salt) so that produced packages
-        // are fully reproducible during testing.
+        // are fully reproducible during testing. When constructed without a
+        // delegate, it defers to the default (cryptographically strong) RNG.
         private sealed class TestKeyProtector : KeyProtector
         {
             private readonly RngFillAction _fillRandom;
+
+            public TestKeyProtector()
+            {
+            }
 
             public TestKeyProtector(RngFillAction fillRandom)
             {
@@ -34,6 +39,12 @@ namespace Neliva.Security.Cryptography.Tests
 
             protected override void FillRandom(Span<byte> data)
             {
+                if (this._fillRandom is null)
+                {
+                    base.FillRandom(data);
+                    return;
+                }
+
                 this._fillRandom(data);
             }
         }
@@ -51,7 +62,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var associatedData = new byte[associatedDataLength];
 
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             var content = new byte[contentLength];
 
@@ -263,7 +274,7 @@ namespace Neliva.Security.Cryptography.Tests
             var password = "user-password";
             var iterations = 2;
 
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             var content = new byte[contentLength];
 
@@ -285,7 +296,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var password = "user-password";
 
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             var package = new byte[packageSize];
 
@@ -303,7 +314,7 @@ namespace Neliva.Security.Cryptography.Tests
             var password = "user-password";
             var iterations = 2;
 
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             var content = new byte[32];
 
@@ -320,7 +331,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var password = "user-password";
 
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             var package = new byte[32 + protector.Overhead];
 
@@ -340,7 +351,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var password = "user-password";
 
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             var content = new byte[32];
 
@@ -360,7 +371,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ad = new byte[associatedDataLength];
 
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             var content = new byte[32];
 
@@ -380,7 +391,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var ad = new byte[associatedDataLength];
 
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             var content = new byte[32];
 
@@ -397,7 +408,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var password = "user-password";
 
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             int overhead = protector.Overhead;
 
@@ -420,7 +431,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var password = "user-password";
 
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             int overhead = protector.Overhead;
 
@@ -695,7 +706,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void DefaultConstructorPass()
         {
-            var p = new KeyProtector();
+            var p = new TestKeyProtector();
             Assert.Equal(96, p.Overhead);
         }
 
@@ -722,7 +733,7 @@ namespace Neliva.Security.Cryptography.Tests
             // a multi-byte Unicode password (with combining characters and emoji) must
             // succeed bit-for-bit. This locks in that the prehash encodes the password
             // as UTF-8 consistently between Protect and Unprotect.
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             string password = "p\u00e4ssw\u00f6rd \u4e2d\u6587 \uD83D\uDD10";
 
@@ -744,8 +755,8 @@ namespace Neliva.Security.Cryptography.Tests
         {
             // KeyProtector instances must not carry hidden per-instance state.
             // A package produced by one instance must be decryptable by another.
-            var pA = new KeyProtector();
-            var pB = new KeyProtector();
+            var pA = new TestKeyProtector();
+            var pB = new TestKeyProtector();
 
             const string password = "cross-instance-password";
             var associatedData = new byte[16].Fill(64);
@@ -767,7 +778,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             // When multiple arguments are invalid at once, Protect must report them
             // in this documented order: content -> package -> iterations -> associatedData.
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             const string password = "user-password";
 
@@ -805,7 +816,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             // When multiple arguments are invalid at once, Unprotect must report them
             // in this documented order: package -> content -> associatedData.
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             const string password = "user-password";
 
@@ -839,7 +850,7 @@ namespace Neliva.Security.Cryptography.Tests
             // The associatedData length (its byte value and the bytes themselves) is
             // bound into the prehash. Exhaustively round-trip every valid associatedData
             // size from 0 to MaxAssociatedDataSize (64).
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             const string password = "aad-range-password";
 
@@ -869,7 +880,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             // Omitting the optional associatedData argument must be equivalent to passing
             // an empty span for both Protect and Unprotect.
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             const string password = "default-ad-password";
 
@@ -898,7 +909,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             // Content must be block-aligned (16 bytes) and at least 32 bytes. Round-trip a
             // sweep of consecutive valid aligned sizes to confirm all are handled correctly.
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             const string password = "content-size-password";
 
@@ -973,7 +984,7 @@ namespace Neliva.Security.Cryptography.Tests
             _ = saltFill;
             _ = iterations;
 
-            var protector = new KeyProtector();
+            var protector = new TestKeyProtector();
 
             byte[] expectedContent = Convert.FromHexString(contentHex);
             byte[] associatedData = Convert.FromHexString(associatedDataHex);

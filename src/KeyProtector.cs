@@ -35,7 +35,7 @@ namespace Neliva.Security.Cryptography
     /// Authenticity is provided solely by the encrypted <c>HMAC</c>.
     /// </para>
     /// </remarks>
-    public class KeyProtector
+    public abstract class KeyProtector
     {
         private const int SaltSize = 40;
         private const int VersionSize = sizeof(uint);
@@ -52,12 +52,19 @@ namespace Neliva.Security.Cryptography
 
         private const uint Version = ((uint)'P' << 24) | ((uint)'B' << 16) | ((uint)'2' << 8) | (uint)'K';
 
-        private static readonly UTF8Encoding SafeEncoding = new UTF8Encoding(false, true);
+        private static readonly UTF8Encoding SafeEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+        /// <summary>
+        /// Gets the system <see cref="KeyProtector"/> implementation, which uses
+        /// <see cref="RandomNumberGenerator.Fill(Span{byte})"/> for
+        /// cryptographically strong randomness.
+        /// </summary>
+        public static KeyProtector System { get; } = new SystemKeyProtector();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="KeyProtector"/> class.
         /// </summary>
-        public KeyProtector()
+        protected KeyProtector()
         {
         }
 
@@ -67,8 +74,8 @@ namespace Neliva.Security.Cryptography
         public int Overhead => OverheadSize;
 
         /// <summary>
-        /// Fills the provided <paramref name="data"/> span with
-        /// cryptographically strong random bytes.
+        /// Fills the provided span with cryptographically strong random bytes.
+        /// Override to customize the randomness source.
         /// </summary>
         /// <param name="data">
         /// The span to fill with cryptographically strong random bytes.
@@ -407,6 +414,13 @@ namespace Neliva.Security.Cryptography
             };
 
             Rfc2898DeriveBytes.Pbkdf2(prehashedPassword, salt, destination, iterations, HashAlgorithmName.SHA512);
+        }
+
+        /// <summary>
+        /// System default key protector implementation.
+        /// </summary>
+        private sealed class  SystemKeyProtector : KeyProtector
+        {            
         }
     }
 }
