@@ -774,6 +774,105 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Fact]
+        public void SystemReturnsSingletonInstancePass()
+        {
+            // The System property exposes a single shared, lazily-initialized
+            // instance. Repeated access must return the same reference.
+            var first = KeyProtector.System;
+            var second = KeyProtector.System;
+
+            Assert.NotNull(first);
+            Assert.Same(first, second);
+        }
+
+        [Fact]
+        public void SystemIsKeyProtectorPass()
+        {
+            var system = KeyProtector.System;
+
+            Assert.IsAssignableFrom<KeyProtector>(system);
+            Assert.Equal(96, system.Overhead);
+        }
+
+        [Fact]
+        public void SystemRoundTripPass()
+        {
+            // The System protector uses the default cryptographically strong RNG.
+            // A round-trip through Protect/Unprotect must succeed bit-for-bit.
+            var system = KeyProtector.System;
+
+            const string password = "system-protector-password";
+            var associatedData = new byte[16].Fill(42);
+
+            var content = new byte[64].Fill(200);
+            var package = new byte[content.Length + system.Overhead];
+
+            int protectedLen = system.Protect(content, package, password, iterations: 3, associatedData);
+            Assert.Equal(package.Length, protectedLen);
+
+            var unprotected = new byte[content.Length];
+            int unprotectedLen = system.Unprotect(package, unprotected, password, associatedData);
+
+            Assert.Equal(content.Length, unprotectedLen);
+            Assert.Equal(content, unprotected);
+        }
+
+        [Fact]
+        public void SystemProducesRandomSaltPass()
+        {
+            // The System protector must source a fresh random salt for each
+            // Protect call. Two packages over identical inputs must therefore
+            // differ in the salt region (offset 8, length 40).
+            const int SaltOffset = 8;
+            const int SaltSize = 40;
+
+            var system = KeyProtector.System;
+
+            const string password = "system-protector-password";
+
+            var content = new byte[32].Fill(7);
+
+            var packageA = new byte[content.Length + system.Overhead];
+            var packageB = new byte[content.Length + system.Overhead];
+
+            system.Protect(content, packageA, password, iterations: 1);
+            system.Protect(content, packageB, password, iterations: 1);
+
+            var saltA = packageA.AsSpan(SaltOffset, SaltSize);
+            var saltB = packageB.AsSpan(SaltOffset, SaltSize);
+
+            Assert.False(saltA.SequenceEqual(saltB), "System salt must be random per Protect call.");
+
+            // Random salt also yields different overall packages.
+            Assert.False(packageA.AsSpan().SequenceEqual(packageB), "Packages must differ when the salt is random.");
+        }
+
+        [Fact]
+        public void SystemRoundTripAcrossInstancesPass()
+        {
+            // A package produced by the System protector must be decryptable by
+            // any other KeyProtector instance, confirming there is no hidden
+            // per-instance state and that the System default RNG only affects
+            // the salt (which is embedded in the package).
+            var system = KeyProtector.System;
+            var other = new TestKeyProtector();
+
+            const string password = "cross-instance-password";
+            var associatedData = new byte[8].Fill(9);
+
+            var content = new byte[48].Fill(123);
+            var package = new byte[content.Length + system.Overhead];
+
+            system.Protect(content, package, password, iterations: 2, associatedData);
+
+            var unprotected = new byte[content.Length];
+            int unprotectedLen = other.Unprotect(package, unprotected, password, associatedData);
+
+            Assert.Equal(content.Length, unprotectedLen);
+            Assert.Equal(content, unprotected);
+        }
+
+        [Fact]
         public void ProtectValidationPrecedencePass()
         {
             // When multiple arguments are invalid at once, Protect must report them
