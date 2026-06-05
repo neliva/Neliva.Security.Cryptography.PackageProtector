@@ -437,35 +437,26 @@ namespace Neliva.Security.Cryptography
 
         internal static void DeriveKeys(HMACSHA256 hmac, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
         {
-            Span<byte> data = stackalloc byte[55]; // Max available space before hmac padding.
-
             const byte SignPurpose = 0x00;
             const byte EncryptPurpose = 0xff;
 
-            const uint counter = 1; // KDF in Counter Mode as described in SP800-108.
-            const uint derivedKeyLengthInBits = 256;
+            Span<byte> label = stackalloc byte[3];
+            Span<byte> context = stackalloc byte[43];
 
-            data[0] = (byte)(counter >> 24);
-            data[1] = (byte)(counter >> 16);
-            data[2] = (byte)(counter >> 8);
-            data[3] = (byte)counter;
+            label[0] = EncryptPurpose;
+            label[1] = (byte)ivArg1.Length;
+            label[2] = (byte)ivArg2.Length;
 
-            data[4] = EncryptPurpose;
-            data[5] = (byte)ivArg1.Length;
-            data[6] = (byte)ivArg2.Length;
+            context[0] = (byte)(packageNumber >> 56);
+            context[1] = (byte)(packageNumber >> 48);
+            context[2] = (byte)(packageNumber >> 40);
+            context[3] = (byte)(packageNumber >> 32);
+            context[4] = (byte)(packageNumber >> 24);
+            context[5] = (byte)(packageNumber >> 16);
+            context[6] = (byte)(packageNumber >> 8);
+            context[7] = (byte)packageNumber;
 
-            data[7] = 0; // SP800-108 label and context separator.
-
-            data[8] = (byte)(packageNumber >> 56);
-            data[9] = (byte)(packageNumber >> 48);
-            data[10] = (byte)(packageNumber >> 40);
-            data[11] = (byte)(packageNumber >> 32);
-            data[12] = (byte)(packageNumber >> 24);
-            data[13] = (byte)(packageNumber >> 16);
-            data[14] = (byte)(packageNumber >> 8);
-            data[15] = (byte)packageNumber;
-
-            var ivArgs = data.Slice(16, 32);
+            var ivArgs = context.Slice(8, 32);
 
             ivArg1.CopyTo(ivArgs);
 
@@ -473,20 +464,15 @@ namespace Neliva.Security.Cryptography
 
             ivArgs.Slice(ivArg1.Length + ivArg2.Length).Clear();
 
-            data[48] = (byte)(packageSize >> 16);
-            data[49] = (byte)(packageSize >> 8);
-            data[50] = (byte)packageSize;
+            context[40] = (byte)(packageSize >> 16);
+            context[41] = (byte)(packageSize >> 8);
+            context[42] = (byte)packageSize;;
 
-            data[51] = (byte)(derivedKeyLengthInBits >> 24);
-            data[52] = (byte)(derivedKeyLengthInBits >> 16);
-            data[53] = (byte)(derivedKeyLengthInBits >> 8);
-            data[54] = (byte)(derivedKeyLengthInBits & 0xff);
+            hmac.DeriveKey(encryptionKey, label, context);
 
-            hmac.ComputeHash(data, encryptionKey);
+            label[0] = SignPurpose;
 
-            data[4] = SignPurpose;
-
-            hmac.ComputeHash(data, signingKey);
+            hmac.DeriveKey(signingKey, label, context);
         }
 
         /// <summary>
