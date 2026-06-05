@@ -52,19 +52,19 @@ namespace Neliva.Security.Cryptography
         {
             if (blockSize <= 0 || blockSize > byte.MaxValue)
             {
-                throw new ArgumentOutOfRangeException(nameof(blockSize), "Block size must be between 1 and 255.");
+                throw new ArgumentOutOfRangeException(nameof(blockSize), "Value must be between 1 and 255.");
             }
 
             int dataLength = data.Length;
 
             if (dataLength == 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(data), "Data is empty.");
+                throw new ArgumentOutOfRangeException(nameof(data), "Span is empty.");
             }
 
             if ((dataLength % blockSize) != 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(data), "Data length is not a multiple of block size.");
+                throw new ArgumentOutOfRangeException(nameof(data), "Span length is not a multiple of block size.");
             }
 
             uint padLength = data[dataLength - 1];
