@@ -29,7 +29,7 @@ namespace Neliva.Security.Cryptography
     /// </code>
     /// </para>
     /// </remarks>
-    public sealed partial class PackageProtector
+    public partial class PackageProtector
     {
         private const int BlockSize = 16; // AES block size.
         private const int HashSize = 32;  // HMAC-SHA256 hash and key size, AES256 key size.
@@ -40,8 +40,6 @@ namespace Neliva.Security.Cryptography
         private readonly int _MinPackageSize;
         private readonly int _MaxContentSize;
         private readonly int _MaxAssociatedDataSize;
-
-        private readonly RngFillAction _rngFill;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PackageProtector"/> class.
@@ -55,18 +53,13 @@ namespace Neliva.Security.Cryptography
         /// The minimum is (<paramref name="ivSize"/> + 48)
         /// and the maximum is <c>16777200</c>.
         /// </param>
-        /// <param name="rngFill">
-        /// A callback to fill a span with cryptographically strong random bytes.
-        /// When not provided, a default <see cref="RandomNumberGenerator.Fill"/>
-        /// implementation is used for non-zero <paramref name="ivSize"/> value.
-        /// </param>
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="ivSize"/> parameter is not 0, 16 or 32 bytes.
         /// - or -
         /// The <paramref name="packageSize"/> parameter is less than
         /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>16777200</c> bytes.
         /// </exception>
-        public PackageProtector(int ivSize = BlockSize, int packageSize = 64 * 1024, RngFillAction rngFill = null)
+        public PackageProtector(int ivSize = BlockSize, int packageSize = 64 * 1024)
         {
             switch (ivSize)
             {
@@ -98,10 +91,6 @@ namespace Neliva.Security.Cryptography
             this._MinPackageSize = minPackageSize;
             this._MaxContentSize = packageSize - overhead;
             this._MaxAssociatedDataSize = BlockSize + BlockSize - ivSize;
-
-            this._rngFill = ivSize == 0 ?
-                null : // No need for RNG when IV size is zero.
-                rngFill ?? new RngFillAction(RandomNumberGenerator.Fill);
         }
 
         /// <summary>
@@ -117,6 +106,15 @@ namespace Neliva.Security.Cryptography
         /// method.
         /// </summary>
         public int MaxPackageSize => this._MaxPackageSize;
+
+        /// <summary>
+        /// Fills the provided <paramref name="data"/> span with
+        /// cryptographically strong random bytes.
+        /// </summary>
+        /// <param name="data">
+        /// The span to fill with cryptographically strong random bytes.
+        /// </param>
+        protected virtual void FillRandom(Span<byte> data) => RandomNumberGenerator.Fill(data);
 
         /// <summary>
         /// Protects the <paramref name="content"/> into the <paramref name="package"/> destination.
@@ -196,7 +194,7 @@ namespace Neliva.Security.Cryptography
 
             try
             {
-                this._rngFill?.Invoke(kdfIV);
+                this.FillRandom(kdfIV);
 
                 // Copy plain text to output buffer (after iv and hash).
                 content.CopyTo(data);

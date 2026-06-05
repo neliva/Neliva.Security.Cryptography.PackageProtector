@@ -20,6 +20,25 @@ namespace Neliva.Security.Cryptography.Tests
         private const int MinPackageSize = BlockSize + BlockSize + HashSize;
         private const int MaxPackageSize = (16 * 1024 * 1024) - BlockSize;
 
+        // Test double that overrides FillRandom to supply deterministic
+        // "random" bytes (for example a fixed IV) so that produced packages
+        // are reproducible during testing.
+        private sealed class TestPackageProtector : PackageProtector
+        {
+            private readonly RngFillAction _fillRandom;
+
+            public TestPackageProtector(RngFillAction fillRandom, int ivSize = BlockSize, int packageSize = 64 * 1024)
+                : base(ivSize, packageSize)
+            {
+                this._fillRandom = fillRandom;
+            }
+
+            protected override void FillRandom(Span<byte> data)
+            {
+                this._fillRandom(data);
+            }
+        }
+
         [Fact]
         public void ProtectOverlapFail()
         {
@@ -265,7 +284,7 @@ namespace Neliva.Security.Cryptography.Tests
                 rngVal.AsSpan().CopyTo(data);
             };
 
-            var protector = new PackageProtector(ivSize: ivSize, packageSize: 128, rngFill: rng);
+            var protector = new TestPackageProtector(rng, ivSize: ivSize, packageSize: 128);
 
             var content = new byte[1].Fill(100);
             var package = new byte[protector.MaxPackageSize];
@@ -301,7 +320,7 @@ namespace Neliva.Security.Cryptography.Tests
                 throw new Exception(exStr);
             };
 
-            var protector = new PackageProtector(ivSize: ivSize, packageSize: 80, rngFill: rng);
+            var protector = new TestPackageProtector(rng, ivSize: ivSize, packageSize: 80);
 
             var content = new byte[1].Fill(100);
             var package = new byte[protector.MaxPackageSize];
