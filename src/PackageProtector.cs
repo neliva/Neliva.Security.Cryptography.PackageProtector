@@ -42,6 +42,13 @@ namespace Neliva.Security.Cryptography
         private readonly int _MaxAssociatedDataSize;
 
         /// <summary>
+        /// Gets the system <see cref="PackageProtector"/> implementation, which uses
+        /// <see cref="RandomNumberGenerator.Fill(Span{byte})"/> for
+        /// cryptographically strong randomness.
+        /// </summary>
+        public static PackageProtector System { get; } = new SystemPackageProtector();
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="PackageProtector"/> class.
         /// </summary>
         /// <param name="ivSize">
@@ -480,6 +487,13 @@ namespace Neliva.Security.Cryptography
             data[4] = SignPurpose;
 
             hmac.ComputeHash(data, signingKey);
+        }
+
+        /// <summary>
+        /// System default package protector implementation.
+        /// </summary>
+        private sealed class SystemPackageProtector : PackageProtector
+        {
         }
     }
 }
