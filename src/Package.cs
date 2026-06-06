@@ -7,9 +7,9 @@ using System.Security.Cryptography;
 namespace Neliva.Security.Cryptography
 {
     /// <summary>
-    /// Provides extension methods for the <see cref="Aes"/> class.
+    /// Provides helper methods for package protection.
     /// </summary>
-    internal static class AesExtensions
+    internal static class Package
     {
         private const int BlockSize = 16;
 
