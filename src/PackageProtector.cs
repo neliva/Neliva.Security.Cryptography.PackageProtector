@@ -381,7 +381,7 @@ namespace Neliva.Security.Cryptography
                         throw new BadPackageException();
                     }
 
-                    int padLength = Pkcs7.GetPKCS7PaddingLength(BlockSize, data);
+                    int padLength = Package.GetPKCS7PaddingLength(BlockSize, data);
 
                     if (padLength == -1)
                     {
