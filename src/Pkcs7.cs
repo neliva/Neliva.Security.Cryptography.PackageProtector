@@ -9,7 +9,7 @@ namespace Neliva.Security.Cryptography
     /// <summary>
     /// Provides constant-time helpers for working with block cipher padding.
     /// </summary>
-    internal static class BlockPadding
+    internal static class Pkcs7
     {
         /// <summary>
         /// Validates the PKCS7 padding in the last block of <paramref name="data"/>
@@ -48,7 +48,7 @@ namespace Neliva.Security.Cryptography
         /// padding oracle that can be used to decrypt or forge data without the key.
         /// </para>
         /// </remarks>
-        public static int GetPKCS7PaddingLength(int blockSize, ReadOnlySpan<byte> data)
+        public static int GetPaddingLength(int blockSize, ReadOnlySpan<byte> data)
         {
             if (blockSize <= 0 || blockSize > byte.MaxValue)
             {
