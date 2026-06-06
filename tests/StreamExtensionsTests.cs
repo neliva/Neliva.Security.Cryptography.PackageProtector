@@ -599,13 +599,12 @@ namespace Neliva.Security.Cryptography.Tests
         public async Task SystemStreamRoundTripPass()
         {
             // The System protector is the default public instance. A multi-package
-            // stream round-trip through the async API must succeed bit-for-bit,
-            // including when associated data is supplied (default ivSize 16 allows
-            // up to 16 associated-data bytes).
+            // stream round-trip through the async API must succeed bit-for-bit.
+            // System uses ivSize 32, so MaxAssociatedDataSize is 32 - 32 = 0.
             var p = PackageProtector.System;
 
             var key = new PackageKey(CreateArray(32, 209));
-            var associatedData = CreateArray(16, 77);
+            var associatedData = ReadOnlyMemory<byte>.Empty;
 
             // Spans several packages to exercise chunked stream protection.
             var content = CreateArray((p.MaxContentSize * 2) + 123, 200);
