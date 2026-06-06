@@ -76,7 +76,7 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="packageSize"/> parameter is less than
         /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>16777200</c> bytes.
         /// </exception>
-        protected PackageProtector(int ivSize = BlockSize, int packageSize = 64 * 1024)
+        protected PackageProtector(int ivSize, int packageSize)
         {
             switch (ivSize)
             {
@@ -713,6 +713,9 @@ namespace Neliva.Security.Cryptography
         /// </summary>
         private sealed class SystemPackageProtector : PackageProtector
         {
+            public SystemPackageProtector() : base(ivSize: 32, packageSize: 64 * 1024)
+            {
+            }
         }
     }
 }
