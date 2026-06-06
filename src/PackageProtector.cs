@@ -37,7 +37,6 @@ namespace Neliva.Security.Cryptography
     {
         private const int BlockSize = 16; // AES block size.
         private const int HashSize = 32;  // Truncated MAC size stored in the package, and AES256 key size.
-        private const int SignKeySize = 64; // HMAC-SHA512 signing key size (also equals the HMAC-SHA512 output size).
 
         private readonly int _IvSize;
         private readonly int _IvAndHashSize;
@@ -218,26 +217,24 @@ namespace Neliva.Security.Cryptography
                     data[pos] = (byte)padLength;
                 }
 
-                Span<byte> buf = stackalloc byte[HashSize + SignKeySize];
+                Span<byte> buf = stackalloc byte[HMACSHA512.HashSizeInBytes + HashSize];
 
-                Span<byte> encKey = buf.Slice(0, HashSize);
-                Span<byte> signKey = buf.Slice(HashSize, SignKeySize);
+                Span<byte> tmp64 = buf.Slice(0, HMACSHA512.HashSizeInBytes);
+                Span<byte> tmp32 = buf.Slice(HMACSHA512.HashSizeInBytes, HashSize);
 
                 try
                 {
-                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
+                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmp32, tmp64);
 
-                    // Sign plaintext and padding with HMAC-SHA512, then prepend the
-                    // hash (truncated to 32 bytes) to the padded plaintext.
-                    Span<byte> fullMac = stackalloc byte[SignKeySize];
+                    // Sign plaintext and padding.
+                    HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
 
-                    HMACSHA512.HashData(signKey, data, fullMac);
-
-                    fullMac.Slice(0, HashSize).CopyTo(package.Slice(this._IvSize, HashSize));
+                    // Prepend the hash (truncated to 32 bytes) to the padded plaintext.
+                    tmp64.Slice(0, HashSize).CopyTo(package.Slice(this._IvSize));
 
                     using (var aes = Aes.Create())
                     {
-                        aes.SetKey(encKey);
+                        aes.SetKey(tmp32);
 
                         // Encrypt buffer in place.
                         aes.EncryptCbcNoPadding(package.Slice(this._IvSize, outputPackageSize - this._IvSize), package.Slice(this._IvSize));
@@ -340,10 +337,10 @@ namespace Neliva.Security.Cryptography
                 throw new InvalidOperationException($"The '{nameof(content)}' must not overlap in memory with the '{nameof(package)}'.");
             }
 
-            Span<byte> buf = stackalloc byte[HashSize + SignKeySize];
+            Span<byte> buf = stackalloc byte[HMACSHA512.HashSizeInBytes + HashSize];
 
-            Span<byte> tmpASpan = buf.Slice(0, HashSize); // Used for encKey and decrypted hash
-            Span<byte> tmpBSpan = buf.Slice(HashSize, SignKeySize); // Used for signKey and computed hash
+            Span<byte> tmp64 = buf.Slice(0, HMACSHA512.HashSizeInBytes); // Used for signKey and computed hash
+            Span<byte> tmp32 = buf.Slice(HMACSHA512.HashSizeInBytes, HashSize); // Used for encKey and decrypted hash
 
             try
             {
@@ -351,16 +348,16 @@ namespace Neliva.Security.Cryptography
                 {
                     var kdfIV = package.Slice(0, this._IvSize);
 
-                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmpASpan, tmpBSpan);
+                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmp32, tmp64);
 
                     using (var aes = Aes.Create())
                     {
-                        aes.SetKey(tmpASpan);
+                        aes.SetKey(tmp32);
 
                         // Decrypt package hash
                         aes.DecryptCbcNoPadding(
                             package.Slice(this._IvSize, HashSize),
-                            tmpASpan);
+                            tmp32);
 
                         // Decrypt (content + padding) directly into output.
                         aes.DecryptCbcNoPadding(
@@ -369,11 +366,9 @@ namespace Neliva.Security.Cryptography
                             package.Slice(this._IvAndHashSize - BlockSize, BlockSize));
                     }
 
-                    Span<byte> fullMac = stackalloc byte[SignKeySize];
+                    HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
 
-                    HMACSHA512.HashData(tmpBSpan, data, fullMac);
-
-                    if (!CryptographicOperations.FixedTimeEquals(tmpASpan, fullMac.Slice(0, HashSize)))
+                    if (!CryptographicOperations.FixedTimeEquals(tmp32, tmp64.Slice(0, HashSize)))
                     {
                         throw new BadPackageException();
                     }
