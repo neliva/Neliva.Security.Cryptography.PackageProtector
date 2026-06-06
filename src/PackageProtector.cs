@@ -32,6 +32,12 @@ namespace Neliva.Security.Cryptography
     /// |             |                       encrypted (no padding)                         |
     /// </code>
     /// </para>
+    /// <para>
+    /// The <c>MAC</c> is the leading 32 bytes of an HMAC-SHA512 computed over the
+    /// chunk content and PKCS7 padding. Per-package encryption and signing keys are
+    /// derived from the supplied <see cref="PackageKey"/> using the IV, package
+    /// number, associated data, and package size.
+    /// </para>
     /// </remarks>
     public abstract class PackageProtector
     {
@@ -137,7 +143,8 @@ namespace Neliva.Security.Cryptography
         /// The destination to receive the protected <paramref name="content"/>.
         /// </param>
         /// <param name="key">
-        /// The secret key used to protect the <paramref name="content"/>.
+        /// The <see cref="PackageKey"/> used to derive the keys that protect the
+        /// <paramref name="content"/>.
         /// </param>
         /// <param name="packageNumber">
         /// The package number in a series of packages, which must match the value
@@ -265,7 +272,8 @@ namespace Neliva.Security.Cryptography
         /// The destination to receive the unprotected <paramref name="package"/>.
         /// </param>
         /// <param name="key">
-        /// The secret key used to unprotect the <paramref name="package"/>.
+        /// The <see cref="PackageKey"/> used to derive the keys that unprotect the
+        /// <paramref name="package"/>.
         /// </param>
         /// <param name="packageNumber">
         /// The package number in a series of packages, which must match the value
@@ -406,7 +414,8 @@ namespace Neliva.Security.Cryptography
         /// The destination to receive the protected <paramref name="content"/>.
         /// </param>
         /// <param name="key">
-        /// The secret key used to protect the <paramref name="content"/>.
+        /// The <see cref="PackageKey"/> used to derive the keys that protect the
+        /// <paramref name="content"/>.
         /// </param>
         /// <param name="associatedData">
         /// The extra data associated with the <paramref name="content"/>, which must match the value
@@ -513,7 +522,8 @@ namespace Neliva.Security.Cryptography
         /// The destination to receive the unprotected <paramref name="package"/>.
         /// </param>
         /// <param name="key">
-        /// The secret key used to unprotect the <paramref name="package"/>.
+        /// The <see cref="PackageKey"/> used to derive the keys that unprotect the
+        /// <paramref name="package"/>.
         /// </param>
         /// <param name="associatedData">
         /// The extra data associated with the <paramref name="package"/>, which must match the value
