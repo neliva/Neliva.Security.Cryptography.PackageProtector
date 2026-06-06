@@ -12,9 +12,9 @@ namespace Neliva.Security.Cryptography
     /// </summary>
     internal static class Package
     {
-        private const int BlockSize = 16;
+        public const int AesBlockSize = 16;
 
-        private static ReadOnlySpan<byte> ZeroIV => new byte[BlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        private static ReadOnlySpan<byte> ZeroIV => new byte[AesBlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         public static void EncryptCbcNoPadding(this Aes aes, ReadOnlySpan<byte> plaintext, Span<byte> destination, ReadOnlySpan<byte> iv = default)
         {

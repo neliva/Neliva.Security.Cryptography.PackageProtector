@@ -41,7 +41,7 @@ namespace Neliva.Security.Cryptography
         private const int VersionSize = sizeof(uint);
         private const int IterCounterSize = sizeof(uint);
         private const int MacSize = 32;
-        private const int BlockSize = 16;
+        private const int BlockSize = Package.AesBlockSize;
         private const int ChecksumSize = 16;
         private const int OverheadSize = VersionSize + IterCounterSize + SaltSize + MacSize + ChecksumSize;
         private const int MinContentSize = 32;

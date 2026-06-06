@@ -41,7 +41,7 @@ namespace Neliva.Security.Cryptography
     /// </remarks>
     public abstract class PackageProtector
     {
-        private const int BlockSize = 16; // AES block size.
+        private const int BlockSize = Package.AesBlockSize;
         private const int HashSize = 32;  // Truncated MAC size stored in the package, and AES256 key size.
 
         private readonly int _IvSize;
@@ -76,7 +76,7 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="packageSize"/> parameter is less than
         /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>16777200</c> bytes.
         /// </exception>
-        protected PackageProtector(int ivSize = BlockSize, int packageSize = 64 * 1024)
+        protected PackageProtector(int ivSize, int packageSize)
         {
             switch (ivSize)
             {
@@ -224,10 +224,10 @@ namespace Neliva.Security.Cryptography
                     data[pos] = (byte)padLength;
                 }
 
-                Span<byte> buf = stackalloc byte[HMACSHA512.HashSizeInBytes + HashSize];
+                Span<byte> buf = stackalloc byte[64 + 32];
 
-                Span<byte> tmp64 = buf.Slice(0, HMACSHA512.HashSizeInBytes);
-                Span<byte> tmp32 = buf.Slice(HMACSHA512.HashSizeInBytes, HashSize);
+                Span<byte> tmp64 = buf.Slice(0, 64);
+                Span<byte> tmp32 = buf.Slice(64, 32);
 
                 try
                 {
@@ -345,10 +345,10 @@ namespace Neliva.Security.Cryptography
                 throw new InvalidOperationException($"The '{nameof(content)}' must not overlap in memory with the '{nameof(package)}'.");
             }
 
-            Span<byte> buf = stackalloc byte[HMACSHA512.HashSizeInBytes + HashSize];
+            Span<byte> buf = stackalloc byte[64 + 32];
 
-            Span<byte> tmp64 = buf.Slice(0, HMACSHA512.HashSizeInBytes); // Used for signKey and computed hash
-            Span<byte> tmp32 = buf.Slice(HMACSHA512.HashSizeInBytes, HashSize); // Used for encKey and decrypted hash
+            Span<byte> tmp64 = buf.Slice(0, 64);
+            Span<byte> tmp32 = buf.Slice(64, 32);
 
             try
             {
@@ -713,6 +713,9 @@ namespace Neliva.Security.Cryptography
         /// </summary>
         private sealed class SystemPackageProtector : PackageProtector
         {
+            public SystemPackageProtector() : base(ivSize: 32, packageSize: 64 * 1024)
+            {
+            }
         }
     }
 }
