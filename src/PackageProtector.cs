@@ -41,7 +41,7 @@ namespace Neliva.Security.Cryptography
     /// </remarks>
     public abstract class PackageProtector
     {
-        private const int BlockSize = 16; // AES block size.
+        private const int BlockSize = Package.AesBlockSize;
         private const int HashSize = 32;  // Truncated MAC size stored in the package, and AES256 key size.
 
         private readonly int _IvSize;
