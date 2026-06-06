@@ -16,6 +16,7 @@ namespace Neliva.Security.Cryptography.Tests
     {
         private const int BlockSize = 16;
         private const int HashSize = 32;
+        private const int SignKeySize = 64;
 
         private const int MinPackageSize = BlockSize + BlockSize + HashSize;
         private const int MaxPackageSize = (16 * 1024 * 1024) - BlockSize;
@@ -998,7 +999,7 @@ namespace Neliva.Security.Cryptography.Tests
             protector.Protect(content, package, key, 5, associatedData);
 
             var encKey = DeriveKey32(keyBytes, true, 5, MinPackageSize, package.Slice(0, BlockSize), associatedData);
-            var sigKey = DeriveKey32(keyBytes, false, 5, MinPackageSize, package.Slice(0, BlockSize), associatedData);
+            var sigKey = DeriveKey32(keyBytes, false, 5, MinPackageSize, package.Slice(0, BlockSize), associatedData, SignKeySize);
 
             using (var aes = Aes.Create())
             {
@@ -1012,18 +1013,20 @@ namespace Neliva.Security.Cryptography.Tests
 
                 Assert.Equal(content.Array, package.Slice(BlockSize + HashSize, content.Count).ToArray());
 
-                using (var hmac = new HMACSHA256(sigKey))
+                using (var hmac = new HMACSHA512(sigKey))
                 {
-                    var hash = hmac.ComputeHash(package.Array, BlockSize + HashSize, MinPackageSize - BlockSize - HashSize);
+                    // The package MAC is an HMAC-SHA512 truncated to 32 bytes.
+                    Span<byte> fullMac = stackalloc byte[SignKeySize];
 
-                    Assert.Equal(hash, package.Slice(BlockSize, HashSize).ToArray());
+                    hmac.TryComputeHash(package.AsSpan(BlockSize + HashSize, MinPackageSize - BlockSize - HashSize), fullMac, out _);
+
+                    Assert.Equal(fullMac.Slice(0, HashSize).ToArray(), package.Slice(BlockSize, HashSize).ToArray());
 
                     package[MinPackageSize - 1] = 2;
 
-                    if (!hmac.TryComputeHash(package.Slice(BlockSize + HashSize, MinPackageSize - BlockSize - HashSize), package.Slice(BlockSize, HashSize), out _))
-                    {
-                        throw new CryptographicUnexpectedOperationException();
-                    }
+                    hmac.TryComputeHash(package.AsSpan(BlockSize + HashSize, MinPackageSize - BlockSize - HashSize), fullMac, out _);
+
+                    fullMac.Slice(0, HashSize).CopyTo(package.AsSpan(BlockSize, HashSize));
                 }
 
                 using (var enc = aes.CreateEncryptor(encKey, ZeroIV))
@@ -1039,7 +1042,7 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
-        private static byte[] DeriveKey32(byte[] masterKey, bool encrypt, long packageNumber, int packageSize, ReadOnlySpan<byte> kdfIV, ReadOnlySpan<byte> associatedData)
+        private static byte[] DeriveKey32(byte[] masterKey, bool encrypt, long packageNumber, int packageSize, ReadOnlySpan<byte> kdfIV, ReadOnlySpan<byte> associatedData, int keyLength = HashSize)
         {
             byte purpose = encrypt ? (byte)0xff : (byte)0x00;
 
@@ -1050,7 +1053,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var hmac = new HMACSHA512(masterKey))
             {
-                var derivedKey = new byte[HashSize];
+                var derivedKey = new byte[keyLength];
 
                 BinaryPrimitives.WriteUInt64BigEndian(context.Slice(0, sizeof(ulong)), (ulong)packageNumber);
 
@@ -1521,7 +1524,7 @@ namespace Neliva.Security.Cryptography.Tests
                 0L,
                 "",
                 "",
-                "e1c9f5e8137adea7d176b74572aa05bfb1dc9041401e4204a49ee8d1bc89f697ce065f6e396cdd5856ace30a702ad40b",
+                "d717f2b556f8a64c9279c4cdc368e06a040e2798c93c5eb712645ea704ce68b84044de379e645682bc271ee3b95fb012",
             };
 
             yield return new object[]
@@ -1530,7 +1533,7 @@ namespace Neliva.Security.Cryptography.Tests
                 1L,
                 "00112233445566778899aabbccddeeff",
                 "6164",
-                "aaccbf141521b957e8a30f3a5a2bcfc4c8ab4f2a58fd8ac23bb25cb14351872d6922d9d9fe87bca326c12ee5084fc2946e7400b070a9683bb9aa0fc955536207",
+                "9ab88a6a3419ba5e02c35d38a25aa821a6297100e9c10779ef5998ed9dc203fa8edbc245f2c5deca9e96972ab2e21f2edd2a33abfa85bdb84f9d8d83e56b3df5",
             };
         }
 
