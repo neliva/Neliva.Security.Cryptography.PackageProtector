@@ -1185,16 +1185,15 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void SystemIsPackageProtectorWithDefaultConfigPass()
         {
-            // The System protector uses the configuration: ivSize 32 and
-            // packageSize 65536, giving an overhead of 65 bytes
+            // The System protector uses the default configuration:
+            // ivSize 16 and packageSize 65536, giving an overhead of 49 bytes
             // (ivSize + HashSize + 1) and a max content of (packageSize - overhead).
             var system = PackageProtector.System;
 
             Assert.IsAssignableFrom<PackageProtector>(system);
 
             const int DefaultPackageSize = 64 * 1024;
-            const int DefaultIvSize = 32;
-            const int DefaultOverhead = DefaultIvSize + HashSize + 1;
+            const int DefaultOverhead = BlockSize + HashSize + 1;
 
             Assert.Equal(DefaultPackageSize, system.MaxPackageSize);
             Assert.Equal(DefaultPackageSize - DefaultOverhead, system.MaxContentSize);
@@ -1209,8 +1208,8 @@ namespace Neliva.Security.Cryptography.Tests
 
             using var key = new PackageKey(new byte[32].Fill(13));
 
-            // System uses ivSize 32, so MaxAssociatedDataSize is 32 - 32 = 0.
-            var associatedData = ReadOnlySpan<byte>.Empty;
+            // Default ivSize is 16, so MaxAssociatedDataSize is 32 - 16 = 16.
+            var associatedData = new byte[16].Fill(42);
 
             var content = new byte[200].Fill(200);
 
@@ -1230,9 +1229,9 @@ namespace Neliva.Security.Cryptography.Tests
         public void SystemProducesRandomIvPass()
         {
             // The System protector sources a fresh random IV for each Protect
-            // call (ivSize is 32). Two packages over identical inputs
+            // call (default ivSize is 16). Two packages over identical inputs
             // must therefore differ in both the IV prefix and the encrypted body.
-            const int IvSize = 32;
+            const int IvSize = 16;
 
             var system = PackageProtector.System;
 
@@ -1266,12 +1265,10 @@ namespace Neliva.Security.Cryptography.Tests
             // hidden per-instance state and that the random IV is embedded in the
             // package.
             var system = PackageProtector.System;
-            var other = new TestPackageProtector(ivSize: 32, packageSize: 64 * 1024);
+            var other = new TestPackageProtector(ivSize: BlockSize, packageSize: 64 * 1024);
 
             using var key = new PackageKey(new byte[64].Fill(17));
-
-            // System uses ivSize 32, so MaxAssociatedDataSize is 32 - 32 = 0.
-            var associatedData = ReadOnlySpan<byte>.Empty;
+            var associatedData = new byte[16].Fill(9);
 
             var content = new byte[128].Fill(123);
 
