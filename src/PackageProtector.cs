@@ -224,10 +224,10 @@ namespace Neliva.Security.Cryptography
                     data[pos] = (byte)padLength;
                 }
 
-                Span<byte> buf = stackalloc byte[HMACSHA512.HashSizeInBytes + HashSize];
+                Span<byte> buf = stackalloc byte[64 + 32];
 
-                Span<byte> tmp64 = buf.Slice(0, HMACSHA512.HashSizeInBytes);
-                Span<byte> tmp32 = buf.Slice(HMACSHA512.HashSizeInBytes, HashSize);
+                Span<byte> tmp64 = buf.Slice(0, 64);
+                Span<byte> tmp32 = buf.Slice(64, 32);
 
                 try
                 {
@@ -345,10 +345,10 @@ namespace Neliva.Security.Cryptography
                 throw new InvalidOperationException($"The '{nameof(content)}' must not overlap in memory with the '{nameof(package)}'.");
             }
 
-            Span<byte> buf = stackalloc byte[HMACSHA512.HashSizeInBytes + HashSize];
+            Span<byte> buf = stackalloc byte[64 + 32];
 
-            Span<byte> tmp64 = buf.Slice(0, HMACSHA512.HashSizeInBytes); // Used for signKey and computed hash
-            Span<byte> tmp32 = buf.Slice(HMACSHA512.HashSizeInBytes, HashSize); // Used for encKey and decrypted hash
+            Span<byte> tmp64 = buf.Slice(0, 64);
+            Span<byte> tmp32 = buf.Slice(64, 32);
 
             try
             {
