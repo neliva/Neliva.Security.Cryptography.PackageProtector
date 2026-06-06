@@ -13,7 +13,7 @@ namespace Neliva.Security.Cryptography
 {
     /// <summary>
     /// Represents pad-then-mac-then-encrypt chunked data protection using
-    /// the HMAC-SHA256 and AES256-CBC algorithms.
+    /// the HMAC-SHA512 and AES256-CBC algorithms.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -32,11 +32,17 @@ namespace Neliva.Security.Cryptography
     /// |             |                       encrypted (no padding)                         |
     /// </code>
     /// </para>
+    /// <para>
+    /// The <c>MAC</c> is the leading 32 bytes of an HMAC-SHA512 computed over the
+    /// chunk content and PKCS7 padding. Per-package encryption and signing keys are
+    /// derived from the supplied <see cref="PackageKey"/> using the IV, package
+    /// number, associated data, and package size.
+    /// </para>
     /// </remarks>
     public abstract class PackageProtector
     {
         private const int BlockSize = 16; // AES block size.
-        private const int HashSize = 32;  // HMAC-SHA256 hash and key size, AES256 key size.
+        private const int HashSize = 32;  // Truncated MAC size stored in the package, and AES256 key size.
 
         private readonly int _IvSize;
         private readonly int _IvAndHashSize;
@@ -137,7 +143,8 @@ namespace Neliva.Security.Cryptography
         /// The destination to receive the protected <paramref name="content"/>.
         /// </param>
         /// <param name="key">
-        /// The secret key used to protect the <paramref name="content"/>.
+        /// The <see cref="PackageKey"/> used to derive the keys that protect the
+        /// <paramref name="content"/>.
         /// </param>
         /// <param name="packageNumber">
         /// The package number in a series of packages, which must match the value
@@ -217,21 +224,24 @@ namespace Neliva.Security.Cryptography
                     data[pos] = (byte)padLength;
                 }
 
-                Span<byte> buf = stackalloc byte[HashSize + HashSize];
+                Span<byte> buf = stackalloc byte[HMACSHA512.HashSizeInBytes + HashSize];
 
-                Span<byte> encKey = buf.Slice(0, HashSize);
-                Span<byte> signKey = buf.Slice(HashSize, HashSize);
+                Span<byte> tmp64 = buf.Slice(0, HMACSHA512.HashSizeInBytes);
+                Span<byte> tmp32 = buf.Slice(HMACSHA512.HashSizeInBytes, HashSize);
 
                 try
                 {
-                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, encKey, signKey);
+                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmp32, tmp64);
 
-                    // Sign plaintext and padding, then prepend hash to padded plaintext.
-                    HMACSHA256.HashData(signKey, data, package.Slice(this._IvSize, HashSize));
+                    // Sign plaintext and padding.
+                    HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
+
+                    // Prepend the hash (truncated to 32 bytes) to the padded plaintext.
+                    tmp64.Slice(0, HashSize).CopyTo(package.Slice(this._IvSize));
 
                     using (var aes = Aes.Create())
                     {
-                        aes.SetKey(encKey);
+                        aes.SetKey(tmp32);
 
                         // Encrypt buffer in place.
                         aes.EncryptCbcNoPadding(package.Slice(this._IvSize, outputPackageSize - this._IvSize), package.Slice(this._IvSize));
@@ -262,7 +272,8 @@ namespace Neliva.Security.Cryptography
         /// The destination to receive the unprotected <paramref name="package"/>.
         /// </param>
         /// <param name="key">
-        /// The secret key used to unprotect the <paramref name="package"/>.
+        /// The <see cref="PackageKey"/> used to derive the keys that unprotect the
+        /// <paramref name="package"/>.
         /// </param>
         /// <param name="packageNumber">
         /// The package number in a series of packages, which must match the value
@@ -334,10 +345,10 @@ namespace Neliva.Security.Cryptography
                 throw new InvalidOperationException($"The '{nameof(content)}' must not overlap in memory with the '{nameof(package)}'.");
             }
 
-            Span<byte> buf = stackalloc byte[HashSize + HashSize];
+            Span<byte> buf = stackalloc byte[HMACSHA512.HashSizeInBytes + HashSize];
 
-            Span<byte> tmpASpan = buf.Slice(0, HashSize); // Used for encKey and decrypted hash
-            Span<byte> tmpBSpan = buf.Slice(HashSize, HashSize); // Used for signKey and computed hash
+            Span<byte> tmp64 = buf.Slice(0, HMACSHA512.HashSizeInBytes); // Used for signKey and computed hash
+            Span<byte> tmp32 = buf.Slice(HMACSHA512.HashSizeInBytes, HashSize); // Used for encKey and decrypted hash
 
             try
             {
@@ -345,16 +356,16 @@ namespace Neliva.Security.Cryptography
                 {
                     var kdfIV = package.Slice(0, this._IvSize);
 
-                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmpASpan, tmpBSpan);
+                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmp32, tmp64);
 
                     using (var aes = Aes.Create())
                     {
-                        aes.SetKey(tmpASpan);
+                        aes.SetKey(tmp32);
 
                         // Decrypt package hash
                         aes.DecryptCbcNoPadding(
                             package.Slice(this._IvSize, HashSize),
-                            tmpASpan);
+                            tmp32);
 
                         // Decrypt (content + padding) directly into output.
                         aes.DecryptCbcNoPadding(
@@ -363,14 +374,14 @@ namespace Neliva.Security.Cryptography
                             package.Slice(this._IvAndHashSize - BlockSize, BlockSize));
                     }
 
-                    HMACSHA256.HashData(tmpBSpan, data, tmpBSpan);
+                    HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
 
-                    if (!CryptographicOperations.FixedTimeEquals(tmpASpan, tmpBSpan))
+                    if (!CryptographicOperations.FixedTimeEquals(tmp32, tmp64.Slice(0, HashSize)))
                     {
                         throw new BadPackageException();
                     }
 
-                    int padLength = BlockPadding.GetPKCS7PaddingLength(BlockSize, data);
+                    int padLength = Package.GetPKCS7PaddingLength(BlockSize, data);
 
                     if (padLength == -1)
                     {
@@ -403,7 +414,8 @@ namespace Neliva.Security.Cryptography
         /// The destination to receive the protected <paramref name="content"/>.
         /// </param>
         /// <param name="key">
-        /// The secret key used to protect the <paramref name="content"/>.
+        /// The <see cref="PackageKey"/> used to derive the keys that protect the
+        /// <paramref name="content"/>.
         /// </param>
         /// <param name="associatedData">
         /// The extra data associated with the <paramref name="content"/>, which must match the value
@@ -510,7 +522,8 @@ namespace Neliva.Security.Cryptography
         /// The destination to receive the unprotected <paramref name="package"/>.
         /// </param>
         /// <param name="key">
-        /// The secret key used to unprotect the <paramref name="package"/>.
+        /// The <see cref="PackageKey"/> used to derive the keys that unprotect the
+        /// <paramref name="package"/>.
         /// </param>
         /// <param name="associatedData">
         /// The extra data associated with the <paramref name="package"/>, which must match the value
