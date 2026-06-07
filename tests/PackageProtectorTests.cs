@@ -673,14 +673,15 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var packageKey = new PackageKey(masterKey))
             {
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[33], new byte[0], encKey, sigKey));
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[0], new byte[33], encKey, sigKey));
+                // The combined ivArg1 + ivArg2 region is 80 bytes; exceeding it must throw.
+                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[81], new byte[0], encKey, sigKey));
+                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[0], new byte[81], encKey, sigKey));
 
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[32], new byte[1], encKey, sigKey));
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[1], new byte[32], encKey, sigKey));
+                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[80], new byte[1], encKey, sigKey));
+                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[1], new byte[80], encKey, sigKey));
 
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[17], new byte[16], encKey, sigKey));
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[16], new byte[17], encKey, sigKey));
+                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[41], new byte[40], encKey, sigKey));
+                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[40], new byte[41], encKey, sigKey));
             }
         }
 
@@ -1042,28 +1043,35 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
-        private static byte[] DeriveKey32(byte[] masterKey, bool encrypt, long packageNumber, int packageSize, ReadOnlySpan<byte> kdfIV, ReadOnlySpan<byte> associatedData, int keyLength = HashSize)
+        private static byte[] DeriveKey32(byte[] masterKey, bool encrypt, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, int keyLength = HashSize)
         {
-            byte purpose = encrypt ? (byte)0xff : (byte)0x00;
+            ReadOnlySpan<byte> label = encrypt
+                ? new byte[] { (byte)'E', (byte)'N', (byte)'C' }
+                : new byte[] { (byte)'M', (byte)'A', (byte)'C' };
 
-            Span<byte> label = stackalloc byte[3] { purpose, (byte)kdfIV.Length, (byte)associatedData.Length };
-
-            Span<byte> context = stackalloc byte[sizeof(ulong) + 16 + 16 + 3];
+            Span<byte> context = stackalloc byte[99];
             context.Clear();
+
+            BinaryPrimitives.WriteInt64BigEndian(context, packageNumber);
+
+            var ivArgs = context.Slice(8, 80);
+            ivArg1.CopyTo(ivArgs);
+            ivArg2.CopyTo(ivArgs.Slice(ivArg1.Length));
+
+            context[88] = (byte)ivArg1.Length;
+            context[89] = (byte)ivArg2.Length;
+            context[90] = 0; // Reserved (ivArg3 length).
+            context[91] = BlockSize; // Package padding size in bytes.
+
+            BinaryPrimitives.WriteInt32BigEndian(context.Slice(92), packageSize);
+
+            context[96] = 0; // Reserved.
+            context[97] = 0; // Reserved.
+            context[98] = 1; // Format version number.
 
             using (var hmac = new HMACSHA512(masterKey))
             {
                 var derivedKey = new byte[keyLength];
-
-                BinaryPrimitives.WriteUInt64BigEndian(context.Slice(0, sizeof(ulong)), (ulong)packageNumber);
-
-                kdfIV.CopyTo(context.Slice(sizeof(ulong), kdfIV.Length));
-
-                associatedData.CopyTo(context.Slice(sizeof(ulong) + kdfIV.Length, associatedData.Length));
-
-                context[context.Length - 3] = (byte)(packageSize >> 16);
-                context[context.Length - 2] = (byte)(packageSize >> 8);
-                context[context.Length - 1] = (byte)packageSize;
 
                 hmac.DeriveKey(derivedKey, label, context);
 
@@ -1527,7 +1535,7 @@ namespace Neliva.Security.Cryptography.Tests
                 0L,
                 "",
                 "",
-                "d717f2b556f8a64c9279c4cdc368e06a040e2798c93c5eb712645ea704ce68b84044de379e645682bc271ee3b95fb012",
+                "aa00521418d47845617c22e26da2b44bc1b5388adb6922a7097826d0627dbb7cb4b808b99678dc4f6a0c704bf49e98b4",
             };
 
             yield return new object[]
@@ -1536,7 +1544,7 @@ namespace Neliva.Security.Cryptography.Tests
                 1L,
                 "00112233445566778899aabbccddeeff",
                 "6164",
-                "9ab88a6a3419ba5e02c35d38a25aa821a6297100e9c10779ef5998ed9dc203fa8edbc245f2c5deca9e96972ab2e21f2edd2a33abfa85bdb84f9d8d83e56b3df5",
+                "94e7aae55187496fe9affb005d1af33d74491e4214cbfdbae86c1c7fbe38c1855e36883b213168215fb3fdb74be6e6a0f13c99ea0a5d6dcd1981e91add11d149",
             };
         }
 
