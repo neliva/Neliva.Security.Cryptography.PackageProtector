@@ -3,12 +3,12 @@
 This repository describes safe and secure data at rest protection for untrusted remote storage. The specification and the reference implementation are released into the public domain. See the [UNLICENSE](UNLICENSE.md) file.
 
 [![main](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/actions/workflows/main.yml/badge.svg)](https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector/actions/workflows/main.yml)
-[![dotnet 6.0](https://img.shields.io/badge/dotnet-6.0-green)](https://dotnet.microsoft.com/en-us/download/dotnet/6.0)
+[![dotnet 10.0](https://img.shields.io/badge/dotnet-10.0-green)](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
 [![Nuget (with prereleases)](https://img.shields.io/nuget/vpre/Neliva.Security.Cryptography.PackageProtector)](https://www.nuget.org/packages/Neliva.Security.Cryptography.PackageProtector)
 
 ## Overview
 
-PackageProtector combines SP800-108 CTR KDF, HMAC-SHA256 and AES256-CBC algorithms to form authenticated encryption. The data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated. PackageProtector is designed for secure, long term storage.
+PackageProtector combines SP800-108 CTR KDF, HMAC-SHA512 and AES256-CBC algorithms to form authenticated encryption. The data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated. PackageProtector is designed for secure, long term storage.
 
 Protected streams have no headers, markers or identifiers. This makes protected streams indistinguishable from true randomness. Without a key, it is impossible to determine if the protected stream was produced by PackageProtector or do traffic analysis.
 
@@ -16,11 +16,13 @@ Protected streams have no headers, markers or identifiers. This makes protected 
 ```C#
 // using Neliva.Security.Cryptography;
 
-// Use default values for IV and package size
-var protector = new PackageProtector();
+// Use the system protector (32 byte IV, 64 KiB package size)
+var protector = PackageProtector.System;
 
-var key = new byte[32];
-RandomNumberGenerator.Fill(key);
+var keyBytes = new byte[32];
+RandomNumberGenerator.Fill(keyBytes);
+
+using var key = new PackageKey(keyBytes);
 
 // Protect
 await protector.ProtectAsync(srcContentStream, destProtectedStream, key /*, associatedData */);
@@ -43,11 +45,11 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 
 For the 16 byte KDF IV, the package layout is the following:
 ```
-|                   package, 64 bytes - (16MiB - 16 bytes)                            |
+|                   package, 64 bytes - 1GiB                                          |
 +-------------------------------------------------------------------------------------+
 | KDF IV      | MAC (content || pad)    | chunk content             | PKCS7 pad       |
 +-------------+-------------------------+---------------------------+-----------------+
-| 16 bytes    | 32 bytes                | 0 - (16MiB - 65 bytes)    | 1 - 16 bytes    |
+| 16 bytes    | 32 bytes                | 0 - (1GiB - 49 bytes)     | 1 - 16 bytes    |
 +-------------+-----------------------------------------------------------------------+
               |                       encrypted (no padding)                          |
 ```
@@ -59,30 +61,31 @@ All packages, including the last one that may be incomplete, have the same forma
 
 ## Stream keys
 
-Given a data stream key (**master key**), for each package a KDF-HMAC-SHA256 in Counter Mode ([described in SP800-108](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-108.pdf)) is used to derive MAC and ENC keys. This provides a level of key indirection. Recovered individual package keys cannot be used to recover other packages or the stream master key.
+Given a data stream key (**master key**), for each package a KDF-HMAC-SHA512 in Counter Mode ([described in SP800-108](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-108.pdf)) is used to derive MAC and ENC keys. This provides a level of key indirection. Recovered individual package keys cannot be used to recover other packages or the stream master key.
 
 The KDF takes into account the following **derived key context**:
 * Key purpose (encrypt or sign)
 * **Package number** (64 bit int, starts from 0 and sequentially increases)
-* **Package size** (24 bit uint, same value for all stream packages)
+* **Package size** (32 bit uint, same value for all stream packages)
+* Max package padding size
 * KDF IV (0/16/32 bytes, randomly generated for each package)
-* Stream **associated data** (0 - 32 bytes, user provided)
+* Stream **associated data** (0 - 80 bytes, user provided)
 
 ```
-  32 - 64 bytes                        32 bytes
+  32 - 64 bytes                        64 bytes
 +----------------+     +-------+     +----------+     +--------------+     +-------+
-| master key     |---->|       |---->| MAC key  |---->| HMAC-SHA256  |---->|       |
+| master key     |---->|       |---->| MAC key  |---->| HMAC-SHA512  |---->|       |
 +----------------+     | ----- |     +----------+     +--------------+     |       |
                        |  KDF  |                                           | PKG N |
 +----------------+     | ----- |     +----------+     +--------------+     |       |
 | key context N  |---->|       |---->| ENC key  |---->| AES256-CBC   |---->|       |
 +----------------+     +-------+     +----------+     +--------------+     +-------+
-  55 bytes                             32 bytes
+  102 bytes                            32 bytes
 ```
 
-The KDF context is optimized to fit into a single HMAC-SHA256 block to reduce computational overhead. PackageProtector restricts the master key size to 32 - 64 bytes to provide adequate security. **The recommended key size is 64 bytes**.
+The KDF context is optimized to fit into a single HMAC-SHA512 block to reduce computational overhead. PackageProtector restricts the master key size to 32 - 64 bytes to provide adequate security. **The recommended key size is 64 bytes**.
 
-Data streams can have optional *associated data* context (up to 32 bytes) that is used by the KDF. The same value must be provided to unprotect the stream. There is no overhead in using *associated data*, but the combined size of the KDF IV and the associated data cannot be larger than 32 bytes.
+Data streams can have optional *associated data* context (up to 80 bytes) that is used by the KDF. The same value must be provided to unprotect the stream. There is no overhead in using *associated data*, but the combined size of the KDF IV and the associated data cannot be larger than 80 bytes.
 
 ## Stream security
 Provided that the stream key and *associated data* combination is unique for every data stream, PackageProtector guarantees to detect:
