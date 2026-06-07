@@ -3,6 +3,7 @@
 
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
@@ -670,26 +671,14 @@ namespace Neliva.Security.Cryptography
 
         internal static void DeriveKeys(PackageKey packageKey, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
         {
-            const byte SignPurpose = 0x00;
-            const byte EncryptPurpose = 0xff;
+            ReadOnlySpan<byte> encLabel = new byte[] { (byte)'E', (byte)'N', (byte)'C' };
+            ReadOnlySpan<byte> macLabel = new byte[] { (byte)'M', (byte)'A', (byte)'C' };
 
-            Span<byte> label = stackalloc byte[3];
-            Span<byte> context = stackalloc byte[43];
+            Span<byte> context = stackalloc byte[99];
 
-            label[0] = EncryptPurpose;
-            label[1] = (byte)ivArg1.Length;
-            label[2] = (byte)ivArg2.Length;
+            BinaryPrimitives.WriteInt64BigEndian(context, packageNumber);
 
-            context[0] = (byte)(packageNumber >> 56);
-            context[1] = (byte)(packageNumber >> 48);
-            context[2] = (byte)(packageNumber >> 40);
-            context[3] = (byte)(packageNumber >> 32);
-            context[4] = (byte)(packageNumber >> 24);
-            context[5] = (byte)(packageNumber >> 16);
-            context[6] = (byte)(packageNumber >> 8);
-            context[7] = (byte)packageNumber;
-
-            var ivArgs = context.Slice(8, 32);
+            var ivArgs = context.Slice(8, 80);
 
             ivArg1.CopyTo(ivArgs);
 
@@ -697,15 +686,19 @@ namespace Neliva.Security.Cryptography
 
             ivArgs.Slice(ivArg1.Length + ivArg2.Length).Clear();
 
-            context[40] = (byte)(packageSize >> 16);
-            context[41] = (byte)(packageSize >> 8);
-            context[42] = (byte)packageSize;;
+            context[88] = (byte)ivArg1.Length;
+            context[89] = (byte)ivArg2.Length;
+            context[90] = 0; // Reserved for future use (ivArg3 length).
+            context[91] = BlockSize; // Package padding size in bytes.
 
-            packageKey.DeriveKey(label, context, encryptionKey);
+            BinaryPrimitives.WriteInt32BigEndian(context.Slice(92), packageSize);
 
-            label[0] = SignPurpose;
+            context[96] = 0; // Reserved for future use.
+            context[97] = 0; // Reserved for future use.
+            context[98] = 1; // Format version number.
 
-            packageKey.DeriveKey(label, context, signingKey);
+            packageKey.DeriveKey(encLabel, context, encryptionKey);
+            packageKey.DeriveKey(macLabel, context, signingKey);
         }
 
         /// <summary>
