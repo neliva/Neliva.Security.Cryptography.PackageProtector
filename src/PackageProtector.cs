@@ -69,13 +69,13 @@ namespace Neliva.Security.Cryptography
         /// <param name="packageSize">
         /// The package size in bytes which must be a multiple of 16 bytes.
         /// The minimum is (<paramref name="ivSize"/> + 48)
-        /// and the maximum is <c>2147483584</c>.
+        /// and the maximum is <c>1073741824</c>.
         /// </param>
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="ivSize"/> parameter is not 0, 16 or 32 bytes.
         /// - or -
         /// The <paramref name="packageSize"/> parameter is less than
-        /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>2147483584</c> bytes.
+        /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>1073741824</c> bytes.
         /// </exception>
         protected PackageProtector(int ivSize, int packageSize)
         {
@@ -92,13 +92,12 @@ namespace Neliva.Security.Cryptography
 
             int minPackageSize = ivSize + HashSize + BlockSize;
 
-            // The package size is bounded by the largest block-aligned byte
-            // array that can be allocated for a package buffer.
-            int maxPackageSize = (Array.MaxLength / BlockSize) * BlockSize;
+            // The package size is capped at 1 GiB.
+            const int maxPackageSize = 1024 * 1024 * 1024;
 
             if (packageSize < minPackageSize || packageSize > maxPackageSize || IsNotAlignedBlock(packageSize))
             {
-                throw new ArgumentOutOfRangeException(nameof(packageSize), "Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 2147483584 bytes.");
+                throw new ArgumentOutOfRangeException(nameof(packageSize), "Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 1073741824 bytes.");
             }
 
             // Overhead is the minimum number of bytes added to content

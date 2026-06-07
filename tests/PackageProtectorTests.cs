@@ -20,9 +20,8 @@ namespace Neliva.Security.Cryptography.Tests
 
         private const int MinPackageSize = BlockSize + BlockSize + HashSize;
 
-        // The largest block-aligned size that can be allocated as a byte array
-        // (Array.MaxLength rounded down to a multiple of 16).
-        private const int MaxPackageSize = 2147483584;
+        // The maximum package size supported by the constructor (1 GiB).
+        private const int MaxPackageSize = 1024 * 1024 * 1024;
 
         // A large, but readily allocatable, package size used by round-trip
         // tests that materialize full-size buffers in memory.
@@ -193,7 +192,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new TestPackageProtector(ivSize: ivSize, packageSize: packageSize));
 
             Assert.Equal(nameof(packageSize), ex.ParamName);
-            Assert.Equal("Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 2147483584 bytes. (Parameter 'packageSize')", ex.Message);
+            Assert.Equal("Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 1073741824 bytes. (Parameter 'packageSize')", ex.Message);
         }
 
         [Theory]
