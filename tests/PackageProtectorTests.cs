@@ -19,7 +19,14 @@ namespace Neliva.Security.Cryptography.Tests
         private const int SignKeySize = 64;
 
         private const int MinPackageSize = BlockSize + BlockSize + HashSize;
-        private const int MaxPackageSize = (16 * 1024 * 1024) - BlockSize;
+
+        // The largest block-aligned size that can be allocated as a byte array
+        // (Array.MaxLength rounded down to a multiple of 16).
+        private const int MaxPackageSize = 2147483584;
+
+        // A large, but readily allocatable, package size used by round-trip
+        // tests that materialize full-size buffers in memory.
+        private const int LargeTestPackageSize = (16 * 1024 * 1024) - BlockSize;
 
         // Test double that overrides FillRandom to supply deterministic
         // "random" bytes (for example a fixed IV) so that produced packages
@@ -186,7 +193,7 @@ namespace Neliva.Security.Cryptography.Tests
             var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new TestPackageProtector(ivSize: ivSize, packageSize: packageSize));
 
             Assert.Equal(nameof(packageSize), ex.ParamName);
-            Assert.Equal("Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 16777200 bytes. (Parameter 'packageSize')", ex.Message);
+            Assert.Equal("Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 2147483584 bytes. (Parameter 'packageSize')", ex.Message);
         }
 
         [Theory]
@@ -502,24 +509,24 @@ namespace Neliva.Security.Cryptography.Tests
         [Theory]
         [InlineData(0, 48, 0)]
         [InlineData(0, 48 + BlockSize, 0)]
-        [InlineData(0, MaxPackageSize, 0)]
+        [InlineData(0, LargeTestPackageSize, 0)]
         [InlineData(0, 48, 16)]
         [InlineData(0, 48 + BlockSize, 16)]
-        [InlineData(0, MaxPackageSize, 16)]
+        [InlineData(0, LargeTestPackageSize, 16)]
         [InlineData(0, 48, 32)]
         [InlineData(0, 48 + BlockSize, 32)]
-        [InlineData(0, MaxPackageSize, 32)]
+        [InlineData(0, LargeTestPackageSize, 32)]
         //
         [InlineData(16, 64, 0)]
         [InlineData(16, 64 + BlockSize, 0)]
-        [InlineData(16, MaxPackageSize, 0)]
+        [InlineData(16, LargeTestPackageSize, 0)]
         [InlineData(16, 64, 16)]
         [InlineData(16, 64 + BlockSize, 16)]
-        [InlineData(16, MaxPackageSize, 16)]
+        [InlineData(16, LargeTestPackageSize, 16)]
         //
         [InlineData(32, 80, 0)]
         [InlineData(32, 80 + BlockSize, 0)]
-        [InlineData(32, MaxPackageSize, 0)]
+        [InlineData(32, LargeTestPackageSize, 0)]
         public void RoundTripFullPackagePass(int ivSize, int packageSize, int associatedDataSize)
         {
             using var key = new PackageKey(new byte[64].Fill(4));
@@ -551,7 +558,7 @@ namespace Neliva.Security.Cryptography.Tests
             using var key = new PackageKey(new byte[32].Fill(4));
             var associatedData = new byte[13].Fill(4);
 
-            foreach (var packageSize in new int[] { MinPackageSize, MinPackageSize + BlockSize, MaxPackageSize })
+            foreach (var packageSize in new int[] { MinPackageSize, MinPackageSize + BlockSize, LargeTestPackageSize })
             {
                 var protector = new TestPackageProtector(packageSize: packageSize);
                 {
@@ -711,8 +718,8 @@ namespace Neliva.Security.Cryptography.Tests
                     PackageProtector.DeriveKeys(packageKey, a.Item1, a.Item2, kdfIV, a.Item3, encKey, sigKey);
                 }
 
-                var expectedEncKey = DeriveKey32(masterKey, true, a.Item1, a.Item2, kdfIV, a.Item3);
-                var expectedSigKey = DeriveKey32(masterKey, false, a.Item1, a.Item2, kdfIV, a.Item3);
+                var expectedEncKey = DeriveKeyTestImpl(masterKey, true, a.Item1, a.Item2, kdfIV, a.Item3);
+                var expectedSigKey = DeriveKeyTestImpl(masterKey, false, a.Item1, a.Item2, kdfIV, a.Item3);
 
                 Assert.Equal(expectedEncKey, encKey);
                 Assert.Equal(expectedSigKey, sigKey);
@@ -999,8 +1006,8 @@ namespace Neliva.Security.Cryptography.Tests
 
             protector.Protect(content, package, key, 5, associatedData);
 
-            var encKey = DeriveKey32(keyBytes, true, 5, MinPackageSize, package.Slice(0, BlockSize), associatedData);
-            var sigKey = DeriveKey32(keyBytes, false, 5, MinPackageSize, package.Slice(0, BlockSize), associatedData, SignKeySize);
+            var encKey = DeriveKeyTestImpl(keyBytes, true, 5, MinPackageSize, package.Slice(0, BlockSize), associatedData);
+            var sigKey = DeriveKeyTestImpl(keyBytes, false, 5, MinPackageSize, package.Slice(0, BlockSize), associatedData, SignKeySize);
 
             using (var aes = Aes.Create())
             {
@@ -1043,7 +1050,7 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
-        private static byte[] DeriveKey32(byte[] masterKey, bool encrypt, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, int keyLength = HashSize)
+        private static byte[] DeriveKeyTestImpl(byte[] masterKey, bool encrypt, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, int keyLength = HashSize)
         {
             ReadOnlySpan<byte> label = encrypt
                 ? new byte[] { (byte)'E', (byte)'N', (byte)'C' }
