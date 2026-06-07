@@ -24,11 +24,11 @@ namespace Neliva.Security.Cryptography
     /// <para>
     /// For the 16 byte IV, the package layout is the following:
     /// <code>
-    /// |                   package, 64 bytes - (16MiB - 16 bytes)                           |
+    /// |                   package, 64 bytes - 1GiB                                         |
     /// +------------------------------------------------------------------------------------+
     /// | KDF IV      | MAC(content || pad)    | chunk content             | PKCS7 pad       |
     /// +-------------+------------------------+---------------------------+-----------------+
-    /// | 16 bytes    | 32 bytes               | 0 - (16MiB - 65 bytes)    | 1 - 16 bytes    |
+    /// | 16 bytes    | 32 bytes               | 0 - (1GiB - 49 bytes)     | 1 - 16 bytes    |
     /// +-------------+----------------------------------------------------------------------+
     /// |             |                       encrypted (no padding)                         |
     /// </code>
@@ -214,7 +214,7 @@ namespace Neliva.Security.Cryptography
             {
                 this.FillRandom(kdfIV);
 
-                // Copy plain text to output buffer (after iv and hash).
+                // Copy plain text to output buffer (after iv and mac).
                 content.CopyTo(data);
 
                 // Pad data using PKCS7 scheme.
@@ -238,7 +238,7 @@ namespace Neliva.Security.Cryptography
                     // Sign plaintext and padding.
                     HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
 
-                    // Prepend the hash (truncated to 32 bytes) to the padded plaintext.
+                    // Prepend the mac (truncated to 32 bytes) to the padded plaintext.
                     tmp64.Slice(0, MacSize).CopyTo(package.Slice(this._IvSize));
 
                     using (var aes = Aes.Create())
@@ -364,7 +364,7 @@ namespace Neliva.Security.Cryptography
                     {
                         aes.SetKey(tmp32);
 
-                        // Decrypt package hash
+                        // Decrypt package mac
                         aes.DecryptCbcNoPadding(
                             package.Slice(this._IvSize, MacSize),
                             tmp32);
