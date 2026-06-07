@@ -42,11 +42,11 @@ namespace Neliva.Security.Cryptography
     /// </remarks>
     public abstract class PackageProtector
     {
-        private const int HashSize = Package.MacSize;
+        private const int MacSize = Package.MacSize;
         private const int BlockSize = Package.AesBlockSize;
 
         private readonly int _IvSize;
-        private readonly int _IvAndHashSize;
+        private readonly int _IvAndMacSize;
         private readonly int _MaxPackageSize;
         private readonly int _MinPackageSize;
         private readonly int _MaxContentSize;
@@ -90,7 +90,7 @@ namespace Neliva.Security.Cryptography
                     throw new ArgumentOutOfRangeException(nameof(ivSize), "IV size must be 0, 16, or 32 bytes.");
             }
 
-            int minPackageSize = ivSize + HashSize + BlockSize;
+            int minPackageSize = ivSize + MacSize + BlockSize;
 
             // The package size is capped at 1 GiB.
             const int maxPackageSize = 1024 * 1024 * 1024;
@@ -102,10 +102,10 @@ namespace Neliva.Security.Cryptography
 
             // Overhead is the minimum number of bytes added to content
             // during package protection.
-            int overhead = ivSize + HashSize + 1; // One byte for padding.
+            int overhead = ivSize + MacSize + 1; // One byte for padding.
 
             this._IvSize = ivSize;
-            this._IvAndHashSize = ivSize + HashSize;
+            this._IvAndMacSize = ivSize + MacSize;
             this._MaxPackageSize = packageSize;
             this._MinPackageSize = minPackageSize;
             this._MaxContentSize = packageSize - overhead;
@@ -181,7 +181,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(content), "Content length is too large.");
             }
 
-            int outputPackageSize = this._IvAndHashSize + AlignBlock(content.Length);
+            int outputPackageSize = this._IvAndMacSize + AlignBlock(content.Length);
 
             if (package.Length < outputPackageSize)
             {
@@ -207,7 +207,7 @@ namespace Neliva.Security.Cryptography
                 throw new InvalidOperationException($"The '{nameof(package)}' must not overlap in memory with the '{nameof(content)}'.");
             }
 
-            var data = package.Slice(this._IvAndHashSize, outputPackageSize - this._IvAndHashSize);  // content + padding
+            var data = package.Slice(this._IvAndMacSize, outputPackageSize - this._IvAndMacSize);  // content + padding
             var kdfIV = package.Slice(0, this._IvSize);
 
             try
@@ -239,7 +239,7 @@ namespace Neliva.Security.Cryptography
                     HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
 
                     // Prepend the hash (truncated to 32 bytes) to the padded plaintext.
-                    tmp64.Slice(0, HashSize).CopyTo(package.Slice(this._IvSize));
+                    tmp64.Slice(0, MacSize).CopyTo(package.Slice(this._IvSize));
 
                     using (var aes = Aes.Create())
                     {
@@ -321,7 +321,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned to the required boundary.");
             }
 
-            int dataLength = package.Length - this._IvAndHashSize;
+            int dataLength = package.Length - this._IvAndMacSize;
 
             if (content.Length < dataLength)
             {
@@ -366,19 +366,19 @@ namespace Neliva.Security.Cryptography
 
                         // Decrypt package hash
                         aes.DecryptCbcNoPadding(
-                            package.Slice(this._IvSize, HashSize),
+                            package.Slice(this._IvSize, MacSize),
                             tmp32);
 
                         // Decrypt (content + padding) directly into output.
                         aes.DecryptCbcNoPadding(
-                            package.Slice(this._IvAndHashSize),
+                            package.Slice(this._IvAndMacSize),
                             data,
-                            package.Slice(this._IvAndHashSize - BlockSize, BlockSize));
+                            package.Slice(this._IvAndMacSize - BlockSize, BlockSize));
                     }
 
                     HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
 
-                    if (!CryptographicOperations.FixedTimeEquals(tmp32, tmp64.Slice(0, HashSize)))
+                    if (!CryptographicOperations.FixedTimeEquals(tmp32, tmp64.Slice(0, MacSize)))
                     {
                         throw new BadPackageException();
                     }
