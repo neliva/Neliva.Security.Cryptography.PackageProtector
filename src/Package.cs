@@ -12,6 +12,7 @@ namespace Neliva.Security.Cryptography
     /// </summary>
     internal static class Package
     {
+        public const int MacSize = HMACSHA512.HashSizeInBytes / 2;
         public const int AesBlockSize = 16;
 
         private static ReadOnlySpan<byte> ZeroIV => new byte[AesBlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
