@@ -626,7 +626,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             using (var packageKey = new PackageKey(masterKey))
             {
-                PackageProtector.DeriveKeys(packageKey, 42, 4096, kdfIV, associatedData, encKey, sigKey);
+                Internals.DeriveKeys(packageKey, 42, 4096, kdfIV, associatedData, encKey, sigKey);
             }
 
             Assert.NotEqual(masterKey, sigKey);
@@ -659,7 +659,7 @@ namespace Neliva.Security.Cryptography.Tests
                     var s1 = iv1.Slice(0, i);
                     var s2 = iv2.Slice(i);
 
-                    PackageProtector.DeriveKeys(packageKey, 42, 4096, s1, s2, encKey, sigKey);
+                    Internals.DeriveKeys(packageKey, 42, 4096, s1, s2, encKey, sigKey);
 
                     Assert.NotEqual(masterKey, sigKey);
                     Assert.NotEqual(masterKey, encKey);
@@ -680,14 +680,14 @@ namespace Neliva.Security.Cryptography.Tests
             using (var packageKey = new PackageKey(masterKey))
             {
                 // The combined ivArg1 + ivArg2 region is 80 bytes; exceeding it must throw.
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[81], new byte[0], encKey, sigKey));
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[0], new byte[81], encKey, sigKey));
+                Assert.Throws<ArgumentException>(() => Internals.DeriveKeys(packageKey, 42, 4096, new byte[81], new byte[0], encKey, sigKey));
+                Assert.Throws<ArgumentException>(() => Internals.DeriveKeys(packageKey, 42, 4096, new byte[0], new byte[81], encKey, sigKey));
 
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[80], new byte[1], encKey, sigKey));
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[1], new byte[80], encKey, sigKey));
+                Assert.Throws<ArgumentException>(() => Internals.DeriveKeys(packageKey, 42, 4096, new byte[80], new byte[1], encKey, sigKey));
+                Assert.Throws<ArgumentException>(() => Internals.DeriveKeys(packageKey, 42, 4096, new byte[1], new byte[80], encKey, sigKey));
 
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[41], new byte[40], encKey, sigKey));
-                Assert.Throws<ArgumentException>(() => PackageProtector.DeriveKeys(packageKey, 42, 4096, new byte[40], new byte[41], encKey, sigKey));
+                Assert.Throws<ArgumentException>(() => Internals.DeriveKeys(packageKey, 42, 4096, new byte[41], new byte[40], encKey, sigKey));
+                Assert.Throws<ArgumentException>(() => Internals.DeriveKeys(packageKey, 42, 4096, new byte[40], new byte[41], encKey, sigKey));
             }
         }
 
@@ -714,7 +714,7 @@ namespace Neliva.Security.Cryptography.Tests
             {
                 using (var packageKey = new PackageKey(masterKey))
                 {
-                    PackageProtector.DeriveKeys(packageKey, a.Item1, a.Item2, kdfIV, a.Item3, encKey, sigKey);
+                    Internals.DeriveKeys(packageKey, a.Item1, a.Item2, kdfIV, a.Item3, encKey, sigKey);
                 }
 
                 var expectedEncKey = DeriveKeyTestImpl(masterKey, true, a.Item1, a.Item2, kdfIV, a.Item3);
