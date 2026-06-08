@@ -265,6 +265,8 @@ namespace Neliva.Security.Cryptography.Tests
             // package size.
             var system = PackageProtector.System;
 
+            Assert.IsAssignableFrom<PackageProtector>(system);
+
             Assert.Equal(32, system.IvSize);
             Assert.Equal(64 * 1024, system.MaxPackageSize);
             Assert.Equal(32 + HashSize + BlockSize, system.MinPackageSize);
@@ -479,33 +481,21 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Theory]
+        // Length below the minimum or above the maximum (also unaligned).
         [InlineData(0, 48, 47)]
         [InlineData(0, 48, 49)]
         [InlineData(16, 64, 63)]
         [InlineData(16, 64, 65)]
         [InlineData(32, 80, 79)]
         [InlineData(32, 80, 81)]
-        public void UnprotectInvalidPackageSizeFail(int ivSize, int packageSize, int invalidPackageSize)
-        {
-            var p = new TestPackageProtector(ivSize: ivSize, packageSize: packageSize);
-
-            var package = new byte[invalidPackageSize];
-
-            var content = new byte[p.MaxContentSize + 1];
-
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new PackageKey(new byte[32]), 0, null));
-            Assert.Equal("package", ex.ParamName);
-            Assert.Equal("Package length is invalid or not aligned to the required boundary. (Parameter 'package')", ex.Message);
-        }
-
-        [Theory]
+        // In-range length but not aligned to the 16 byte block boundary, or above max.
         [InlineData(0, 48 + 16, 48 + 16 - 1)]
         [InlineData(0, 48 + 16, 48 + 16 + 1)]
         [InlineData(16, 64 + 16, 64 + 16 - 1)]
         [InlineData(16, 64 + 16, 64 + 16 + 1)]
         [InlineData(32, 80 + 16, 80 + 16 - 1)]
         [InlineData(32, 80 + 16, 80 + 16 + 1)]
-        public void UnprotectInvalidPackageSize2Fail(int ivSize, int packageSize, int invalidPackageSize)
+        public void UnprotectInvalidPackageSizeFail(int ivSize, int packageSize, int invalidPackageSize)
         {
             var p = new TestPackageProtector(ivSize: ivSize, packageSize: packageSize);
 
@@ -868,34 +858,6 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.True(unprotectedContent.IsAllZeros(), "Destination not cleared on Unprotect() failure.");
         }
 
-        [Fact]
-        public void UnprotectCorruptedPackageFail()
-        {
-            var protector = new TestPackageProtector(packageSize: MinPackageSize);
-
-            using var key = new PackageKey(new byte[32].Fill(4));
-            var associatedData = new byte[13].Fill(7);
-
-            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize].Fill(9));
-
-            var package = new ArraySegment<byte>(new byte[protector.MaxPackageSize]);
-
-            var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
-
-            var unprotectedContent = new ArraySegment<byte>(new byte[MinPackageSize]);
-
-            foreach (var i in new int[] { 0, 15, 16, 31, 32, 47, 48, 63 })
-            {
-                package[i] ^= 1;
-
-                Assert.Throws<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
-
-                Assert.True(unprotectedContent.IsAllZeros(), $"Destination not cleared on Unprotect() failure for byte index '{i}'.");
-
-                package[i] ^= 1;
-            }
-        }
-
         [Theory]
         [InlineData(0)]
         [InlineData(16)]
@@ -904,7 +866,8 @@ namespace Neliva.Security.Cryptography.Tests
         {
             // Exhaustive tamper detection: flipping any single bit at any byte
             // position of a multi block package must be rejected and must clear the
-            // output. Covers the IV region, the MAC region, and the encrypted body.
+            // output. Covers the IV region (bytes 0..ivSize, which the KDF binds the
+            // derived keys to), the MAC region, and the encrypted body.
             const int PackageSize = 128; // Multiple AES blocks beyond the minimum.
 
             var protector = new TestPackageProtector(ivSize: ivSize, packageSize: PackageSize);
@@ -931,43 +894,6 @@ namespace Neliva.Security.Cryptography.Tests
                     Assert.Throws<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
 
                     Assert.True(unprotectedContent.IsAllZeros(), $"Destination not cleared on Unprotect() failure for byte index '{i}', bit '{bit}'.");
-
-                    package[i] ^= (byte)(1 << bit);
-                }
-            }
-        }
-
-        [Theory]
-        [InlineData(16)]
-        [InlineData(32)]
-        public void UnprotectTamperedIvFail(int ivSize)
-        {
-            // The KDF binds the derived keys to the IV bytes. Flipping any bit of
-            // any IV byte must cause a MAC failure and clear the output.
-            const int PackageSize = 128;
-
-            var protector = new TestPackageProtector(ivSize: ivSize, packageSize: PackageSize);
-
-            using var key = new PackageKey(new byte[32].Fill(4));
-            var associatedData = new byte[80 - ivSize].Fill(7);
-
-            var content = new ArraySegment<byte>(new byte[protector.MaxContentSize].Fill(9));
-
-            var package = new ArraySegment<byte>(new byte[PackageSize]);
-
-            var bytesProtected = protector.Protect(content, package, key, 5, associatedData);
-
-            var unprotectedContent = new ArraySegment<byte>(new byte[PackageSize]);
-
-            for (int i = 0; i < ivSize; i++)
-            {
-                for (int bit = 0; bit < 8; bit++)
-                {
-                    package[i] ^= (byte)(1 << bit);
-
-                    Assert.Throws<BadPackageException>(() => protector.Unprotect(package.Slice(0, bytesProtected), unprotectedContent, key, 5, associatedData));
-
-                    Assert.True(unprotectedContent.IsAllZeros(), $"Destination not cleared on Unprotect() failure for IV byte index '{i}', bit '{bit}'.");
 
                     package[i] ^= (byte)(1 << bit);
                 }
@@ -1241,24 +1167,6 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.NotNull(first);
             Assert.Same(first, second);
-        }
-
-        [Fact]
-        public void SystemIsPackageProtectorWithDefaultConfigPass()
-        {
-            // The System protector uses the configuration: ivSize 32 and
-            // packageSize 65536, giving an overhead of 65 bytes
-            // (ivSize + HashSize + 1) and a max content of (packageSize - overhead).
-            var system = PackageProtector.System;
-
-            Assert.IsAssignableFrom<PackageProtector>(system);
-
-            const int DefaultPackageSize = 64 * 1024;
-            const int DefaultIvSize = 32;
-            const int DefaultOverhead = DefaultIvSize + HashSize + 1;
-
-            Assert.Equal(DefaultPackageSize, system.MaxPackageSize);
-            Assert.Equal(DefaultPackageSize - DefaultOverhead, system.MaxContentSize);
         }
 
         [Fact]
