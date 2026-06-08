@@ -194,7 +194,6 @@ namespace Neliva.Security.Cryptography
             }
 
             int ivAndMacSize = this.IvSize + MacSize;
-
             int outputPackageSize = ivAndMacSize + AlignBlock(content.Length);
 
             if (package.Length < outputPackageSize)

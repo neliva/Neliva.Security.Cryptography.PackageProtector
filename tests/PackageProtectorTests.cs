@@ -225,6 +225,53 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.Equal(overhead, p.MaxPackageSize - p.MaxContentSize);
         }
 
+        [Theory]
+        // Zero IV
+        [InlineData(0, 48)]
+        [InlineData(0, 64 * 1024)]
+        // 16 bytes IV
+        [InlineData(16, 64)]
+        [InlineData(16, 64 * 1024)]
+        // 32 bytes IV
+        [InlineData(32, 80)]
+        [InlineData(32, 64 * 1024)]
+        public void NewPackageProtectorExposesConfigurationPropertiesPass(int ivSize, int packageSize)
+        {
+            var p = new TestPackageProtector(ivSize: ivSize, packageSize: packageSize);
+
+            // IvSize echoes the constructor argument.
+            Assert.Equal(ivSize, p.IvSize);
+
+            // MinPackageSize is iv + MAC (32) + one full padding block (16).
+            Assert.Equal(ivSize + HashSize + BlockSize, p.MinPackageSize);
+
+            // MaxAssociatedDataSize is the 80 byte KDF args region minus the IV.
+            Assert.Equal(80 - ivSize, p.MaxAssociatedDataSize);
+
+            // MaxPackageSize echoes the constructor argument; MaxContentSize is
+            // the package minus the iv + MAC (32) + one padding byte overhead.
+            Assert.Equal(packageSize, p.MaxPackageSize);
+            Assert.Equal(packageSize - (ivSize + HashSize + 1), p.MaxContentSize);
+
+            // The configuration must be internally consistent.
+            Assert.True(p.MinPackageSize <= p.MaxPackageSize);
+            Assert.True(p.MaxContentSize >= 0);
+        }
+
+        [Fact]
+        public void SystemExposesExpectedConfigurationPropertiesPass()
+        {
+            // The System protector is configured with a 32 byte IV and a 64 KiB
+            // package size.
+            var system = PackageProtector.System;
+
+            Assert.Equal(32, system.IvSize);
+            Assert.Equal(64 * 1024, system.MaxPackageSize);
+            Assert.Equal(32 + HashSize + BlockSize, system.MinPackageSize);
+            Assert.Equal(80 - 32, system.MaxAssociatedDataSize);
+            Assert.Equal((64 * 1024) - (32 + HashSize + 1), system.MaxContentSize);
+        }
+
         [Fact]
         public void ProtectNullKeyFail()
         {
