@@ -51,6 +51,12 @@ namespace Neliva.Security.Cryptography
         /// <see cref="RandomNumberGenerator.Fill(Span{byte})"/> for
         /// cryptographically strong randomness.
         /// </summary>
+        /// <remarks>
+        /// The instance is configured with a 32 byte <see cref="IvSize"/> and a
+        /// 64 KiB (65536 byte) <see cref="MaxPackageSize"/>. These defaults yield a
+        /// <see cref="MinPackageSize"/> of 80 bytes, a <see cref="MaxContentSize"/>
+        /// of 65471 bytes, and a <see cref="MaxAssociatedDataSize"/> of 48 bytes.
+        /// </remarks>
         public static PackageProtector System { get; } = new SystemPackageProtector();
 
         /// <summary>
@@ -729,7 +735,8 @@ namespace Neliva.Security.Cryptography
         }
 
         /// <summary>
-        /// System default package protector implementation.
+        /// System default package protector implementation that uses a 32 byte IV
+        /// and a 64 KiB package size.
         /// </summary>
         private sealed class SystemPackageProtector : PackageProtector
         {
