@@ -8,7 +8,7 @@ This repository describes safe and secure data at rest protection for untrusted 
 
 ## Overview
 
-PackageProtector combines SP800-108 CTR KDF, HMAC-SHA512 and AES256-CBC algorithms to form authenticated encryption. The data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated. PackageProtector is designed for secure, long term storage.
+PackageProtector combines SP800-108 CTR KDF, HMAC-SHA512, and AES256-CBC algorithms to form key-committing and message/context-committing authenticated encryption design for chunked streams. The data stream is split into equal size chunks (except the last one) and each chunk is signed and encrypted separately. This scheme allows random read/write of an arbitrary length stream with the guarantee that the returned data is authenticated. PackageProtector is designed for secure, long term storage.
 
 Protected streams have no headers, markers or identifiers. This makes protected streams indistinguishable from true randomness. Without a key, it is impossible to determine if the protected stream was produced by PackageProtector or do traffic analysis.
 
@@ -36,6 +36,7 @@ await protector.UnprotectAsync(srcProtectedStream, destContentStream, key /*, as
 There are many authenticated encryption algorithms such as AES-GCM or ChaCha20-Poly1305 that perform very well on modern hardware. There are shortcomings with such algorithms:
 * Reuse of key and nonce in stream ciphers is catastrophic.
 * The authentication tag is only 16 bytes.
+* No key commitment or message commitment.
 
 Block ciphers have their own issues such as padding oracle attacks. PackageProtector uses PKCS7 padding scheme in *pad-then-mac-then-encrypt* mode to guard against padding oracle attacks. CBC mode provides a bit more safety in key/IV reuse and re-encryption of individual chunks (if required). Algorithms performance is not the primary goal of PackageProtector. It was deemed necessary to have separate algorithms and keys for MAC and ENCRYPT operations.
 
