@@ -44,6 +44,7 @@ namespace Neliva.Security.Cryptography
     {
         private const int MacSize = Package.MacSize;
         private const int BlockSize = Package.AesBlockSize;
+        private const int MaxKdfArgsSize = 80;
 
         private readonly int _IvSize;
         private readonly int _IvAndMacSize;
@@ -109,7 +110,7 @@ namespace Neliva.Security.Cryptography
             this._MaxPackageSize = packageSize;
             this._MinPackageSize = minPackageSize;
             this._MaxContentSize = packageSize - overhead;
-            this._MaxAssociatedDataSize = BlockSize + BlockSize - ivSize;
+            this._MaxAssociatedDataSize = MaxKdfArgsSize - ivSize;
         }
 
         /// <summary>
@@ -677,9 +678,9 @@ namespace Neliva.Security.Cryptography
 
             Span<byte> context = stackalloc byte[99];
 
-            BinaryPrimitives.WriteInt64BigEndian(context, packageNumber);
+            BinaryPrimitives.WriteUInt64BigEndian(context, (ulong)packageNumber);
 
-            var ivArgs = context.Slice(8, 80);
+            var ivArgs = context.Slice(8, MaxKdfArgsSize);
 
             ivArg1.CopyTo(ivArgs);
             ivArg2.CopyTo(ivArgs.Slice(ivArg1.Length));
@@ -691,7 +692,7 @@ namespace Neliva.Security.Cryptography
             context[90] = 0; // Reserved for future use (e.g. ivArg3 length).
             context[91] = BlockSize; // Package padding size in bytes.
 
-            BinaryPrimitives.WriteInt32BigEndian(context.Slice(92), packageSize);
+            BinaryPrimitives.WriteUInt32BigEndian(context.Slice(92), (uint)packageSize);
 
             context[96] = 0; // Reserved for future use.
             context[97] = 0; // Reserved for future use.
