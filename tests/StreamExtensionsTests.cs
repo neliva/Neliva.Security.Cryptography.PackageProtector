@@ -85,9 +85,9 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Theory]
-        [InlineData(0, 33)]
-        [InlineData(16, 17)]
-        [InlineData(32, 1)]
+        [InlineData(0, 81)]
+        [InlineData(16, 65)]
+        [InlineData(32, 49)]
         public async Task ProtectBadAssociatedDataFail(int ivSize, int associatedDataSize)
         {
             var p = new TestPackageProtector(ivSize: ivSize, packageSize: 128);
@@ -101,9 +101,9 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Theory]
-        [InlineData(0, 33)]
-        [InlineData(16, 17)]
-        [InlineData(32, 1)]
+        [InlineData(0, 81)]
+        [InlineData(16, 65)]
+        [InlineData(32, 49)]
         public async Task UnprotectBadAssociatedDataSizeFail(int ivSize, int associatedDataSize)
         {
             var p = new TestPackageProtector(ivSize: ivSize, packageSize: 128);
@@ -600,7 +600,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             // The System protector is the default public instance. A multi-package
             // stream round-trip through the async API must succeed bit-for-bit.
-            // System uses ivSize 32, so MaxAssociatedDataSize is 32 - 32 = 0.
+            // System uses ivSize 32, so MaxAssociatedDataSize is 80 - 32 = 48; empty is a simple valid choice.
             var p = PackageProtector.System;
 
             var key = new PackageKey(CreateArray(32, 209));
@@ -934,10 +934,11 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(1)]
         [InlineData(8)]
         [InlineData(16)]
+        [InlineData(64)]
         public async Task StreamRoundTripFullAssociatedDataRangePass(int associatedDataSize)
         {
             // Associated data lengths from empty up to the maximum allowed (for
-            // ivSize 16 the max is 16 bytes) must round-trip when supplied
+            // ivSize 16 the max is 80 - 16 = 64 bytes) must round-trip when supplied
             // identically to protect and unprotect.
             var p = new TestPackageProtector(ivSize: 16, packageSize: 128);
 
@@ -968,8 +969,8 @@ namespace Neliva.Security.Cryptography.Tests
 
             using var key = new PackageKey(new byte[32].Fill(181));
 
-            // Max associated data size is (32 - ivSize) bytes.
-            int maxAssociatedDataSize = 32 - 16;
+            // Max associated data size is (80 - ivSize) bytes.
+            int maxAssociatedDataSize = 80 - 16;
             var maxAssociatedData = new byte[maxAssociatedDataSize].Fill(9);
 
             var contentBytes = new byte[p.MaxContentSize + 3].Fill(72);

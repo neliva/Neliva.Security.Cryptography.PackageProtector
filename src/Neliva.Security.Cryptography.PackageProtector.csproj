@@ -107,12 +107,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
-      <_Parameter1>$(MSBuildProjectName).Tests, PublicKey=0024000004800000940000000602000000240000525341310004000001000100153f94ec79cd1e1c770f73962cc0393a0c27ac51548464d0de4938d9c1a1cd0d7fb7c98e531355746f0e14a085f3f5f95830117a41f05772a52d0c14ddef1e811fa581d4356cc729e69a85eff7355902d11386c4b63e24a25d05a511f63dca0050ca0e70d34293f1d530aa015e789affe234e14395d7639a7d1bd28603bcc2db</_Parameter1>
-    </AssemblyAttribute>
-  </ItemGroup>
-
-  <ItemGroup>
     <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
       <_Parameter1>Authors</_Parameter1>
       <_Parameter2>Maksim Goleta</_Parameter2>

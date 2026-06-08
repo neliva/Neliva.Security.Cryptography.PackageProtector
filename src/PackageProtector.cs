@@ -3,6 +3,7 @@
 
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
@@ -23,11 +24,11 @@ namespace Neliva.Security.Cryptography
     /// <para>
     /// For the 16 byte IV, the package layout is the following:
     /// <code>
-    /// |                   package, 64 bytes - (16MiB - 16 bytes)                           |
+    /// |                   package, 64 bytes - 1GiB                                         |
     /// +------------------------------------------------------------------------------------+
     /// | KDF IV      | MAC(content || pad)    | chunk content             | PKCS7 pad       |
     /// +-------------+------------------------+---------------------------+-----------------+
-    /// | 16 bytes    | 32 bytes               | 0 - (16MiB - 65 bytes)    | 1 - 16 bytes    |
+    /// | 16 bytes    | 32 bytes               | 0 - (1GiB - 49 bytes)     | 1 - 16 bytes    |
     /// +-------------+----------------------------------------------------------------------+
     /// |             |                       encrypted (no padding)                         |
     /// </code>
@@ -41,21 +42,21 @@ namespace Neliva.Security.Cryptography
     /// </remarks>
     public abstract class PackageProtector
     {
+        private const int MacSize = Package.MacSize;
         private const int BlockSize = Package.AesBlockSize;
-        private const int HashSize = 32;  // Truncated MAC size stored in the package, and AES256 key size.
-
-        private readonly int _IvSize;
-        private readonly int _IvAndHashSize;
-        private readonly int _MaxPackageSize;
-        private readonly int _MinPackageSize;
-        private readonly int _MaxContentSize;
-        private readonly int _MaxAssociatedDataSize;
+        private const int MaxKdfArgsSize = 80;
 
         /// <summary>
         /// Gets the system <see cref="PackageProtector"/> implementation, which uses
         /// <see cref="RandomNumberGenerator.Fill(Span{byte})"/> for
         /// cryptographically strong randomness.
         /// </summary>
+        /// <remarks>
+        /// The instance is configured with a 32 byte <see cref="IvSize"/> and a
+        /// 64 KiB (65536 byte) <see cref="MaxPackageSize"/>. These defaults yield a
+        /// <see cref="MinPackageSize"/> of 80 bytes, a <see cref="MaxContentSize"/>
+        /// of 65471 bytes, and a <see cref="MaxAssociatedDataSize"/> of 48 bytes.
+        /// </remarks>
         public static PackageProtector System { get; } = new SystemPackageProtector();
 
         /// <summary>
@@ -68,13 +69,13 @@ namespace Neliva.Security.Cryptography
         /// <param name="packageSize">
         /// The package size in bytes which must be a multiple of 16 bytes.
         /// The minimum is (<paramref name="ivSize"/> + 48)
-        /// and the maximum is <c>16777200</c>.
+        /// and the maximum is <c>1073741824</c>.
         /// </param>
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="ivSize"/> parameter is not 0, 16 or 32 bytes.
         /// - or -
         /// The <paramref name="packageSize"/> parameter is less than
-        /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>16777200</c> bytes.
+        /// (<paramref name="ivSize"/> + 48) bytes or greater than <c>1073741824</c> bytes.
         /// </exception>
         protected PackageProtector(int ivSize, int packageSize)
         {
@@ -89,40 +90,72 @@ namespace Neliva.Security.Cryptography
                     throw new ArgumentOutOfRangeException(nameof(ivSize), "IV size must be 0, 16, or 32 bytes.");
             }
 
-            int minPackageSize = ivSize + HashSize + BlockSize;
+            int minPackageSize = ivSize + MacSize + BlockSize;
 
-            const int KdfMaxPackageSize = (16 * 1024 * 1024) - BlockSize; // Our KDF imposes this limit.
+            // The package size is capped at 1 GiB.
+            const int maxPackageSize = 1024 * 1024 * 1024;
 
-            if (packageSize < minPackageSize || packageSize > KdfMaxPackageSize || IsNotAlignedBlock(packageSize))
+            if (packageSize < minPackageSize || packageSize > maxPackageSize || IsNotAlignedBlock(packageSize))
             {
-                throw new ArgumentOutOfRangeException(nameof(packageSize), "Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 16777200 bytes.");
+                throw new ArgumentOutOfRangeException(nameof(packageSize), "Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 1073741824 bytes.");
             }
 
             // Overhead is the minimum number of bytes added to content
             // during package protection.
-            int overhead = ivSize + HashSize + 1; // One byte for padding.
+            int overhead = ivSize + MacSize + 1; // One byte for padding.
 
-            this._IvSize = ivSize;
-            this._IvAndHashSize = ivSize + HashSize;
-            this._MaxPackageSize = packageSize;
-            this._MinPackageSize = minPackageSize;
-            this._MaxContentSize = packageSize - overhead;
-            this._MaxAssociatedDataSize = BlockSize + BlockSize - ivSize;
+            this.IvSize = ivSize;
+            this.MaxPackageSize = packageSize;
+            this.MinPackageSize = minPackageSize;
+            this.MaxContentSize = packageSize - overhead;
+            this.MaxAssociatedDataSize = MaxKdfArgsSize - ivSize;
         }
+
+        /// <summary>
+        /// Gets the KDF IV size in bytes.
+        /// </summary>
+        /// <remarks>
+        /// The value is one of <c>0</c>, <c>16</c>, or <c>32</c> bytes, as specified
+        /// when the <see cref="PackageProtector"/> instance was constructed.
+        /// </remarks>
+        public int IvSize { get; }
 
         /// <summary>
         /// Gets the max content length in bytes that can be protected by the
         /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, PackageKey, long, ReadOnlySpan{byte})"/>
         /// method.
         /// </summary>
-        public int MaxContentSize => this._MaxContentSize;
+        public int MaxContentSize { get; }
+
+        /// <summary>
+        /// Gets the min package length in bytes that can be produced by the
+        /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, PackageKey, long, ReadOnlySpan{byte})"/>
+        /// method.
+        /// </summary>
+        /// <remarks>
+        /// The minimum package holds empty content and is equal to
+        /// (<see cref="IvSize"/> + 48) bytes.
+        /// </remarks>
+        public int MinPackageSize { get; }
 
         /// <summary>
         /// Gets the max package length in bytes that can be produced by the
         /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, PackageKey, long, ReadOnlySpan{byte})"/>
         /// method.
         /// </summary>
-        public int MaxPackageSize => this._MaxPackageSize;
+        public int MaxPackageSize { get; }
+
+        /// <summary>
+        /// Gets the max associated data length in bytes that can be used with the
+        /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, PackageKey, long, ReadOnlySpan{byte})"/>
+        /// and <see cref="Unprotect(ReadOnlySpan{byte}, Span{byte}, PackageKey, long, ReadOnlySpan{byte})"/>
+        /// methods.
+        /// </summary>
+        /// <remarks>
+        /// The associated data shares the KDF argument region with the IV, so the
+        /// value is equal to (80 - <see cref="IvSize"/>) bytes.
+        /// </remarks>
+        public int MaxAssociatedDataSize { get; }
 
         /// <summary>
         /// Fills the provided span with cryptographically strong random bytes.
@@ -167,19 +200,20 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="packageNumber"/> is less than zero.
         /// - or -
-        /// The <paramref name="associatedData"/> length is too large.
+        /// The <paramref name="associatedData"/> length is greater than <see cref="MaxAssociatedDataSize"/>.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
         /// </exception>
         public int Protect(ReadOnlySpan<byte> content, Span<byte> package, PackageKey key, long packageNumber, ReadOnlySpan<byte> associatedData = default)
         {
-            if (content.Length > this._MaxContentSize)
+            if (content.Length > this.MaxContentSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(content), "Content length is too large.");
             }
 
-            int outputPackageSize = this._IvAndHashSize + AlignBlock(content.Length);
+            int ivAndMacSize = this.IvSize + MacSize;
+            int outputPackageSize = ivAndMacSize + AlignBlock(content.Length);
 
             if (package.Length < outputPackageSize)
             {
@@ -193,7 +227,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(packageNumber), "Package number must not be negative.");
             }
 
-            if (associatedData.Length > this._MaxAssociatedDataSize)
+            if (associatedData.Length > this.MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
@@ -205,14 +239,14 @@ namespace Neliva.Security.Cryptography
                 throw new InvalidOperationException($"The '{nameof(package)}' must not overlap in memory with the '{nameof(content)}'.");
             }
 
-            var data = package.Slice(this._IvAndHashSize, outputPackageSize - this._IvAndHashSize);  // content + padding
-            var kdfIV = package.Slice(0, this._IvSize);
+            var data = package.Slice(ivAndMacSize, outputPackageSize - ivAndMacSize);  // content + padding
+            var kdfIV = package.Slice(0, this.IvSize);
 
             try
             {
                 this.FillRandom(kdfIV);
 
-                // Copy plain text to output buffer (after iv and hash).
+                // Copy plain text to output buffer (after iv and mac).
                 content.CopyTo(data);
 
                 // Pad data using PKCS7 scheme.
@@ -231,20 +265,20 @@ namespace Neliva.Security.Cryptography
 
                 try
                 {
-                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmp32, tmp64);
+                    DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, tmp32, tmp64);
 
                     // Sign plaintext and padding.
                     HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
 
-                    // Prepend the hash (truncated to 32 bytes) to the padded plaintext.
-                    tmp64.Slice(0, HashSize).CopyTo(package.Slice(this._IvSize));
+                    // Prepend the mac (truncated to 32 bytes) to the padded plaintext.
+                    tmp64.Slice(0, MacSize).CopyTo(package.Slice(this.IvSize));
 
                     using (var aes = Aes.Create())
                     {
                         aes.SetKey(tmp32);
 
                         // Encrypt buffer in place.
-                        aes.EncryptCbcNoPadding(package.Slice(this._IvSize, outputPackageSize - this._IvSize), package.Slice(this._IvSize));
+                        aes.EncryptCbcNoPadding(package.Slice(this.IvSize, outputPackageSize - this.IvSize), package.Slice(this.IvSize));
                     }
 
                     return outputPackageSize;
@@ -296,7 +330,7 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="packageNumber"/> is less than zero.
         /// - or -
-        /// The <paramref name="associatedData"/> length is too large.
+        /// The <paramref name="associatedData"/> length is greater than <see cref="MaxAssociatedDataSize"/>.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="package"/> and <paramref name="content"/> overlap in memory.
@@ -319,7 +353,8 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned to the required boundary.");
             }
 
-            int dataLength = package.Length - this._IvAndHashSize;
+            int ivAndMacSize = this.IvSize + MacSize;
+            int dataLength = package.Length - ivAndMacSize;
 
             if (content.Length < dataLength)
             {
@@ -333,7 +368,7 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(packageNumber), "Package number must not be negative.");
             }
 
-            if (associatedData.Length > this._MaxAssociatedDataSize)
+            if (associatedData.Length > this.MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
@@ -354,29 +389,29 @@ namespace Neliva.Security.Cryptography
             {
                 try
                 {
-                    var kdfIV = package.Slice(0, this._IvSize);
+                    var kdfIV = package.Slice(0, this.IvSize);
 
-                    DeriveKeys(key, packageNumber, this._MaxPackageSize, kdfIV, associatedData, tmp32, tmp64);
+                    DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, tmp32, tmp64);
 
                     using (var aes = Aes.Create())
                     {
                         aes.SetKey(tmp32);
 
-                        // Decrypt package hash
+                        // Decrypt package mac
                         aes.DecryptCbcNoPadding(
-                            package.Slice(this._IvSize, HashSize),
+                            package.Slice(this.IvSize, MacSize),
                             tmp32);
 
                         // Decrypt (content + padding) directly into output.
                         aes.DecryptCbcNoPadding(
-                            package.Slice(this._IvAndHashSize),
+                            package.Slice(ivAndMacSize),
                             data,
-                            package.Slice(this._IvAndHashSize - BlockSize, BlockSize));
+                            package.Slice(ivAndMacSize - BlockSize, BlockSize));
                     }
 
                     HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
 
-                    if (!CryptographicOperations.FixedTimeEquals(tmp32, tmp64.Slice(0, HashSize)))
+                    if (!CryptographicOperations.FixedTimeEquals(tmp32, tmp64.Slice(0, MacSize)))
                     {
                         throw new BadPackageException();
                     }
@@ -432,7 +467,7 @@ namespace Neliva.Security.Cryptography
         /// parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// The <paramref name="associatedData"/> parameter length is too large.
+        /// The <paramref name="associatedData"/> parameter length is greater than <see cref="MaxAssociatedDataSize"/>.
         /// </exception>
         public async Task<long> ProtectAsync(Stream content, Stream package, PackageKey key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
@@ -440,7 +475,7 @@ namespace Neliva.Security.Cryptography
             ArgumentNullException.ThrowIfNull(package);
             ArgumentNullException.ThrowIfNull(key);
 
-            if (associatedData.Length > this._MaxAssociatedDataSize)
+            if (associatedData.Length > this.MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
@@ -449,13 +484,13 @@ namespace Neliva.Security.Cryptography
 
             long totalOutputSize = 0L;
 
-            var contentBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxContentSize);
-            var packageBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxPackageSize);
+            var contentBuffer = new ArraySegment<byte>(pool.Rent(this.MaxPackageSize), 0, this.MaxContentSize);
+            var packageBuffer = new ArraySegment<byte>(pool.Rent(this.MaxPackageSize), 0, this.MaxPackageSize);
 
             long packageNumber = 0L;
 
             int bytesRead;
-            int lastPackageContentSize = this._MaxContentSize;
+            int lastPackageContentSize = this.MaxContentSize;
 
             try
             {
@@ -465,7 +500,7 @@ namespace Neliva.Security.Cryptography
 
                     do
                     {
-                        bytesRead = await content.ReadAsync(contentBuffer.Slice(offset, this._MaxContentSize - offset), cancellationToken).ConfigureAwait(false);
+                        bytesRead = await content.ReadAsync(contentBuffer.Slice(offset, this.MaxContentSize - offset), cancellationToken).ConfigureAwait(false);
 
                         if (bytesRead == 0)
                         {
@@ -474,7 +509,7 @@ namespace Neliva.Security.Cryptography
 
                         offset += bytesRead;
                     }
-                    while (offset < this._MaxContentSize);
+                    while (offset < this.MaxContentSize);
 
                     if (offset > 0)
                     {
@@ -493,7 +528,7 @@ namespace Neliva.Security.Cryptography
                 // If last package has only one padding byte,
                 // write end of stream (empty) package marker.
                 // For empty content write end of stream marker.
-                if (lastPackageContentSize == this._MaxContentSize)
+                if (lastPackageContentSize == this.MaxContentSize)
                 {
                     int bytesProtected = this.Protect(default, packageBuffer, key, packageNumber, associatedData.Span);
 
@@ -540,7 +575,7 @@ namespace Neliva.Security.Cryptography
         /// parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// The <paramref name="associatedData"/> parameter length is too large.
+        /// The <paramref name="associatedData"/> parameter length is greater than <see cref="MaxAssociatedDataSize"/>.
         /// </exception>
         /// <exception cref="InvalidDataException">
         /// Unexpected data after end of stream marker.
@@ -561,7 +596,7 @@ namespace Neliva.Security.Cryptography
             ArgumentNullException.ThrowIfNull(content);
             ArgumentNullException.ThrowIfNull(key);
 
-            if (associatedData.Length > this._MaxAssociatedDataSize)
+            if (associatedData.Length > this.MaxAssociatedDataSize)
             {
                 throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
             }
@@ -570,13 +605,13 @@ namespace Neliva.Security.Cryptography
 
             long totalOutputSize = 0L;
 
-            var packageBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxPackageSize);
-            var contentBuffer = new ArraySegment<byte>(pool.Rent(this._MaxPackageSize), 0, this._MaxPackageSize);
+            var packageBuffer = new ArraySegment<byte>(pool.Rent(this.MaxPackageSize), 0, this.MaxPackageSize);
+            var contentBuffer = new ArraySegment<byte>(pool.Rent(this.MaxPackageSize), 0, this.MaxPackageSize);
 
             long packageNumber = 0L;
 
             int bytesRead;
-            int lastPackageContentSize = this._MaxContentSize;
+            int lastPackageContentSize = this.MaxContentSize;
 
             try
             {
@@ -586,7 +621,7 @@ namespace Neliva.Security.Cryptography
 
                     do
                     {
-                        bytesRead = await package.ReadAsync(packageBuffer.Slice(offset, this._MaxPackageSize - offset), cancellationToken).ConfigureAwait(false);
+                        bytesRead = await package.ReadAsync(packageBuffer.Slice(offset, this.MaxPackageSize - offset), cancellationToken).ConfigureAwait(false);
 
                         if (bytesRead == 0)
                         {
@@ -595,11 +630,11 @@ namespace Neliva.Security.Cryptography
 
                         offset += bytesRead;
                     }
-                    while (offset < this._MaxPackageSize);
+                    while (offset < this.MaxPackageSize);
 
                     if (offset > 0)
                     {
-                        if (lastPackageContentSize < this._MaxContentSize)
+                        if (lastPackageContentSize < this.MaxContentSize)
                         {
                             // No more packages are allowed once
                             // 'end of stream' is detected.
@@ -626,7 +661,7 @@ namespace Neliva.Security.Cryptography
                 }
                 while (bytesRead > 0);
 
-                if (lastPackageContentSize == this._MaxContentSize)
+                if (lastPackageContentSize == this.MaxContentSize)
                 {
                     // Stream must always have 'end of stream' marker which
                     // is an empty package, or not fully populated package.
@@ -665,51 +700,43 @@ namespace Neliva.Security.Cryptography
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private bool IsInvalidPackageSize(int value)
         {
-            return value < this._MinPackageSize || value > this._MaxPackageSize || IsNotAlignedBlock(value);
+            return value < this.MinPackageSize || value > this.MaxPackageSize || IsNotAlignedBlock(value);
         }
 
-        internal static void DeriveKeys(PackageKey packageKey, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
+        private static void DeriveKeys(PackageKey packageKey, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
         {
-            const byte SignPurpose = 0x00;
-            const byte EncryptPurpose = 0xff;
+            ReadOnlySpan<byte> encLabel = new byte[3] { (byte)'E', (byte)'N', (byte)'C' };
+            ReadOnlySpan<byte> macLabel = new byte[3] { (byte)'M', (byte)'A', (byte)'C' };
 
-            Span<byte> label = stackalloc byte[3];
-            Span<byte> context = stackalloc byte[43];
+            Span<byte> context = stackalloc byte[99];
 
-            label[0] = EncryptPurpose;
-            label[1] = (byte)ivArg1.Length;
-            label[2] = (byte)ivArg2.Length;
+            BinaryPrimitives.WriteUInt64BigEndian(context, (ulong)packageNumber);
 
-            context[0] = (byte)(packageNumber >> 56);
-            context[1] = (byte)(packageNumber >> 48);
-            context[2] = (byte)(packageNumber >> 40);
-            context[3] = (byte)(packageNumber >> 32);
-            context[4] = (byte)(packageNumber >> 24);
-            context[5] = (byte)(packageNumber >> 16);
-            context[6] = (byte)(packageNumber >> 8);
-            context[7] = (byte)packageNumber;
-
-            var ivArgs = context.Slice(8, 32);
+            var ivArgs = context.Slice(8, MaxKdfArgsSize);
 
             ivArg1.CopyTo(ivArgs);
-
             ivArg2.CopyTo(ivArgs.Slice(ivArg1.Length));
 
             ivArgs.Slice(ivArg1.Length + ivArg2.Length).Clear();
 
-            context[40] = (byte)(packageSize >> 16);
-            context[41] = (byte)(packageSize >> 8);
-            context[42] = (byte)packageSize;;
+            context[88] = (byte)ivArg1.Length;
+            context[89] = (byte)ivArg2.Length;
+            context[90] = 0; // Reserved for future use (e.g. ivArg3 length).
+            context[91] = BlockSize; // Package padding size in bytes.
 
-            packageKey.DeriveKey(label, context, encryptionKey);
+            BinaryPrimitives.WriteUInt32BigEndian(context.Slice(92), (uint)packageSize);
 
-            label[0] = SignPurpose;
+            context[96] = 0; // Reserved for future use.
+            context[97] = 0; // Reserved for future use.
+            context[98] = 1; // Format version number.
 
-            packageKey.DeriveKey(label, context, signingKey);
+            packageKey.DeriveKey(encLabel, context, encryptionKey);
+            packageKey.DeriveKey(macLabel, context, signingKey);
         }
 
         /// <summary>
-        /// System default package protector implementation.
+        /// System default package protector implementation that uses a 32 byte IV
+        /// and a 64 KiB package size.
         /// </summary>
         private sealed class SystemPackageProtector : PackageProtector
         {
