@@ -108,6 +108,10 @@ namespace Neliva.Security.Cryptography
         /// <summary>
         /// Gets the KDF IV size in bytes.
         /// </summary>
+        /// <remarks>
+        /// The value is one of <c>0</c>, <c>16</c>, or <c>32</c> bytes, as specified
+        /// when the <see cref="PackageProtector"/> instance was constructed.
+        /// </remarks>
         public int IvSize { get; }
 
         /// <summary>
@@ -122,6 +126,10 @@ namespace Neliva.Security.Cryptography
         /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, PackageKey, long, ReadOnlySpan{byte})"/>
         /// method.
         /// </summary>
+        /// <remarks>
+        /// The minimum package holds empty content and is equal to
+        /// (<see cref="IvSize"/> + 48) bytes.
+        /// </remarks>
         public int MinPackageSize { get; }
 
         /// <summary>
@@ -134,8 +142,13 @@ namespace Neliva.Security.Cryptography
         /// <summary>
         /// Gets the max associated data length in bytes that can be used with the
         /// <see cref="Protect(ReadOnlySpan{byte}, Span{byte}, PackageKey, long, ReadOnlySpan{byte})"/>
-        /// method.
+        /// and <see cref="Unprotect(ReadOnlySpan{byte}, Span{byte}, PackageKey, long, ReadOnlySpan{byte})"/>
+        /// methods.
         /// </summary>
+        /// <remarks>
+        /// The associated data shares the KDF argument region with the IV, so the
+        /// value is equal to (80 - <see cref="IvSize"/>) bytes.
+        /// </remarks>
         public int MaxAssociatedDataSize { get; }
 
         /// <summary>
@@ -181,7 +194,7 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="packageNumber"/> is less than zero.
         /// - or -
-        /// The <paramref name="associatedData"/> length is too large.
+        /// The <paramref name="associatedData"/> length is greater than <see cref="MaxAssociatedDataSize"/>.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
@@ -311,7 +324,7 @@ namespace Neliva.Security.Cryptography
         /// - or -
         /// The <paramref name="packageNumber"/> is less than zero.
         /// - or -
-        /// The <paramref name="associatedData"/> length is too large.
+        /// The <paramref name="associatedData"/> length is greater than <see cref="MaxAssociatedDataSize"/>.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="package"/> and <paramref name="content"/> overlap in memory.
@@ -448,7 +461,7 @@ namespace Neliva.Security.Cryptography
         /// parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// The <paramref name="associatedData"/> parameter length is too large.
+        /// The <paramref name="associatedData"/> parameter length is greater than <see cref="MaxAssociatedDataSize"/>.
         /// </exception>
         public async Task<long> ProtectAsync(Stream content, Stream package, PackageKey key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
         {
@@ -556,7 +569,7 @@ namespace Neliva.Security.Cryptography
         /// parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">
-        /// The <paramref name="associatedData"/> parameter length is too large.
+        /// The <paramref name="associatedData"/> parameter length is greater than <see cref="MaxAssociatedDataSize"/>.
         /// </exception>
         /// <exception cref="InvalidDataException">
         /// Unexpected data after end of stream marker.
