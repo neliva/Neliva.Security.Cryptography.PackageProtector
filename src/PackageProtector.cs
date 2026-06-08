@@ -46,8 +46,6 @@ namespace Neliva.Security.Cryptography
         private const int BlockSize = Package.AesBlockSize;
         private const int MaxKdfArgsSize = 80;
 
-        private readonly int _IvAndMacSize;
-
         /// <summary>
         /// Gets the system <see cref="PackageProtector"/> implementation, which uses
         /// <see cref="RandomNumberGenerator.Fill(Span{byte})"/> for
@@ -101,7 +99,6 @@ namespace Neliva.Security.Cryptography
             int overhead = ivSize + MacSize + 1; // One byte for padding.
 
             this.IvSize = ivSize;
-            this._IvAndMacSize = ivSize + MacSize;
             this.MaxPackageSize = packageSize;
             this.MinPackageSize = minPackageSize;
             this.MaxContentSize = packageSize - overhead;
@@ -196,7 +193,9 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(content), "Content length is too large.");
             }
 
-            int outputPackageSize = this._IvAndMacSize + AlignBlock(content.Length);
+            int ivAndMacSize = this.IvSize + MacSize;
+
+            int outputPackageSize = ivAndMacSize + AlignBlock(content.Length);
 
             if (package.Length < outputPackageSize)
             {
@@ -222,7 +221,7 @@ namespace Neliva.Security.Cryptography
                 throw new InvalidOperationException($"The '{nameof(package)}' must not overlap in memory with the '{nameof(content)}'.");
             }
 
-            var data = package.Slice(this._IvAndMacSize, outputPackageSize - this._IvAndMacSize);  // content + padding
+            var data = package.Slice(ivAndMacSize, outputPackageSize - ivAndMacSize);  // content + padding
             var kdfIV = package.Slice(0, this.IvSize);
 
             try
@@ -336,7 +335,8 @@ namespace Neliva.Security.Cryptography
                 throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned to the required boundary.");
             }
 
-            int dataLength = package.Length - this._IvAndMacSize;
+            int ivAndMacSize = this.IvSize + MacSize;
+            int dataLength = package.Length - ivAndMacSize;
 
             if (content.Length < dataLength)
             {
@@ -386,9 +386,9 @@ namespace Neliva.Security.Cryptography
 
                         // Decrypt (content + padding) directly into output.
                         aes.DecryptCbcNoPadding(
-                            package.Slice(this._IvAndMacSize),
+                            package.Slice(ivAndMacSize),
                             data,
-                            package.Slice(this._IvAndMacSize - BlockSize, BlockSize));
+                            package.Slice(ivAndMacSize - BlockSize, BlockSize));
                     }
 
                     HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
