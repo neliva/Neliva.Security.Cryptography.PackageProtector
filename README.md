@@ -61,7 +61,7 @@ All packages, including the last one that may be incomplete, have the same forma
 
 ## Stream keys
 
-Given a data stream key (**master key**), for each package a KDF-HMAC-SHA512 in Counter Mode ([described in SP800-108](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-108.pdf)) is used to derive MAC and ENC keys. This provides a level of key indirection. Recovered individual package keys cannot be used to recover other packages or the stream master key.
+Given a data stream key (**package key**), for each package a KDF-HMAC-SHA512 in Counter Mode ([described in SP800-108](https://nvlpubs.nist.gov/nistpubs/Legacy/SP/nistspecialpublication800-108.pdf)) is used to derive MAC and ENC keys. This provides a level of key indirection. Recovered individual package keys cannot be used to recover other packages or the stream package key.
 
 The KDF takes into account the following **derived key context**:
 * Key purpose (encrypt or sign)
@@ -74,7 +74,7 @@ The KDF takes into account the following **derived key context**:
 ```
   32 - 64 bytes                        64 bytes
 +----------------+     +-------+     +----------+     +--------------+     +-------+
-| master key     |---->|       |---->| MAC key  |---->| HMAC-SHA512  |---->|       |
+| package key    |---->|       |---->| MAC key  |---->| HMAC-SHA512  |---->|       |
 +----------------+     | ----- |     +----------+     +--------------+     |       |
                        |  KDF  |                                           | PKG N |
 +----------------+     | ----- |     +----------+     +--------------+     |       |
@@ -83,7 +83,7 @@ The KDF takes into account the following **derived key context**:
   102 bytes                            32 bytes
 ```
 
-The KDF context is optimized to fit into a single HMAC-SHA512 block to reduce computational overhead. PackageProtector restricts the master key size to 32 - 64 bytes to provide adequate security. **The recommended key size is 64 bytes**.
+The KDF context is optimized to fit into a single HMAC-SHA512 block to reduce computational overhead. PackageProtector restricts the package key size to 32 - 64 bytes to provide adequate security. **The recommended key size is 64 bytes**.
 
 Data streams can have optional *associated data* context (up to 80 bytes) that is used by the KDF. The same value must be provided to unprotect the stream. There is no overhead in using *associated data*, but the combined size of the KDF IV and the associated data cannot be larger than 80 bytes.
 
