@@ -46,13 +46,13 @@ PackageProtector splits an arbitrary data stream into chunks. The chunk **conten
 
 For a 16-byte KDF IV, the package layout is the following:
 ```
-|                   package, 64 bytes - 1GiB                                          |
-+-------------------------------------------------------------------------------------+
-| KDF IV      | MAC (content || pad)    | chunk content             | PKCS7 pad       |
-+-------------+-------------------------+---------------------------+-----------------+
-| 16 bytes    | 32 bytes                | 0 - (1GiB - 49 bytes)     | 1 - 16 bytes    |
-+-------------+-----------------------------------------------------------------------+
-              |                       encrypted (no padding)                          |
+|                             package, 64 bytes - 1GiB                              |
++-----------------------------------------------------------------------------------+
+| KDF IV      | MAC(content || pad)    | chunk content            | PKCS7 pad       |
++-------------+------------------------+--------------------------+-----------------+
+| 16 bytes    | 32 bytes               | 0 - (1GiB - 49 bytes)    | 1 - 16 bytes    |
++-------------+---------------------------------------------------------------------+
+|             |                       encrypted (no padding)                        |
 ```
 The KDF **IV** consists of cryptographically strong random bytes generated for every package. When a package is updated, new random bytes must be generated. The MAC placed before the chunk content also acts as a synthetic IV for CBC mode. When the KDF IV size is zero, the content is encrypted deterministically.
 
