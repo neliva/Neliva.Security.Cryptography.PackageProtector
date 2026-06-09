@@ -8,7 +8,7 @@ This repository describes safe and secure data at rest protection for untrusted 
 
 ## Overview
 
-PackageProtector combines SP800-108 CTR KDF, HMAC-SHA512, and AES256-CBC algorithms to form a key-committing and message/context-committing authenticated encryption design for chunked streams. The data stream is split into equal-size chunks (except the last one), and each chunk is signed and encrypted separately. This scheme allows random reads and writes of an arbitrary-length stream with the guarantee that the returned data is authenticated. PackageProtector is designed for secure, long-term storage.
+PackageProtector combines SP800-108 CTR KDF, HMAC-SHA512, and AES256-CBC algorithms to form a key-committing and message/context-committing authenticated encryption design. The data stream is split into equal-size chunks (except the last one), and each chunk is signed and encrypted separately. This scheme allows random reads and writes of an arbitrary-length stream with the guarantee that the returned data is authenticated. PackageProtector is designed for secure, long-term storage.
 
 Protected streams have no headers, markers, or identifiers. This makes protected streams indistinguishable from random data. Without a key, it is impossible to determine whether the protected stream was produced by PackageProtector or to perform traffic analysis.
 
@@ -36,7 +36,7 @@ await protector.UnprotectAsync(srcProtectedStream, destContentStream, key /*, as
 Many authenticated encryption algorithms, such as AES-GCM or ChaCha20-Poly1305, perform very well on modern hardware. These algorithms have some shortcomings:
 * Reuse of key and nonce in stream ciphers is catastrophic.
 * The authentication tag is only 16 bytes.
-* They do not provide key commitment or message commitment.
+* No key commitment or message commitment.
 
 Block ciphers have their own issues, such as padding oracle attacks. PackageProtector uses the PKCS7 padding scheme in *pad-then-mac-then-encrypt* mode to guard against padding oracle attacks. CBC mode provides additional safety for key/IV reuse and re-encryption of individual chunks (if required). Algorithm performance is not the primary goal of PackageProtector. The design intentionally uses separate algorithms and keys for MAC and encryption operations.
 
