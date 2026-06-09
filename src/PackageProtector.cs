@@ -24,13 +24,13 @@ namespace Neliva.Security.Cryptography
     /// <para>
     /// For the 16 byte IV, the package layout is the following:
     /// <code>
-    /// |                   package, 64 bytes - 1GiB                                         |
-    /// +------------------------------------------------------------------------------------+
-    /// | KDF IV      | MAC(content || pad)    | chunk content             | PKCS7 pad       |
-    /// +-------------+------------------------+---------------------------+-----------------+
-    /// | 16 bytes    | 32 bytes               | 0 - (1GiB - 49 bytes)     | 1 - 16 bytes    |
-    /// +-------------+----------------------------------------------------------------------+
-    /// |             |                       encrypted (no padding)                         |
+    /// |                             package, 64 bytes - 1GiB                              |
+    /// +-----------------------------------------------------------------------------------+
+    /// | KDF IV      | MAC(content || pad)    | chunk content            | PKCS7 pad       |
+    /// +-------------+------------------------+--------------------------+-----------------+
+    /// | 16 bytes    | 32 bytes               | 0 - (1GiB - 49 bytes)    | 1 - 16 bytes    |
+    /// +-------------+---------------------------------------------------------------------+
+    /// |             |                       encrypted (no padding)                        |
     /// </code>
     /// </para>
     /// <para>
@@ -265,7 +265,7 @@ namespace Neliva.Security.Cryptography
 
                 try
                 {
-                    DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, tmp32, tmp64);
+                    DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, encryptionKey: tmp32, signingKey: tmp64);
 
                     // Sign plaintext and padding.
                     HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
@@ -391,7 +391,7 @@ namespace Neliva.Security.Cryptography
                 {
                     var kdfIV = package.Slice(0, this.IvSize);
 
-                    DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, tmp32, tmp64);
+                    DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, encryptionKey: tmp32, signingKey: tmp64);
 
                     using (var aes = Aes.Create())
                     {

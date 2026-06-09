@@ -9,7 +9,7 @@
 
     <Copyright>This is free and unencumbered software released into the public domain.</Copyright>
 
-    <PackageTags>encryption hashing aes256 aes-256 sha512 sha-512 hmac cbc sp800-108 dataprotector dataprotection aead key wrap</PackageTags>
+    <PackageTags>cryptography crypto security encryption decryption hashing aes aes256 aes-256 cbc aes-cbc hmac hmac-sha512 sha512 sha-512 sha2 pbkdf2 password kdf sp800-108 aead authenticated-encryption dataprotection data-protection dataprotector data-at-rest key key-wrap keywrap wrap key-commitment committing stream streaming pkcs7 dotnet</PackageTags>
 
     <PackageProjectUrl>https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector</PackageProjectUrl>
 
@@ -26,6 +26,9 @@
     <MinClientVersion>4.3.0</MinClientVersion>
 
     <Description>Safe and secure data at rest protection.</Description>
+
+    <!-- README shown on the NuGet package page. -->
+    <PackageReadmeFile>NUGET.md</PackageReadmeFile>
 
     <!-- https://github.com/dotnet/sdk/blob/master/src/Tasks/Microsoft.NET.Build.Tasks/targets/Microsoft.NET.DefaultAssemblyInfo.targets -->
     <VersionPrefix Condition=" '$(Version)' == '' and '$(VersionPrefix)' == '' ">0.1.0</VersionPrefix>
@@ -66,6 +69,7 @@
   <ItemGroup>
     <!-- Needed for NuGet package. Do not remove. -->
     <None Include="..\UNLICENSE.md" Pack="true" PackagePath="" Visible="false" />
+    <None Include="NUGET.md" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>
