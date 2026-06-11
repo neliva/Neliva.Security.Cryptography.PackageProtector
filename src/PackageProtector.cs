@@ -703,7 +703,7 @@ namespace Neliva.Security.Cryptography
             return value < this.MinPackageSize || value > this.MaxPackageSize || IsNotAlignedBlock(value);
         }
 
-        private static void DeriveKeys(PackageKey packageKey, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
+        private static void DeriveKeys(PackageKey key, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
         {
             ReadOnlySpan<byte> encLabel = new byte[3] { (byte)'E', (byte)'N', (byte)'C' };
             ReadOnlySpan<byte> macLabel = new byte[3] { (byte)'M', (byte)'A', (byte)'C' };
@@ -730,13 +730,13 @@ namespace Neliva.Security.Cryptography
             context[97] = 0; // Reserved for future use.
             context[98] = 1; // Format version number.
 
-            packageKey.DeriveKey(encLabel, context, encryptionKey);
-            packageKey.DeriveKey(macLabel, context, signingKey);
+            key.DeriveKey(encLabel, context, encryptionKey);
+            key.DeriveKey(macLabel, context, signingKey);
         }
 
         /// <summary>
-        /// System default package protector implementation that uses a 32 byte IV
-        /// and a 64 KiB package size.
+        /// System default package protector implementation that uses
+        /// a 32 byte IV and a 64 KiB package size.
         /// </summary>
         private sealed class SystemPackageProtector : PackageProtector
         {
