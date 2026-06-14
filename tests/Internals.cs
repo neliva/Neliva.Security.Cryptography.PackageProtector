@@ -28,7 +28,7 @@ namespace Neliva.Security.Cryptography.Tests
         private static readonly GetPKCS7PaddingLengthDelegate GetPKCS7PaddingLengthImpl =
             typeof(PackageProtector).Assembly
                 .GetType("Neliva.Security.Cryptography.Package", throwOnError: true)!
-                .GetMethod("GetPKCS7PaddingLength", BindingFlags.Public | BindingFlags.Static)!
+                .GetMethod("GetPKCS7PaddingLength", BindingFlags.NonPublic | BindingFlags.Static)!
                 .CreateDelegate<GetPKCS7PaddingLengthDelegate>();
 
         private static readonly DeriveKeysDelegate DeriveKeysImpl =

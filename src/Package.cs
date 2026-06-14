@@ -2,6 +2,7 @@
 // See the UNLICENSE file in the project root for more information.
 
 using System;
+using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 
@@ -12,19 +13,19 @@ namespace Neliva.Security.Cryptography
     /// </summary>
     internal static class Package
     {
-        public const int MacSize = HMACSHA512.HashSizeInBytes / 2;
-        public const int AesBlockSize = 16;
+        internal const int MacSize = HMACSHA512.HashSizeInBytes / 2;
+        internal const int AesBlockSize = 16;
 
         private static ReadOnlySpan<byte> ZeroIV => new byte[AesBlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-        public static void EncryptCbcNoPadding(this Aes aes, ReadOnlySpan<byte> plaintext, Span<byte> destination, ReadOnlySpan<byte> iv = default)
+        internal static void EncryptCbcNoPadding(this Aes aes, ReadOnlySpan<byte> plaintext, Span<byte> destination, ReadOnlySpan<byte> iv = default)
         {
             ReadOnlySpan<byte> useIV = iv.IsEmpty ? ZeroIV : iv;
 
             aes.EncryptCbc(plaintext, useIV, destination, PaddingMode.None);
         }
 
-        public static void DecryptCbcNoPadding(this Aes aes, ReadOnlySpan<byte> ciphertext, Span<byte> destination, ReadOnlySpan<byte> iv = default)
+        internal static void DecryptCbcNoPadding(this Aes aes, ReadOnlySpan<byte> ciphertext, Span<byte> destination, ReadOnlySpan<byte> iv = default)
         {
             ReadOnlySpan<byte> useIV = iv.IsEmpty ? ZeroIV : iv;
 
@@ -68,7 +69,7 @@ namespace Neliva.Security.Cryptography
         /// padding oracle that can be used to decrypt or forge data without the key.
         /// </para>
         /// </remarks>
-        public static int GetPKCS7PaddingLength(int blockSize, ReadOnlySpan<byte> data)
+        internal static int GetPKCS7PaddingLength(int blockSize, ReadOnlySpan<byte> data)
         {
             if (blockSize <= 0 || blockSize > byte.MaxValue)
             {
@@ -106,6 +107,82 @@ namespace Neliva.Security.Cryptography
             int result = (int)((mask & padLength) | ~mask); // returns -1 on failure
 
             return result;
+        }
+
+        /// <summary>
+        /// Derives a key identifier as an RFC 4122 version 4 <see cref="Guid"/>
+        /// from the supplied <paramref name="key"/> and <paramref name="context"/>.
+        /// </summary>
+        /// <param name="key">
+        /// The <see cref="PackageKey"/> used to derive the key identifier.
+        /// </param>
+        /// <param name="context">
+        /// A span that scopes the derived key identifier.
+        /// The length must not exceed 64 bytes. An empty context is permitted and
+        /// produces a distinct, well-defined identifier.
+        /// </param>
+        /// <returns>
+        /// A version 4 <see cref="Guid"/> bound to the <paramref name="key"/>
+        /// and <paramref name="context"/>.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// The <paramref name="key"/> parameter is <c>null</c>.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// The <paramref name="context"/> is longer than 64 bytes.
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// The returned identifier is cryptographically derived from the
+        /// <paramref name="key"/> and <paramref name="context"/> and is formatted as a
+        /// valid RFC 4122 version 4 <see cref="Guid"/>.
+        /// </para>
+        /// <para>
+        /// The derivation is deterministic and unambiguous: the same
+        /// <paramref name="key"/> and <paramref name="context"/> always yield the same
+        /// identifier, and distinct contexts (including the empty context) always yield
+        /// distinct identifiers.
+        /// </para>
+        /// </remarks>
+        internal static Guid GetKeyId(PackageKey key, ReadOnlySpan<byte> context = default)
+        {
+            ArgumentNullException.ThrowIfNull(key);
+
+            if (context.Length > HMACSHA512.HashSizeInBytes)
+            {
+                throw new ArgumentException("Context must not exceed 64 bytes.", nameof(context));
+            }
+
+            ReadOnlySpan<byte> keyLabel = "KEY_IDENTIFIER_KEY_V1_SP800_108_CTR"u8;
+            ReadOnlySpan<byte> keyContext = "R7NSHARGV1R6YA4H36VQ61JJCAJ2115QS2RXVF6CMZ6S9VQWF4JMAK1PRSJ7JCTE"u8;
+
+            ReadOnlySpan<byte> idLabel = "KEY_IDENTIFIER_V1_SP800_108_CTR"u8;
+
+            Span<byte> destination = stackalloc byte[sizeof(uint) + HMACSHA512.HashSizeInBytes];
+
+            try
+            {
+                BinaryPrimitives.WriteUInt32BigEndian(destination, (uint)context.Length);
+                context.CopyTo(destination.Slice(sizeof(uint)));
+
+                using (var key2 = key.DeriveKey(keyLabel, keyContext))
+                {
+                    key2.DeriveKey(idLabel, destination.Slice(0, sizeof(uint) + context.Length), destination);
+                }
+
+                Span<byte> id = destination.Slice(0, 16);
+
+                // Set the RFC 4122 version (4) and variant (10xx) bits on the
+                // big-endian UUID byte positions.
+                id[6] = (byte)((id[6] & 0x0F) | 0x40);
+                id[8] = (byte)((id[8] & 0x3F) | 0x80);
+
+                return new Guid(id, bigEndian: true);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(destination);
+            }
         }
 
         // Broadcasts the most significant bit (bit 31) of 'value' to every bit

@@ -167,7 +167,7 @@ namespace Neliva.Security.Cryptography
 
                     PrehashedPbkdf2(prehashedPassword: tmp64, destination: tmp64, iterations);
 
-                    DeriveKeys(key: tmp64, encryptionKey: tmp32, signingKey: tmp64);
+                    DeriveKeys(key: tmp64, encKey: tmp32, macKey: tmp64);
 
                     HMACSHA512.HashData(key: tmp64, source: content, destination: tmp64);
 
@@ -305,7 +305,7 @@ namespace Neliva.Security.Cryptography
 
                     PrehashedPbkdf2(prehashedPassword: tmp64, destination: tmp64, iterations);
 
-                    DeriveKeys(key: tmp64, encryptionKey: tmp32, signingKey: tmp64);
+                    DeriveKeys(key: tmp64, encKey: tmp32, macKey: tmp64);
 
                     using (var aes = Aes.Create())
                     {
@@ -343,7 +343,7 @@ namespace Neliva.Security.Cryptography
             }
         }
 
-        private static void DeriveKeys(ReadOnlySpan<byte> key, Span<byte> encryptionKey, Span<byte> signingKey)
+        private static void DeriveKeys(ReadOnlySpan<byte> key, Span<byte> encKey, Span<byte> macKey)
         {
             ReadOnlySpan<byte> encLabel = new byte[] { (byte)'A', (byte)'E', (byte)'S', (byte)'2', (byte)'5', (byte)'6', (byte)'-', (byte)'C', (byte)'B', (byte)'C' };
             ReadOnlySpan<byte> macLabel = new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2', (byte)'-', (byte)'2', (byte)'5', (byte)'6' };
@@ -352,8 +352,8 @@ namespace Neliva.Security.Cryptography
 
             using (var kdf = new PackageKey(key))
             {
-                kdf.DeriveKey(label: encLabel, context: versionContext, destination: encryptionKey);
-                kdf.DeriveKey(label: macLabel, context: versionContext, destination: signingKey);
+                kdf.DeriveKey(encLabel, versionContext, encKey);
+                kdf.DeriveKey(macLabel, versionContext, macKey);
             }
         }
 
