@@ -108,6 +108,76 @@ namespace Neliva.Security.Cryptography
             return result;
         }
 
+        /// <summary>
+        /// Derives a key identifier as an RFC 4122 version 4 <see cref="Guid"/>
+        /// from the supplied <paramref name="key"/> and <paramref name="context"/>.
+        /// </summary>
+        /// <param name="key">
+        /// The <see cref="PackageKey"/> used to derive the key identifier.
+        /// </param>
+        /// <param name="context">
+        /// A non-empty span that scopes the derived key identifier.
+        /// The length must not exceed 64 bytes.
+        /// </param>
+        /// <returns>
+        /// A version 4 <see cref="Guid"/> bound to the <paramref name="key"/>
+        /// and <paramref name="context"/>.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        /// The <paramref name="key"/> parameter is <c>null</c>.
+        /// </exception>
+        /// <exception cref="ArgumentException">
+        /// The <paramref name="context"/> is empty or longer than 64 bytes.
+        /// </exception>
+        /// <remarks>
+        /// <para>
+        /// The identifier is produced by a two-stage SP800-108 HMAC-SHA512 KDF
+        /// pipeline. The first stage derives a 64 byte intermediate key from the
+        /// <paramref name="key"/> using a fixed label and a fixed context, providing
+        /// domain separation for key identifier derivation. The second stage uses that
+        /// intermediate key, with a fixed label and the caller supplied
+        /// <paramref name="context"/>, to derive a 64 byte value; the leading 16 bytes
+        /// are taken as the identifier and have their version and variant bits set to
+        /// produce a valid version 4 <see cref="Guid"/>.
+        /// </para>
+        /// <para>
+        /// The derivation is deterministic: the same <paramref name="key"/> and
+        /// <paramref name="context"/> always yield the same identifier.
+        /// </para>
+        /// </remarks>
+        internal static Guid GetKeyId(PackageKey key, ReadOnlySpan<byte> context = default)
+        {
+            ArgumentNullException.ThrowIfNull(key);
+
+            if (context.Length > 64)
+            {
+                throw new ArgumentException("Context must not exceed 64 bytes.", nameof(context));
+            }
+
+            ReadOnlySpan<byte> keyLabel = "KEY_IDENTIFIER_KEY_V1_SP800_108_CTR"u8;
+            ReadOnlySpan<byte> keyContext = "R7NSHARGV1R6YA4H36VQ61JJCAJ2115QS2RXVF6CMZ6S9VQWF4JMAK1PRSJ7JCTE"u8;
+
+            ReadOnlySpan<byte> idLabel = "KEY_IDENTIFIER_V1_SP800_108_CTR"u8;
+
+            Span<byte> destination = stackalloc byte[HMACSHA512.HashSizeInBytes];
+
+            using (var stage2 = key.DeriveKey(keyLabel, keyContext))
+            {
+                var contextToUse = context.IsEmpty ? keyContext : context;
+
+                stage2.DeriveKey(idLabel, contextToUse, destination);
+            }
+
+            Span<byte> id = destination.Slice(0, 16);
+
+            // Set the RFC 4122 version (4) and variant (10xx) bits on the
+            // big-endian UUID byte positions.
+            id[6] = (byte)((id[6] & 0x0F) | 0x40);
+            id[8] = (byte)((id[8] & 0x3F) | 0x80);
+
+            return new Guid(id, bigEndian: true);
+        }
+
         // Broadcasts the most significant bit (bit 31) of 'value' to every bit
         // position, producing 0xFFFFFFFF when bit 31 is set and 0x00000000 otherwise.
         //

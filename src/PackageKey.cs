@@ -21,8 +21,8 @@ namespace Neliva.Security.Cryptography
     /// </remarks>
     public sealed class PackageKey : IDisposable
     {
-        private const int MinKeySize = 32;
-        private const int MaxKeySize = 64;
+        private const int MinKeySize = HMACSHA512.HashSizeInBytes / 2;
+        private const int MaxKeySize = HMACSHA512.HashSizeInBytes;
 
         // The max number of message bytes that we can input into SHA512 to
         // be processed in a single block is 111 bytes, due to:
@@ -110,6 +110,52 @@ namespace Neliva.Security.Cryptography
             }
 
             this._kdf.DeriveKey(label, context, destination);
+        }
+
+        /// <summary>
+        /// Derives a new <see cref="PackageKey"/> instance from the current master key.
+        /// </summary>
+        /// <param name="label">
+        /// A non-empty span that identifies the purpose for the derived key.
+        /// </param>
+        /// <param name="context">
+        /// A non-empty span containing the information related to the derived key.
+        /// It may include identities of parties who are deriving and/or using the
+        /// derived key and, optionally, a nonce known by the parties who derive the keys.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="PackageKey"/> derived from the current master key using a
+        /// 64 byte derived value. The caller owns the returned instance and is
+        /// responsible for disposing it.
+        /// </returns>
+        /// <exception cref="ArgumentException">
+        /// The <paramref name="label"/> is empty.
+        /// - or -
+        /// The <paramref name="context"/> is empty.
+        /// - or -
+        /// The combined length of <paramref name="label"/> and <paramref name="context"/>
+        /// exceeds 102 bytes.
+        /// </exception>
+        /// <remarks>
+        /// The derived key material is held only by the returned <see cref="PackageKey"/>;
+        /// the intermediate buffer used to construct it is cleared before this method
+        /// returns. Dispose the returned instance when it is no longer needed to release
+        /// the underlying key.
+        /// </remarks>
+        public PackageKey DeriveKey(ReadOnlySpan<byte> label, ReadOnlySpan<byte> context)
+        {
+            Span<byte> destination = stackalloc byte[MaxKeySize];
+
+            try
+            {
+                this.DeriveKey(label, context, destination);
+
+                return new PackageKey(destination);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(destination);
+            }
         }
 
         /// <summary>
