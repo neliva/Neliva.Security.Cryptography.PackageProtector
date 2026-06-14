@@ -12,19 +12,19 @@ namespace Neliva.Security.Cryptography
     /// </summary>
     internal static class Package
     {
-        public const int MacSize = HMACSHA512.HashSizeInBytes / 2;
-        public const int AesBlockSize = 16;
+        internal const int MacSize = HMACSHA512.HashSizeInBytes / 2;
+        internal const int AesBlockSize = 16;
 
         private static ReadOnlySpan<byte> ZeroIV => new byte[AesBlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-        public static void EncryptCbcNoPadding(this Aes aes, ReadOnlySpan<byte> plaintext, Span<byte> destination, ReadOnlySpan<byte> iv = default)
+        internal static void EncryptCbcNoPadding(this Aes aes, ReadOnlySpan<byte> plaintext, Span<byte> destination, ReadOnlySpan<byte> iv = default)
         {
             ReadOnlySpan<byte> useIV = iv.IsEmpty ? ZeroIV : iv;
 
             aes.EncryptCbc(plaintext, useIV, destination, PaddingMode.None);
         }
 
-        public static void DecryptCbcNoPadding(this Aes aes, ReadOnlySpan<byte> ciphertext, Span<byte> destination, ReadOnlySpan<byte> iv = default)
+        internal static void DecryptCbcNoPadding(this Aes aes, ReadOnlySpan<byte> ciphertext, Span<byte> destination, ReadOnlySpan<byte> iv = default)
         {
             ReadOnlySpan<byte> useIV = iv.IsEmpty ? ZeroIV : iv;
 
@@ -68,7 +68,7 @@ namespace Neliva.Security.Cryptography
         /// padding oracle that can be used to decrypt or forge data without the key.
         /// </para>
         /// </remarks>
-        public static int GetPKCS7PaddingLength(int blockSize, ReadOnlySpan<byte> data)
+        internal static int GetPKCS7PaddingLength(int blockSize, ReadOnlySpan<byte> data)
         {
             if (blockSize <= 0 || blockSize > byte.MaxValue)
             {
