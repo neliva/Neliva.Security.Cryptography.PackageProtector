@@ -148,7 +148,7 @@ namespace Neliva.Security.Cryptography
         {
             ArgumentNullException.ThrowIfNull(key);
 
-            if (context.Length > 64)
+            if (context.Length > HMACSHA512.HashSizeInBytes)
             {
                 throw new ArgumentException("Context must not exceed 64 bytes.", nameof(context));
             }
@@ -163,28 +163,19 @@ namespace Neliva.Security.Cryptography
             BinaryPrimitives.WriteUInt32BigEndian(destination, (uint)context.Length);
             context.CopyTo(destination.Slice(sizeof(uint)));
 
-            Span<byte>  idContext = destination.Slice(0, sizeof(uint) + context.Length);
-
-            try
+            using (var subKey = key.DeriveKey(keyLabel, keyContext))
             {
-                using (var stage2 = key.DeriveKey(keyLabel, keyContext))
-                {
-                    stage2.DeriveKey(idLabel, idContext, destination);
-                }
-
-                Span<byte> id = destination.Slice(0, 16);
-
-                // Set the RFC 4122 version (4) and variant (10xx) bits on the
-                // big-endian UUID byte positions.
-                id[6] = (byte)((id[6] & 0x0F) | 0x40);
-                id[8] = (byte)((id[8] & 0x3F) | 0x80);
-
-                return new Guid(id, bigEndian: true);
+                subKey.DeriveKey(idLabel, destination.Slice(0, sizeof(uint) + context.Length), destination);
             }
-            finally
-            {
-                CryptographicOperations.ZeroMemory(destination);
-            }
+
+            Span<byte> id = destination.Slice(0, 16);
+
+            // Set the RFC 4122 version (4) and variant (10xx) bits on the
+            // big-endian UUID byte positions.
+            id[6] = (byte)((id[6] & 0x0F) | 0x40);
+            id[8] = (byte)((id[8] & 0x3F) | 0x80);
+
+            return new Guid(id, bigEndian: true);
         }
 
         // Broadcasts the most significant bit (bit 31) of 'value' to every bit
