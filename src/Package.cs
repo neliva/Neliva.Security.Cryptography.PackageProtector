@@ -117,8 +117,9 @@ namespace Neliva.Security.Cryptography
         /// The <see cref="PackageKey"/> used to derive the key identifier.
         /// </param>
         /// <param name="context">
-        /// A non-empty span that scopes the derived key identifier.
-        /// The length must not exceed 64 bytes.
+        /// A span that scopes the derived key identifier.
+        /// The length must not exceed 64 bytes. An empty context is permitted and
+        /// produces a distinct, well-defined identifier.
         /// </param>
         /// <returns>
         /// A version 4 <see cref="Guid"/> bound to the <paramref name="key"/>
@@ -128,22 +129,19 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="key"/> parameter is <c>null</c>.
         /// </exception>
         /// <exception cref="ArgumentException">
-        /// The <paramref name="context"/> is empty or longer than 64 bytes.
+        /// The <paramref name="context"/> is longer than 64 bytes.
         /// </exception>
         /// <remarks>
         /// <para>
-        /// The identifier is produced by a two-stage SP800-108 HMAC-SHA512 KDF
-        /// pipeline. The first stage derives a 64 byte intermediate key from the
-        /// <paramref name="key"/> using a fixed label and a fixed context, providing
-        /// domain separation for key identifier derivation. The second stage uses that
-        /// intermediate key, with a fixed label and the caller supplied
-        /// <paramref name="context"/>, to derive a 64 byte value; the leading 16 bytes
-        /// are taken as the identifier and have their version and variant bits set to
-        /// produce a valid version 4 <see cref="Guid"/>.
+        /// The returned identifier is cryptographically derived from the
+        /// <paramref name="key"/> and <paramref name="context"/> and is formatted as a
+        /// valid RFC 4122 version 4 <see cref="Guid"/>.
         /// </para>
         /// <para>
-        /// The derivation is deterministic: the same <paramref name="key"/> and
-        /// <paramref name="context"/> always yield the same identifier.
+        /// The derivation is deterministic and unambiguous: the same
+        /// <paramref name="key"/> and <paramref name="context"/> always yield the same
+        /// identifier, and distinct contexts (including the empty context) always yield
+        /// distinct identifiers.
         /// </para>
         /// </remarks>
         internal static Guid GetKeyId(PackageKey key, ReadOnlySpan<byte> context = default)
