@@ -265,7 +265,7 @@ namespace Neliva.Security.Cryptography
 
                 try
                 {
-                    DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, encryptionKey: tmp32, signingKey: tmp64);
+                    DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, encKey: tmp32, macKey: tmp64);
 
                     // Sign plaintext and padding.
                     HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
@@ -391,7 +391,7 @@ namespace Neliva.Security.Cryptography
                 {
                     var kdfIV = package.Slice(0, this.IvSize);
 
-                    DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, encryptionKey: tmp32, signingKey: tmp64);
+                    DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, encKey: tmp32, macKey: tmp64);
 
                     using (var aes = Aes.Create())
                     {
@@ -703,7 +703,7 @@ namespace Neliva.Security.Cryptography
             return value < this.MinPackageSize || value > this.MaxPackageSize || IsNotAlignedBlock(value);
         }
 
-        private static void DeriveKeys(PackageKey key, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encryptionKey, Span<byte> signingKey)
+        private static void DeriveKeys(PackageKey key, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encKey, Span<byte> macKey)
         {
             ReadOnlySpan<byte> encLabel = new byte[3] { (byte)'E', (byte)'N', (byte)'C' };
             ReadOnlySpan<byte> macLabel = new byte[3] { (byte)'M', (byte)'A', (byte)'C' };
@@ -730,8 +730,8 @@ namespace Neliva.Security.Cryptography
             context[97] = 0; // Reserved for future use.
             context[98] = 1; // Format version number.
 
-            key.DeriveKey(encLabel, context, encryptionKey);
-            key.DeriveKey(macLabel, context, signingKey);
+            key.DeriveKey(encLabel, context, encKey);
+            key.DeriveKey(macLabel, context, macKey);
         }
 
         /// <summary>
