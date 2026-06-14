@@ -2,6 +2,7 @@
 // See the UNLICENSE file in the project root for more information.
 
 using System;
+using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 
@@ -159,23 +160,33 @@ namespace Neliva.Security.Cryptography
 
             ReadOnlySpan<byte> idLabel = "KEY_IDENTIFIER_V1_SP800_108_CTR"u8;
 
-            Span<byte> destination = stackalloc byte[HMACSHA512.HashSizeInBytes];
+            Span<byte> destination = stackalloc byte[sizeof(uint) + HMACSHA512.HashSizeInBytes];
 
-            using (var stage2 = key.DeriveKey(keyLabel, keyContext))
+            BinaryPrimitives.WriteUInt32BigEndian(destination, (uint)context.Length);
+            context.CopyTo(destination.Slice(sizeof(uint)));
+
+            Span<byte>  idContext = destination.Slice(0, sizeof(uint) + context.Length);
+
+            try
             {
-                var contextToUse = context.IsEmpty ? keyContext : context;
+                using (var stage2 = key.DeriveKey(keyLabel, keyContext))
+                {
+                    stage2.DeriveKey(idLabel, idContext, destination);
+                }
 
-                stage2.DeriveKey(idLabel, contextToUse, destination);
+                Span<byte> id = destination.Slice(0, 16);
+
+                // Set the RFC 4122 version (4) and variant (10xx) bits on the
+                // big-endian UUID byte positions.
+                id[6] = (byte)((id[6] & 0x0F) | 0x40);
+                id[8] = (byte)((id[8] & 0x3F) | 0x80);
+
+                return new Guid(id, bigEndian: true);
             }
-
-            Span<byte> id = destination.Slice(0, 16);
-
-            // Set the RFC 4122 version (4) and variant (10xx) bits on the
-            // big-endian UUID byte positions.
-            id[6] = (byte)((id[6] & 0x0F) | 0x40);
-            id[8] = (byte)((id[8] & 0x3F) | 0x80);
-
-            return new Guid(id, bigEndian: true);
+            finally
+            {
+                CryptographicOperations.ZeroMemory(destination);
+            }
         }
 
         // Broadcasts the most significant bit (bit 31) of 'value' to every bit
