@@ -163,9 +163,9 @@ namespace Neliva.Security.Cryptography
             BinaryPrimitives.WriteUInt32BigEndian(destination, (uint)context.Length);
             context.CopyTo(destination.Slice(sizeof(uint)));
 
-            using (var subKey = key.DeriveKey(keyLabel, keyContext))
+            using (var key2 = key.DeriveKey(keyLabel, keyContext))
             {
-                subKey.DeriveKey(idLabel, destination.Slice(0, sizeof(uint) + context.Length), destination);
+                key2.DeriveKey(idLabel, destination.Slice(0, sizeof(uint) + context.Length), destination);
             }
 
             Span<byte> id = destination.Slice(0, 16);
