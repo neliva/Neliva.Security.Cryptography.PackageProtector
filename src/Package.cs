@@ -53,7 +53,7 @@ namespace Neliva.Security.Cryptography
         /// distinct identifiers.
         /// </para>
         /// </remarks>
-        internal static Guid GetKeyIdentifier(PackageKey key, ReadOnlySpan<byte> context = default)
+        public static Guid GetKeyIdentifier(PackageKey key, ReadOnlySpan<byte> context = default)
         {
             ArgumentNullException.ThrowIfNull(key);
 
