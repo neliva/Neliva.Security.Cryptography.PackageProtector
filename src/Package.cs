@@ -65,20 +65,20 @@ namespace Neliva.Security.Cryptography
             ReadOnlySpan<byte> keyLabel = "R7NSHARGV1R6YA4H36VQ61JJCAJ2115QS2RXVF6CMZ6S9VQWF4JMAK1PRSJ7JCTE__KEY_IDENTIFIER_KEY_V20260615"u8;
             ReadOnlySpan<byte> keyContext = new byte[sizeof(uint)] { 0, 0, 0, 0 };
 
-            ReadOnlySpan<byte> idLabel  = "KEY_IDENTIFIER_V20260615"u8;
+            ReadOnlySpan<byte> idLabel = "KEY_IDENTIFIER_V20260615"u8;
 
             Span<byte> destination = stackalloc byte[HMACSHA512.HashSizeInBytes + sizeof(uint) + HMACSHA512.HashSizeInBytes];
 
             try
             {
-                var ivContext = destination.Slice(HMACSHA512.HashSizeInBytes);
+                var idContext = destination.Slice(HMACSHA512.HashSizeInBytes);
 
-                BinaryPrimitives.WriteUInt32BigEndian(ivContext, (uint)context.Length);
-                context.CopyTo(ivContext.Slice(sizeof(uint)));
+                BinaryPrimitives.WriteUInt32BigEndian(idContext, (uint)context.Length);
+                context.CopyTo(idContext.Slice(sizeof(uint)));
 
                 using (var key2 = key.DeriveKey(keyLabel, keyContext))
                 {
-                    key2.DeriveKey(idLabel, ivContext.Slice(0, sizeof(uint) + context.Length), destination.Slice(0, HMACSHA512.HashSizeInBytes));
+                    key2.DeriveKey(idLabel, idContext.Slice(0, sizeof(uint) + context.Length), destination.Slice(0, HMACSHA512.HashSizeInBytes));
                 }
 
                 var id = destination.Slice(0, 16);
