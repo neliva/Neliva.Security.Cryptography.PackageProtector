@@ -250,5 +250,30 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.Equal(MaxContextSize + 1, seen.Count);
         }
+
+        // --- Known answer tests (pinned, precomputed outputs) ---
+
+        // Precomputed identifiers captured from Package.GetKeyIdentifier. These pin the
+        // exact wire format (labels, length-prefix framing, RFC 4122 v4 bit-setting) so
+        // any unintended change to the derivation is caught independently of the
+        // ReferenceKeyIdentifier helper. Inputs are hex-encoded (key, then context).
+        [Theory]
+        [InlineData("0000000000000000000000000000000000000000000000000000000000000000", "", "205efcc8-3897-41ae-8b67-81ee0f2145a8")]
+        [InlineData("0000000000000000000000000000000000000000000000000000000000000000", "00", "84f57a0a-643d-42ad-9e0e-9b5e2c2df265")]
+        [InlineData("1111111111111111111111111111111111111111111111111111111111111111", "010203", "c67edc01-21d2-4325-b56c-715fd6f4aca6")]
+        [InlineData("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "4b1c1bd9-9f26-4c65-8e4e-7712af391911")]
+        [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "00112233445566778899aabbccddeeff", "413aa683-0c77-4f4b-b0d9-2acda335fac7")]
+        public void KnownAnswerPass(string keyHex, string contextHex, string expectedGuid)
+        {
+            var keyBytes = Convert.FromHexString(keyHex);
+            var context = Convert.FromHexString(contextHex);
+
+            using var key = new PackageKey(keyBytes);
+
+            var actual = Package.GetKeyIdentifier(key, context);
+
+            Assert.Equal(Guid.Parse(expectedGuid), actual);
+            Assert.Equal(4, actual.Version);
+        }
     }
 }
