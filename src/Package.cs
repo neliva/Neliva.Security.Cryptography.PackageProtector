@@ -67,21 +67,21 @@ namespace Neliva.Security.Cryptography
 
             ReadOnlySpan<byte> idLabel  = "KEY_IDENTIFIER_V20260615"u8;
 
-            Span<byte> destination = stackalloc byte[sizeof(uint) + HMACSHA512.HashSizeInBytes];
+            Span<byte> destination = stackalloc byte[HMACSHA512.HashSizeInBytes + sizeof(uint) + HMACSHA512.HashSizeInBytes];
 
             try
             {
-                BinaryPrimitives.WriteUInt32BigEndian(destination, (uint)context.Length);
-                context.CopyTo(destination.Slice(sizeof(uint)));
+                var ivContext = destination.Slice(HMACSHA512.HashSizeInBytes);
+
+                BinaryPrimitives.WriteUInt32BigEndian(ivContext, (uint)context.Length);
+                context.CopyTo(ivContext.Slice(sizeof(uint)));
 
                 using (var key2 = key.DeriveKey(keyLabel, keyContext))
                 {
-                    var idContext = destination.Slice(0, sizeof(uint) + context.Length);
-
-                    key2.DeriveKey(idLabel, idContext, destination);
+                    key2.DeriveKey(idLabel, ivContext.Slice(0, sizeof(uint) + context.Length), destination.Slice(0, HMACSHA512.HashSizeInBytes));
                 }
 
-                Span<byte> id = destination.Slice(0, 16);
+                var id = destination.Slice(0, 16);
 
                 // Set the RFC 4122 version (4) and variant (10xx) bits on the
                 // big-endian UUID byte positions.
