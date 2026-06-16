@@ -11,7 +11,7 @@ namespace Neliva.Security.Cryptography
     /// <summary>
     /// Provides helper methods for package protection.
     /// </summary>
-    internal static class Package
+    public static class Package
     {
         internal const int MacSize = HMACSHA512.HashSizeInBytes / 2;
         internal const int AesBlockSize = 16;
