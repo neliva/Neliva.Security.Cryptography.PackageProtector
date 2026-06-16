@@ -230,6 +230,193 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Fact]
+        public void DeriveKeyToNewInstanceEmptyLabelFail()
+        {
+            using var pk = new PackageKey(new byte[MinKeySize]);
+
+            var ex = Assert.Throws<ArgumentException>(() => pk.DeriveKey(ReadOnlySpan<byte>.Empty, new byte[1]));
+
+            Assert.Equal("label", ex.ParamName);
+        }
+
+        [Fact]
+        public void DeriveKeyToNewInstanceEmptyContextFail()
+        {
+            using var pk = new PackageKey(new byte[MinKeySize]);
+
+            var ex = Assert.Throws<ArgumentException>(() => pk.DeriveKey(new byte[1], ReadOnlySpan<byte>.Empty));
+
+            Assert.Equal("context", ex.ParamName);
+        }
+
+        [Theory]
+        [InlineData(1, MaxLabelContextLength)]
+        [InlineData(MaxLabelContextLength, 1)]
+        [InlineData(MaxLabelContextLength, MaxLabelContextLength)]
+        public void DeriveKeyToNewInstanceCombinedLengthTooLongFail(int labelLength, int contextLength)
+        {
+            using var pk = new PackageKey(new byte[MinKeySize]);
+
+            var ex = Assert.Throws<ArgumentException>(() => pk.DeriveKey(new byte[labelLength], new byte[contextLength]));
+
+            Assert.Null(ex.ParamName);
+            Assert.Equal("The combined length of label and context must not exceed 102 bytes.", ex.Message);
+        }
+
+        [Theory]
+        [InlineData(1, 1)]
+        [InlineData(1, MaxLabelContextLength - 1)]
+        [InlineData(MaxLabelContextLength - 1, 1)]
+        [InlineData(MaxLabelContextLength / 2, MaxLabelContextLength / 2)]
+        public void DeriveKeyToNewInstanceCombinedLengthBoundaryPass(int labelLength, int contextLength)
+        {
+            using var pk = new PackageKey(new byte[MinKeySize]);
+
+            // Combined length is exactly at or below the limit; must not throw.
+            using var derived = pk.DeriveKey(new byte[labelLength], new byte[contextLength]);
+
+            Assert.NotNull(derived);
+        }
+
+        [Fact]
+        public void DeriveKeyToNewInstanceReturnsUsableInstancePass()
+        {
+            using var pk = new PackageKey(new byte[MinKeySize].Fill(7));
+
+            using var derived = pk.DeriveKey(new byte[] { 1, 2, 3 }, new byte[] { 4, 5 });
+
+            Assert.NotNull(derived);
+
+            // The returned instance must be a fully usable PackageKey.
+            var output = new byte[MaxKeySize];
+            derived.DeriveKey(new byte[] { 9 }, new byte[] { 8 }, output);
+        }
+
+        [Theory]
+        [InlineData(MinKeySize)]
+        [InlineData(48)]
+        [InlineData(MaxKeySize)]
+        public void DeriveKeyToNewInstanceMatchesReferenceKeyPass(int keySize)
+        {
+            // The returned PackageKey is keyed with the 64 byte value derived from the
+            // master key, label, and context. Verify by deriving the same sub-key from
+            // both the returned instance and a reference instance built from that value.
+            var key = new byte[keySize].Fill((byte)keySize);
+            var label = new byte[] { 1, 2, 3, 4 };
+            var context = new byte[] { 9, 8, 7 };
+
+            using var pk = new PackageKey(key);
+
+            // Expected master key of the returned instance (full 64 byte derivation).
+            var expectedDerivedKey = ReferenceDeriveKey(key, label, context, MaxKeySize);
+
+            var subLabel = new byte[] { 100 };
+            var subContext = new byte[] { 200, 201 };
+
+            using var derived = pk.DeriveKey(label, context);
+            using var reference = new PackageKey(expectedDerivedKey);
+
+            var fromDerived = new byte[MaxKeySize];
+            var fromReference = new byte[MaxKeySize];
+
+            derived.DeriveKey(subLabel, subContext, fromDerived);
+            reference.DeriveKey(subLabel, subContext, fromReference);
+
+            Assert.Equal(fromReference, fromDerived);
+        }
+
+        [Fact]
+        public void DeriveKeyToNewInstanceIsDeterministicPass()
+        {
+            var key = new byte[MinKeySize].Fill(42);
+            var label = new byte[] { 10, 20, 30 };
+            var context = new byte[] { 40, 50 };
+
+            using var pk = new PackageKey(key);
+
+            using var first = pk.DeriveKey(label, context);
+            using var second = pk.DeriveKey(label, context);
+
+            // Both derived instances must be keyed identically: deriving the same
+            // sub-key from each must produce equal output.
+            var a = new byte[MaxKeySize];
+            var b = new byte[MaxKeySize];
+
+            first.DeriveKey(new byte[] { 1 }, new byte[] { 2 }, a);
+            second.DeriveKey(new byte[] { 1 }, new byte[] { 2 }, b);
+
+            Assert.Equal(a, b);
+        }
+
+        [Fact]
+        public void DeriveKeyToNewInstanceDifferentLabelProducesDifferentKeyPass()
+        {
+            var key = new byte[MinKeySize].Fill(42);
+            var context = new byte[] { 1 };
+
+            using var pk = new PackageKey(key);
+
+            using var first = pk.DeriveKey(new byte[] { 1 }, context);
+            using var second = pk.DeriveKey(new byte[] { 2 }, context);
+
+            var a = new byte[MaxKeySize];
+            var b = new byte[MaxKeySize];
+
+            first.DeriveKey(new byte[] { 7 }, new byte[] { 8 }, a);
+            second.DeriveKey(new byte[] { 7 }, new byte[] { 8 }, b);
+
+            Assert.NotEqual(a, b);
+        }
+
+        [Fact]
+        public void DeriveKeyToNewInstanceDifferentContextProducesDifferentKeyPass()
+        {
+            var key = new byte[MinKeySize].Fill(42);
+            var label = new byte[] { 1 };
+
+            using var pk = new PackageKey(key);
+
+            using var first = pk.DeriveKey(label, new byte[] { 1 });
+            using var second = pk.DeriveKey(label, new byte[] { 2 });
+
+            var a = new byte[MaxKeySize];
+            var b = new byte[MaxKeySize];
+
+            first.DeriveKey(new byte[] { 7 }, new byte[] { 8 }, a);
+            second.DeriveKey(new byte[] { 7 }, new byte[] { 8 }, b);
+
+            Assert.NotEqual(a, b);
+        }
+
+        [Fact]
+        public void DeriveKeyToNewInstanceIsIndependentOfSourcePass()
+        {
+            // The returned instance must carry its own key state; disposing the source
+            // must not affect the derived instance.
+            var pk = new PackageKey(new byte[MinKeySize].Fill(7));
+
+            var derived = pk.DeriveKey(new byte[] { 1 }, new byte[] { 2 });
+
+            pk.Dispose();
+
+            // Derived instance is still fully usable after the source is disposed.
+            var output = new byte[MaxKeySize];
+            derived.DeriveKey(new byte[] { 9 }, new byte[] { 8 }, output);
+
+            derived.Dispose();
+        }
+
+        [Fact]
+        public void DeriveKeyToNewInstanceAfterDisposeFail()
+        {
+            var pk = new PackageKey(new byte[MinKeySize]);
+
+            pk.Dispose();
+
+            Assert.Throws<ObjectDisposedException>(() => pk.DeriveKey(new byte[1], new byte[1]));
+        }
+
+        [Fact]
         public void DeriveKeyAfterDisposeFail()
         {
             var pk = new PackageKey(new byte[MinKeySize]);
