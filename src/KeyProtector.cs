@@ -343,6 +343,56 @@ namespace Neliva.Security.Cryptography
             }
         }
 
+        /// <summary>
+        /// Determines whether the <paramref name="package"/> is well-formed without
+        /// decrypting it or verifying the password.
+        /// </summary>
+        /// <param name="package">
+        /// The package to inspect.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if the <paramref name="package"/> has a valid length, version,
+        /// iteration count, and checksum; otherwise, <c>false</c>.
+        /// </returns>
+        /// <remarks>
+        /// <para>
+        /// This method performs the same structural checks as <see cref="Unprotect"/>
+        /// (length and alignment, version, iteration count, and the unkeyed SHA-512
+        /// checksum) but does not derive keys, decrypt the content, or authenticate the
+        /// encrypted HMAC. A <c>true</c> result therefore indicates only that the package
+        /// is structurally intact and free of accidental corruption; it does not prove
+        /// authenticity or that the correct password would succeed. Use
+        /// <see cref="Unprotect"/> to authenticate and recover the content.
+        /// </para>
+        /// </remarks>
+        public bool IsValidFormat(ReadOnlySpan<byte> package)
+        {
+            if (package.Length < MinPackageSize || package.Length > MaxPackageSize || (package.Length % BlockSize) != 0)
+            {
+                return false;
+            }
+
+            if (BinaryPrimitives.ReadUInt32BigEndian(package) != Version)
+            {
+                return false;
+            }
+
+            int iterations = (int)BinaryPrimitives.ReadUInt32BigEndian(package.Slice(VersionSize));
+
+            if (iterations <= 0)
+            {
+                return false;
+            }
+
+            int checksumOffset = package.Length - ChecksumSize;
+
+            Span<byte> checksum = stackalloc byte[SHA512.HashSizeInBytes];
+
+            SHA512.HashData(package.Slice(0, checksumOffset), checksum);
+
+            return CryptographicOperations.FixedTimeEquals(package.Slice(checksumOffset), checksum.Slice(0, ChecksumSize));
+        }
+
         private static void DeriveKeys(ReadOnlySpan<byte> key, Span<byte> encKey, Span<byte> macKey)
         {
             ReadOnlySpan<byte> encLabel = "AES256_CBC"u8;

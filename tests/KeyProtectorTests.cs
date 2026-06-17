@@ -17,6 +17,9 @@ namespace Neliva.Security.Cryptography.Tests
         private const int MaxContentSize = 65424;
         private const int ChecksumSize = 16;
         private const int Overhead = 96;
+        private const int BlockSize = 16;
+        private const int MinPackageSize = 32 + Overhead;
+        private const int MaxPackageSize = MaxContentSize + Overhead;
 
         private static ReadOnlySpan<byte> Version => new byte[] { (byte)'P', (byte)'B', (byte)'2', (byte)'K' };
 
@@ -1028,6 +1031,127 @@ namespace Neliva.Security.Cryptography.Tests
                 Assert.Equal(contentLen, unprotectedLen);
                 Assert.Equal(content, unprotected);
             }
+        }
+
+        [Fact]
+        public void IsValidFormatValidPackagePass()
+        {
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            var content = new byte[48].Fill(200);
+            var package = new byte[content.Length + protector.Overhead];
+
+            protector.Protect(content, package, "valid-format-password", iterations: 2);
+
+            Assert.True(protector.IsValidFormat(package));
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(MinPackageSize - 1)]
+        [InlineData(MinPackageSize + 1)]
+        [InlineData(MaxPackageSize + BlockSize)]
+        public void IsValidFormatBadSizeFails(int packageSize)
+        {
+            var protector = new TestKeyProtector();
+
+            var package = new byte[packageSize];
+
+            Assert.False(protector.IsValidFormat(package));
+        }
+
+        [Fact]
+        public void IsValidFormatBadVersionFails()
+        {
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            var content = new byte[32].Fill(200);
+            var package = new byte[content.Length + protector.Overhead];
+
+            protector.Protect(content, package, "valid-format-password", iterations: 1);
+
+            // Corrupt the version field and recompute a valid checksum so only the
+            // version check can fail.
+            package.AsSpan()[0] ^= 0xFF;
+
+            RecomputeChecksum(package);
+
+            Assert.False(protector.IsValidFormat(package));
+        }
+
+        [Theory]
+        [InlineData(0u)]
+        [InlineData(0x80000000u)] // High bit set: negative when read as int.
+        [InlineData(0xFFFFFFFFu)]
+        public void IsValidFormatBadIterationsFails(uint iterations)
+        {
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            var content = new byte[32].Fill(200);
+            var package = new byte[content.Length + protector.Overhead];
+
+            protector.Protect(content, package, "valid-format-password", iterations: 1);
+
+            BinaryPrimitives.WriteUInt32BigEndian(package.AsSpan(4, 4), iterations);
+
+            RecomputeChecksum(package);
+
+            Assert.False(protector.IsValidFormat(package));
+        }
+
+        [Fact]
+        public void IsValidFormatBadChecksumFails()
+        {
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            var content = new byte[32].Fill(200);
+            var package = new byte[content.Length + protector.Overhead];
+
+            protector.Protect(content, package, "valid-format-password", iterations: 1);
+
+            // Flip a checksum byte without recomputing it.
+            package[^1] ^= 0x01;
+
+            Assert.False(protector.IsValidFormat(package));
+        }
+
+        [Fact]
+        public void IsValidFormatChecksumOnlyNotAuthenticatedPass()
+        {
+            // IsValidFormat verifies the unkeyed checksum only. A package whose
+            // ciphertext is tampered but whose checksum is recomputed remains
+            // "valid format" even though Unprotect would reject it as inauthentic.
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            var content = new byte[32].Fill(200);
+            var package = new byte[content.Length + protector.Overhead];
+
+            protector.Protect(content, package, "valid-format-password", iterations: 1);
+
+            // Tamper with the encrypted content region (after Version|Iter|Salt|HMAC).
+            const int ciphertextOffset = 4 + 4 + 40 + 32;
+
+            package.AsSpan()[ciphertextOffset] ^= 0x01;
+
+            RecomputeChecksum(package);
+
+            Assert.True(protector.IsValidFormat(package), "Recomputed checksum must make the format valid.");
+
+            var unprotected = new byte[content.Length];
+
+            Assert.Throws<BadPasswordException>(
+                () => protector.Unprotect(package, unprotected, "valid-format-password"));
+        }
+
+        private static void RecomputeChecksum(byte[] package)
+        {
+            int checksumOffset = package.Length - ChecksumSize;
+
+            Span<byte> hash = stackalloc byte[64];
+
+            SHA512.HashData(package.AsSpan(0, checksumOffset), hash);
+
+            hash.Slice(0, ChecksumSize).CopyTo(package.AsSpan(checksumOffset));
         }
 
         // Well known test vectors. The salt is supplied by a deterministic RNG so the
