@@ -453,6 +453,38 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Fact]
+        public void RoundTripNonOverlappingSameBufferPass()
+        {
+            // Protect encrypts in place within the package destination and uses the
+            // preceding ciphertext block as the CBC IV. When content and package are
+            // distinct, non-overlapping slices of the same backing array, the round
+            // trip must still recover the content bit-for-bit.
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            const string password = "same-buffer-password";
+
+            const int contentLength = 64;
+            int overhead = protector.Overhead;
+
+            // Layout in one array: [ package (contentLength + overhead) | content (contentLength) ].
+            var buf = new byte[contentLength + overhead + contentLength];
+
+            var content = buf.AsSpan(contentLength + overhead, contentLength);
+            content.Fill(200);
+
+            var package = buf.AsSpan(0, contentLength + overhead);
+
+            int protectedLength = protector.Protect(content, package, password, iterations: 2);
+            Assert.Equal(package.Length, protectedLength);
+
+            var unprotected = new byte[contentLength];
+            int unprotectedLength = protector.Unprotect(package, unprotected, password);
+
+            Assert.Equal(contentLength, unprotectedLength);
+            Assert.Equal(buf.AsSpan(contentLength + overhead, contentLength).ToArray(), unprotected);
+        }
+
+        [Fact]
         public void ProtectClearOutputOnFailurePass()
         {
             var password = "user-password";
