@@ -722,7 +722,7 @@ namespace Neliva.Security.Cryptography
             context[88] = (byte)ivArg1.Length;
             context[89] = (byte)ivArg2.Length;
             context[90] = 0; // Reserved for future use (e.g. ivArg3 length).
-            context[91] = BlockSize; // Package padding size in bytes.
+            context[91] = BlockSize; // Max package padding size in bytes.
 
             BinaryPrimitives.WriteUInt32BigEndian(context.Slice(92), (uint)packageSize);
 
