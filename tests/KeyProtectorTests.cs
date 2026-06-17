@@ -1047,10 +1047,13 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Theory]
-        [InlineData(0)]
-        [InlineData(MinPackageSize - 1)]
-        [InlineData(MinPackageSize + 1)]
-        [InlineData(MaxPackageSize + BlockSize)]
+        [InlineData(0)]                              // empty
+        [InlineData(BlockSize)]                      // far too small, aligned
+        [InlineData(MinPackageSize - BlockSize)]     // one block under the minimum, aligned
+        [InlineData(MinPackageSize - 1)]             // just under the minimum, misaligned
+        [InlineData(MinPackageSize + 1)]             // above the minimum but misaligned
+        [InlineData(MinPackageSize + BlockSize - 1)] // mid-range but misaligned
+        [InlineData(MaxPackageSize + BlockSize)]     // one block over the maximum, aligned
         public void IsValidFormatBadSizeFails(int packageSize)
         {
             var protector = new TestKeyProtector();
@@ -1058,6 +1061,33 @@ namespace Neliva.Security.Cryptography.Tests
             var package = new byte[packageSize];
 
             Assert.False(protector.IsValidFormat(package));
+        }
+
+        [Fact]
+        public void IsValidFormatDefaultSpanFails()
+        {
+            var protector = new TestKeyProtector();
+
+            // A default (empty) span must be rejected, not throw.
+            Assert.False(protector.IsValidFormat(default));
+        }
+
+        [Theory]
+        [InlineData(MinPackageSize)] // smallest valid package (32-byte content)
+        [InlineData(MaxPackageSize)] // largest valid package (max content)
+        public void IsValidFormatBoundarySizeWithValidChecksumPass(int packageSize)
+        {
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            int contentLength = packageSize - protector.Overhead;
+
+            var content = new byte[contentLength].Fill(170);
+            var package = new byte[packageSize];
+
+            int written = protector.Protect(content, package, "boundary-password", iterations: 1);
+
+            Assert.Equal(packageSize, written);
+            Assert.True(protector.IsValidFormat(package));
         }
 
         [Fact]
@@ -1073,6 +1103,29 @@ namespace Neliva.Security.Cryptography.Tests
             // Corrupt the version field and recompute a valid checksum so only the
             // version check can fail.
             package.AsSpan()[0] ^= 0xFF;
+
+            RecomputeChecksum(package);
+
+            Assert.False(protector.IsValidFormat(package));
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(3)]
+        public void IsValidFormatAnyVersionByteFlippedFails(int versionByteIndex)
+        {
+            // Flipping any single byte of the 4-byte version magic must invalidate the
+            // package. The checksum is recomputed so only the version check can fail.
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            var content = new byte[32].Fill(200);
+            var package = new byte[content.Length + protector.Overhead];
+
+            protector.Protect(content, package, "valid-format-password", iterations: 1);
+
+            package.AsSpan()[versionByteIndex] ^= 0x01;
 
             RecomputeChecksum(package);
 
@@ -1141,6 +1194,119 @@ namespace Neliva.Security.Cryptography.Tests
 
             Assert.Throws<BadPasswordException>(
                 () => protector.Unprotect(package, unprotected, "valid-format-password"));
+        }
+
+        [Theory]
+        [InlineData(1)]               // smallest valid iteration count
+        [InlineData(2)]
+        [InlineData(int.MaxValue)]    // largest positive iteration count
+        public void IsValidFormatPositiveIterationsPass(int iterations)
+        {
+            // The iteration count is only range-checked (must be positive); it is not
+            // used by IsValidFormat, so any positive value with a valid checksum passes
+            // regardless of how expensive it would be to actually derive the key.
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            var content = new byte[32].Fill(200);
+            var package = new byte[content.Length + protector.Overhead];
+
+            // Protect with a cheap iteration count, then stamp the value under test and
+            // recompute the checksum so only the iteration validation is exercised.
+            protector.Protect(content, package, "valid-format-password", iterations: 1);
+
+            BinaryPrimitives.WriteUInt32BigEndian(package.AsSpan(4, 4), (uint)iterations);
+
+            RecomputeChecksum(package);
+
+            Assert.True(protector.IsValidFormat(package));
+        }
+
+        [Theory]
+        [InlineData(0)]                          // first body byte (version region)
+        [InlineData(8)]                          // first salt byte
+        [InlineData(32 + Overhead - ChecksumSize - 1)] // last body byte before the checksum
+        public void IsValidFormatBodyTamperWithoutChecksumFixFails(int byteIndex)
+        {
+            // The checksum covers the entire package except its own 16 trailing bytes.
+            // Flipping any covered byte without recomputing the checksum must fail.
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            var content = new byte[32].Fill(200);
+            var package = new byte[content.Length + protector.Overhead];
+
+            protector.Protect(content, package, "valid-format-password", iterations: 1);
+
+            package.AsSpan()[byteIndex] ^= 0x01;
+
+            Assert.False(protector.IsValidFormat(package));
+        }
+
+        [Fact]
+        public void IsValidFormatIsDeterministicAndNonMutatingPass()
+        {
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            var content = new byte[48].Fill(200);
+            var package = new byte[content.Length + protector.Overhead];
+
+            protector.Protect(content, package, "valid-format-password", iterations: 2);
+
+            var snapshot = (byte[])package.Clone();
+
+            // Repeated calls return the same result and do not mutate the input.
+            Assert.True(protector.IsValidFormat(package));
+            Assert.True(protector.IsValidFormat(package));
+            Assert.Equal(snapshot, package);
+        }
+
+        [Fact]
+        public void IsValidFormatConsistentWithUnprotectPass()
+        {
+            // IsValidFormat is a strict structural subset of Unprotect's package checks.
+            // A valid package passes both; each structural corruption fails IsValidFormat
+            // and makes Unprotect throw the corresponding BadPackageException.
+            var protector = new TestKeyProtector(rng => rng.Fill(55));
+
+            const string password = "consistency-password";
+
+            var content = new byte[32].Fill(200);
+            var unprotected = new byte[content.Length];
+
+            // 1) Valid package: IsValidFormat true and Unprotect succeeds.
+            var valid = new byte[content.Length + protector.Overhead];
+            protector.Protect(content, valid, password, iterations: 1);
+
+            Assert.True(protector.IsValidFormat(valid));
+            Assert.Equal(content.Length, protector.Unprotect(valid, unprotected, password));
+
+            // 2) Bad version.
+            var badVersion = (byte[])valid.Clone();
+            badVersion.AsSpan()[0] ^= 0xFF;
+            RecomputeChecksum(badVersion);
+
+            Assert.False(protector.IsValidFormat(badVersion));
+            var exVersion = Assert.Throws<BadPackageException>(
+                () => protector.Unprotect(badVersion, unprotected, password));
+            Assert.Equal("The package version is invalid.", exVersion.Message);
+
+            // 3) Bad iteration count.
+            var badIter = (byte[])valid.Clone();
+            BinaryPrimitives.WriteUInt32BigEndian(badIter.AsSpan(4, 4), 0u);
+            RecomputeChecksum(badIter);
+
+            Assert.False(protector.IsValidFormat(badIter));
+            var exIter = Assert.Throws<BadPackageException>(
+                () => protector.Unprotect(badIter, unprotected, password));
+            Assert.Equal("The package iteration count is invalid.", exIter.Message);
+
+            // 4) Bad checksum.
+            var badChecksum = (byte[])valid.Clone();
+            badChecksum[^1] ^= 0x01;
+
+            Assert.False(protector.IsValidFormat(badChecksum));
+            var exChecksum = Assert.Throws<BadPackageException>(
+                () => protector.Unprotect(badChecksum, unprotected, password));
+            Assert.Equal("The package checksum is invalid.", exChecksum.Message);
         }
 
         private static void RecomputeChecksum(byte[] package)
