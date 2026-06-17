@@ -11,12 +11,12 @@ namespace Neliva.Security.Cryptography
     /// <summary>
     /// Provides helper methods for package protection.
     /// </summary>
-    internal static class Package
+    public static class Package
     {
         internal const int MacSize = HMACSHA512.HashSizeInBytes / 2;
         internal const int AesBlockSize = 16;
 
-        private static ReadOnlySpan<byte> ZeroIV => new byte[AesBlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        private static ReadOnlySpan<byte> ZeroIV => new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         /// <summary>
         /// Derives a key identifier as an RFC 4122 version 4 <see cref="Guid"/>
@@ -44,16 +44,16 @@ namespace Neliva.Security.Cryptography
         /// <para>
         /// The returned identifier is cryptographically derived from the
         /// <paramref name="key"/> and <paramref name="context"/> and is formatted as a
-        /// valid RFC 4122 version 4 <see cref="Guid"/>.
+        /// valid RFC 4122 version 4 <see cref="Guid"/> with 122 bits of effective entropy.
         /// </para>
         /// <para>
         /// The derivation is deterministic and unambiguous: the same
         /// <paramref name="key"/> and <paramref name="context"/> always yield the same
-        /// identifier, and distinct contexts (including the empty context) always yield
+        /// identifier, while distinct contexts (including the empty context) yield
         /// distinct identifiers.
         /// </para>
         /// </remarks>
-        internal static Guid GetKeyIdentifier(PackageKey key, ReadOnlySpan<byte> context = default)
+        public static Guid GetKeyIdentifier(PackageKey key, ReadOnlySpan<byte> context = default)
         {
             ArgumentNullException.ThrowIfNull(key);
 
@@ -63,25 +63,26 @@ namespace Neliva.Security.Cryptography
             }
 
             ReadOnlySpan<byte> keyLabel = "R7NSHARGV1R6YA4H36VQ61JJCAJ2115QS2RXVF6CMZ6S9VQWF4JMAK1PRSJ7JCTE__KEY_IDENTIFIER_KEY_V20260615"u8;
-            ReadOnlySpan<byte> keyContext = new byte[sizeof(uint)] { 0, 0, 0, 0 };
+            ReadOnlySpan<byte> keyContext = new byte[] { 0, 0, 0, 0 };
 
-            ReadOnlySpan<byte> idLabel  = "KEY_IDENTIFIER_V20260615"u8;
+            ReadOnlySpan<byte> idLabel = "KEY_IDENTIFIER_V20260615"u8;
 
-            Span<byte> destination = stackalloc byte[sizeof(uint) + HMACSHA512.HashSizeInBytes];
+            Span<byte> buf = stackalloc byte[HMACSHA512.HashSizeInBytes + sizeof(uint) + HMACSHA512.HashSizeInBytes];
 
             try
             {
-                BinaryPrimitives.WriteUInt32BigEndian(destination, (uint)context.Length);
-                context.CopyTo(destination.Slice(sizeof(uint)));
+                BinaryPrimitives.WriteUInt32BigEndian(buf.Slice(HMACSHA512.HashSizeInBytes), (uint)context.Length);
+                context.CopyTo(buf.Slice(HMACSHA512.HashSizeInBytes + sizeof(uint)));
 
                 using (var key2 = key.DeriveKey(keyLabel, keyContext))
                 {
-                    var idContext = destination.Slice(0, sizeof(uint) + context.Length);
-
-                    key2.DeriveKey(idLabel, idContext, destination);
+                    key2.DeriveKey(
+                        idLabel,
+                        buf.Slice(HMACSHA512.HashSizeInBytes, sizeof(uint) + context.Length),
+                        buf.Slice(0, HMACSHA512.HashSizeInBytes));
                 }
 
-                Span<byte> id = destination.Slice(0, 16);
+                var id = buf.Slice(0, 16);
 
                 // Set the RFC 4122 version (4) and variant (10xx) bits on the
                 // big-endian UUID byte positions.
@@ -92,7 +93,7 @@ namespace Neliva.Security.Cryptography
             }
             finally
             {
-                CryptographicOperations.ZeroMemory(destination);
+                CryptographicOperations.ZeroMemory(buf);
             }
         }
 
