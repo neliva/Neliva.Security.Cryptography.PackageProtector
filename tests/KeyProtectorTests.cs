@@ -155,12 +155,12 @@ namespace Neliva.Security.Cryptography.Tests
 
             HMACSHA512.HashData(key, passBytes, prehashedPass);
 
-            var pbkdf2Salt = encoder.GetBytes("PREHASHED PASSWORD ALREADY INCLUDES SALT AND ASSOCIATED DATA");
+            var pbkdf2Salt = encoder.GetBytes("PREHASHED_PASSWORD_ALREADY_INCLUDES_SALT_AND_ASSOCIATED_DATA");
 
             byte[] derivedKey = Rfc2898DeriveBytes.Pbkdf2((Span<byte>)prehashedPass, pbkdf2Salt, iter, HashAlgorithmName.SHA512, 64);
 
-            byte[] encLabel = encoder.GetBytes("AES256-CBC");
-            byte[] macLabel = encoder.GetBytes("HMAC-SHA512-256");
+            byte[] encLabel = encoder.GetBytes("AES256_CBC");
+            byte[] macLabel = encoder.GetBytes("HMAC_SHA512_256");
 
             byte[] versionContext = encoder.GetBytes("PB2K");
 
@@ -1043,7 +1043,7 @@ namespace Neliva.Security.Cryptography.Tests
                 1,
                 "0000000000000000000000000000000000000000000000000000000000000000",
                 "",
-                "5042324b00000001000000000000000000000000000000000000000000000000000000000000000000000000000000009e60fa1608f6ce68319d93d96f1c89cd37fca092eae71ebc230feebddfd8e3920d6824314258d6d5cc6e6dacdf8d14ced33adf3568d1bd50861c39d2c06ebfa6f78de223e77298fbef6549f924630786",
+                "5042324b000000010000000000000000000000000000000000000000000000000000000000000000000000000000000063b154820a63d66fb6538ab6f6dcbeff1577bd1b4e086aece45504d4442f89244d516e5f22eb300e1723707438adce6c8df43972f6de8049e46bce4f83686cd35e9f8a796c450b02db4b63690b6b10c6",
             };
 
             yield return new object[]
@@ -1053,7 +1053,7 @@ namespace Neliva.Security.Cryptography.Tests
                 3,
                 "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
                 "6173736f6369617465642d64617461",
-                "5042324b00000003a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a513b4a5453b15d92169df6d25a4e775cc1dc0949e2c74a290815fa2da3fbea934ff695341a21b2efb6fd02a380a39b1ca7d5db0ab301a1bbd8bcea69d761c5acb9f5a05abdea5cb23e294160f5738d12f",
+                "5042324b00000003a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a596bc9199974a1ff408945b75c41383440d328debc1e8ba0be3837cd65ad83183161572936edb556c9507c5e8950f42d35d148ead662a629a7be530c26a925d85064e377151bb5ef6c349237ae0f5d80b",
             };
         }
 

@@ -345,8 +345,8 @@ namespace Neliva.Security.Cryptography
 
         private static void DeriveKeys(ReadOnlySpan<byte> key, Span<byte> encKey, Span<byte> macKey)
         {
-            ReadOnlySpan<byte> encLabel = "AES256-CBC"u8;
-            ReadOnlySpan<byte> macLabel = "HMAC-SHA512-256"u8;
+            ReadOnlySpan<byte> encLabel = "AES256_CBC"u8;
+            ReadOnlySpan<byte> macLabel = "HMAC_SHA512_256"u8;
 
             ReadOnlySpan<byte> versionContext = "PB2K"u8;
 
@@ -402,7 +402,7 @@ namespace Neliva.Security.Cryptography
 
         private static void PrehashedPbkdf2(ReadOnlySpan<byte> prehashedPassword, Span<byte> destination, int iterations)
         {
-            ReadOnlySpan<byte> salt = "PREHASHED PASSWORD ALREADY INCLUDES SALT AND ASSOCIATED DATA"u8;
+            ReadOnlySpan<byte> salt = "PREHASHED_PASSWORD_ALREADY_INCLUDES_SALT_AND_ASSOCIATED_DATA"u8;
 
             Rfc2898DeriveBytes.Pbkdf2(prehashedPassword, salt, destination, iterations, HashAlgorithmName.SHA512);
         }
