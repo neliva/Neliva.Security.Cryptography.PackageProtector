@@ -44,12 +44,12 @@ namespace Neliva.Security.Cryptography
         /// <para>
         /// The returned identifier is cryptographically derived from the
         /// <paramref name="key"/> and <paramref name="context"/> and is formatted as a
-        /// valid RFC 4122 version 4 <see cref="Guid"/> with effective entropy of 122 bits.
+        /// valid RFC 4122 version 4 <see cref="Guid"/> with 122 bits of effective entropy.
         /// </para>
         /// <para>
         /// The derivation is deterministic and unambiguous: the same
         /// <paramref name="key"/> and <paramref name="context"/> always yield the same
-        /// identifier, and distinct contexts (including the empty context) always yield
+        /// identifier, while distinct contexts (including the empty context) yield
         /// distinct identifiers.
         /// </para>
         /// </remarks>
