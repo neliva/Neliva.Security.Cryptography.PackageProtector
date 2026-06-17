@@ -27,7 +27,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var keyOut = new byte[0];
 
-            using (var hmac = new HMACSHA256())
+            using (var hmac = new HMACSHA512())
             {
                 var ex = Assert.Throws<ArgumentOutOfRangeException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, keyOut, Span<byte>.Empty, Span<byte>.Empty));
 
@@ -51,7 +51,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var keyOut = new byte[16];
 
-            using (var hmac = new HMACSHA256())
+            using (var hmac = new HMACSHA512())
             {
                 var ex = Assert.Throws<ArgumentException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, keyOut, new ReadOnlySpan<byte>((void*)0, labelLength), new ReadOnlySpan<byte>((void*)0, contextLength)));
 
@@ -77,7 +77,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var derivedKey = new byte[32];
 
-            using (var hmac = new HMACSHA256(masterKey))
+            using (var hmac = new HMACSHA512(masterKey))
             {
                 KeyedHashAlgorithmExtensions.DeriveKey(hmac, derivedKey, label, context);
             }
@@ -91,7 +91,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             var keyOut = new byte[16];
 
-            using (var hmac = new HMACSHA256())
+            using (var hmac = new HMACSHA512())
             {
                 var ex = Assert.Throws<ArgumentOutOfRangeException>(() => KeyedHashAlgorithmExtensions.DeriveKey(hmac, new Span<byte>((void*)0, derivedKeyLength), Span<byte>.Empty, Span<byte>.Empty));
 
@@ -157,7 +157,7 @@ namespace Neliva.Security.Cryptography.Tests
         [Fact]
         public void DeriveKeyEmptyLabelAndContextPass()
         {
-            using var hmac = new HMACSHA256(new byte[32]);
+            using var hmac = new HMACSHA512(new byte[32]);
             var derived = new byte[32];
             hmac.DeriveKey(derived, ReadOnlySpan<byte>.Empty, ReadOnlySpan<byte>.Empty);
 
@@ -165,10 +165,10 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Fact]
-        public void DeriveKeySHA256MultiBlockOutputPass()
+        public void DeriveKeySHA512MultiBlockOutputPass()
         {
-            // 65 bytes forces the counter loop to iterate (32 + 32 + 1).
-            using var hmac = new HMACSHA256(new byte[32].Fill(7));
+            // 65 bytes forces the counter loop to iterate (64 + 1).
+            using var hmac = new HMACSHA512(new byte[32].Fill(7));
             var derived = new byte[65];
             hmac.DeriveKey(derived, new byte[] { 1, 2, 3 }, new byte[] { 4, 5, 6 });
 
@@ -176,28 +176,21 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         // Verifies the byte-exact output against an independent reference
-        // implementation of the SP800-108 counter mode KDF. Covers multiple hash
-        // sizes (32/48/64), single and multi block output, truncated final blocks
-        // (lengths not a multiple of the hash size), empty label/context, and the
+        // implementation of the SP800-108 counter mode KDF using HMAC-SHA512.
+        // Covers single and multi block output, truncated final blocks (lengths not
+        // a multiple of the 64 byte hash size), empty label/context, and the
         // ArrayPool rented buffer path (large label/context exceeding the 320 byte
         // stackalloc threshold).
         [Theory]
-        [InlineData("SHA256", 1, 5, 20)]
-        [InlineData("SHA256", 31, 5, 20)]
-        [InlineData("SHA256", 32, 0, 0)]
-        [InlineData("SHA256", 33, 5, 20)]
-        [InlineData("SHA256", 64, 5, 20)]
-        [InlineData("SHA256", 65, 5, 20)]
-        [InlineData("SHA256", 96, 300, 300)] // rented buffer path
-        [InlineData("SHA256", 200, 0, 512)]  // rented buffer path
-        [InlineData("SHA384", 1, 5, 20)]
-        [InlineData("SHA384", 48, 5, 20)]
-        [InlineData("SHA384", 49, 5, 20)]
-        [InlineData("SHA384", 100, 400, 0)]  // rented buffer path
-        [InlineData("SHA512", 1, 0, 0)]
-        [InlineData("SHA512", 64, 5, 20)]
+        [InlineData("SHA512", 1, 5, 20)]
+        [InlineData("SHA512", 63, 5, 20)]
+        [InlineData("SHA512", 64, 0, 0)]
         [InlineData("SHA512", 65, 5, 20)]
-        [InlineData("SHA512", 300, 0, 500)]  // rented buffer path
+        [InlineData("SHA512", 128, 5, 20)]
+        [InlineData("SHA512", 129, 5, 20)]
+        [InlineData("SHA512", 96, 300, 300)] // rented buffer path
+        [InlineData("SHA512", 200, 0, 512)]  // rented buffer path
+        [InlineData("SHA512", 100, 400, 0)]  // rented buffer path
         public void DeriveKeyMatchesReferencePass(string algName, int derivedKeyLength, int labelLength, int contextLength)
         {
             var masterKey = new byte[40].Fill(11);
@@ -226,12 +219,12 @@ namespace Neliva.Security.Cryptography.Tests
             var first = new byte[80];
             var second = new byte[80];
 
-            using (var hmac = new HMACSHA256(masterKey))
+            using (var hmac = new HMACSHA512(masterKey))
             {
                 hmac.DeriveKey(first, label, context);
             }
 
-            using (var hmac = new HMACSHA256(masterKey))
+            using (var hmac = new HMACSHA512(masterKey))
             {
                 hmac.DeriveKey(second, label, context);
             }
@@ -252,12 +245,12 @@ namespace Neliva.Security.Cryptography.Tests
             var shortKey = new byte[32];
             var longKey = new byte[64];
 
-            using (var hmac = new HMACSHA256(masterKey))
+            using (var hmac = new HMACSHA512(masterKey))
             {
                 hmac.DeriveKey(shortKey, label, context);
             }
 
-            using (var hmac = new HMACSHA256(masterKey))
+            using (var hmac = new HMACSHA512(masterKey))
             {
                 hmac.DeriveKey(longKey, label, context);
             }
@@ -277,7 +270,7 @@ namespace Neliva.Security.Cryptography.Tests
             {
                 var key = new byte[32];
 
-                using var hmac = new HMACSHA256(masterKey);
+                using var hmac = new HMACSHA512(masterKey);
 
                 hmac.DeriveKey(key, label, context);
 
@@ -303,25 +296,18 @@ namespace Neliva.Security.Cryptography.Tests
 
         // Verifies byte-exact compatibility with the .NET built-in SP800-108
         // counter mode KDF (SP800108HmacCounterKdf). Both must produce identical
-        // output for identical key/label/context/length across multiple hash sizes,
+        // output for identical key/label/context/length using HMAC-SHA512, across
         // single and multi block output, truncated final blocks, empty label/context,
         // and the ArrayPool rented buffer path (large label/context).
         [Theory]
-        [InlineData("SHA256", 1, 5, 20)]
-        [InlineData("SHA256", 31, 5, 20)]
-        [InlineData("SHA256", 32, 0, 0)]
-        [InlineData("SHA256", 33, 5, 20)]
-        [InlineData("SHA256", 64, 5, 20)]
-        [InlineData("SHA256", 65, 5, 20)]
-        [InlineData("SHA256", 96, 300, 300)] // rented buffer path
-        [InlineData("SHA256", 200, 0, 512)]  // rented buffer path
-        [InlineData("SHA384", 1, 5, 20)]
-        [InlineData("SHA384", 48, 5, 20)]
-        [InlineData("SHA384", 49, 5, 20)]
-        [InlineData("SHA384", 100, 400, 0)]  // rented buffer path
         [InlineData("SHA512", 1, 0, 0)]
+        [InlineData("SHA512", 63, 5, 20)]
         [InlineData("SHA512", 64, 5, 20)]
         [InlineData("SHA512", 65, 5, 20)]
+        [InlineData("SHA512", 128, 5, 20)]
+        [InlineData("SHA512", 129, 5, 20)]
+        [InlineData("SHA512", 96, 300, 300)] // rented buffer path
+        [InlineData("SHA512", 200, 0, 512)]  // rented buffer path
         [InlineData("SHA512", 300, 0, 500)]  // rented buffer path
         public void DeriveKeyMatchesBuiltInSP800108Pass(string algName, int derivedKeyLength, int labelLength, int contextLength)
         {
@@ -345,8 +331,6 @@ namespace Neliva.Security.Cryptography.Tests
         {
             return algName switch
             {
-                "SHA256" => HashAlgorithmName.SHA256,
-                "SHA384" => HashAlgorithmName.SHA384,
                 "SHA512" => HashAlgorithmName.SHA512,
                 _ => throw new ArgumentOutOfRangeException(nameof(algName)),
             };
@@ -356,8 +340,6 @@ namespace Neliva.Security.Cryptography.Tests
         {
             return algName switch
             {
-                "SHA256" => new HMACSHA256(key),
-                "SHA384" => new HMACSHA384(key),
                 "SHA512" => new HMACSHA512(key),
                 _ => throw new ArgumentOutOfRangeException(nameof(algName)),
             };
