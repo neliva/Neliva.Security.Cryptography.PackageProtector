@@ -705,8 +705,8 @@ namespace Neliva.Security.Cryptography
 
         private static void DeriveKeys(PackageKey key, long packageNumber, int packageSize, ReadOnlySpan<byte> ivArg1, ReadOnlySpan<byte> ivArg2, Span<byte> encKey, Span<byte> macKey)
         {
-            ReadOnlySpan<byte> encLabel = new byte[3] { (byte)'E', (byte)'N', (byte)'C' };
-            ReadOnlySpan<byte> macLabel = new byte[3] { (byte)'M', (byte)'A', (byte)'C' };
+            ReadOnlySpan<byte> encLabel = "ENC"u8;
+            ReadOnlySpan<byte> macLabel = "MAC"u8;
 
             Span<byte> context = stackalloc byte[99];
 

@@ -345,10 +345,10 @@ namespace Neliva.Security.Cryptography
 
         private static void DeriveKeys(ReadOnlySpan<byte> key, Span<byte> encKey, Span<byte> macKey)
         {
-            ReadOnlySpan<byte> encLabel = new byte[] { (byte)'A', (byte)'E', (byte)'S', (byte)'2', (byte)'5', (byte)'6', (byte)'-', (byte)'C', (byte)'B', (byte)'C' };
-            ReadOnlySpan<byte> macLabel = new byte[] { (byte)'H', (byte)'M', (byte)'A', (byte)'C', (byte)'-', (byte)'S', (byte)'H', (byte)'A', (byte)'5', (byte)'1', (byte)'2', (byte)'-', (byte)'2', (byte)'5', (byte)'6' };
+            ReadOnlySpan<byte> encLabel = "AES256-CBC"u8;
+            ReadOnlySpan<byte> macLabel = "HMAC-SHA512-256"u8;
 
-            ReadOnlySpan<byte> versionContext = new byte[] { (byte)'P', (byte)'B', (byte)'2', (byte)'K' };
+            ReadOnlySpan<byte> versionContext = "PB2K"u8;
 
             using (var kdf = new PackageKey(key))
             {
@@ -402,16 +402,7 @@ namespace Neliva.Security.Cryptography
 
         private static void PrehashedPbkdf2(ReadOnlySpan<byte> prehashedPassword, Span<byte> destination, int iterations)
         {
-            // PREHASHED PASSWORD ALREADY INCLUDES SALT AND ASSOCIATED DATA
-            ReadOnlySpan<byte> salt = new byte[60]
-            {
-                (byte)'P', (byte)'R', (byte)'E', (byte)'H', (byte)'A', (byte)'S', (byte)'H', (byte)'E', (byte)'D', (byte)' ',
-                (byte)'P', (byte)'A', (byte)'S', (byte)'S', (byte)'W', (byte)'O', (byte)'R', (byte)'D', (byte)' ', (byte)'A',
-                (byte)'L', (byte)'R', (byte)'E', (byte)'A', (byte)'D', (byte)'Y', (byte)' ', (byte)'I', (byte)'N', (byte)'C',
-                (byte)'L', (byte)'U', (byte)'D', (byte)'E', (byte)'S', (byte)' ', (byte)'S', (byte)'A', (byte)'L', (byte)'T',
-                (byte)' ', (byte)'A', (byte)'N', (byte)'D', (byte)' ', (byte)'A', (byte)'S', (byte)'S', (byte)'O', (byte)'C',
-                (byte)'I', (byte)'A', (byte)'T', (byte)'E', (byte)'D', (byte)' ', (byte)'D', (byte)'A', (byte)'T', (byte)'A'
-            };
+            ReadOnlySpan<byte> salt = "PREHASHED PASSWORD ALREADY INCLUDES SALT AND ASSOCIATED DATA"u8;
 
             Rfc2898DeriveBytes.Pbkdf2(prehashedPassword, salt, destination, iterations, HashAlgorithmName.SHA512);
         }

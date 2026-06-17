@@ -16,7 +16,7 @@ namespace Neliva.Security.Cryptography
         internal const int MacSize = HMACSHA512.HashSizeInBytes / 2;
         internal const int AesBlockSize = 16;
 
-        private static ReadOnlySpan<byte> ZeroIV => new byte[AesBlockSize] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        private static ReadOnlySpan<byte> ZeroIV => new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         /// <summary>
         /// Derives a key identifier as an RFC 4122 version 4 <see cref="Guid"/>
@@ -44,7 +44,7 @@ namespace Neliva.Security.Cryptography
         /// <para>
         /// The returned identifier is cryptographically derived from the
         /// <paramref name="key"/> and <paramref name="context"/> and is formatted as a
-        /// valid RFC 4122 version 4 <see cref="Guid"/>.
+        /// valid RFC 4122 version 4 <see cref="Guid"/> with effective entropy of 122 bits.
         /// </para>
         /// <para>
         /// The derivation is deterministic and unambiguous: the same
@@ -63,7 +63,7 @@ namespace Neliva.Security.Cryptography
             }
 
             ReadOnlySpan<byte> keyLabel = "R7NSHARGV1R6YA4H36VQ61JJCAJ2115QS2RXVF6CMZ6S9VQWF4JMAK1PRSJ7JCTE__KEY_IDENTIFIER_KEY_V20260615"u8;
-            ReadOnlySpan<byte> keyContext = new byte[sizeof(uint)] { 0, 0, 0, 0 };
+            ReadOnlySpan<byte> keyContext = new byte[] { 0, 0, 0, 0 };
 
             ReadOnlySpan<byte> idLabel = "KEY_IDENTIFIER_V20260615"u8;
 
