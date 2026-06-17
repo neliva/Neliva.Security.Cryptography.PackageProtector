@@ -21,10 +21,10 @@ namespace Neliva.Security.Cryptography.Tests
 
         [Theory]
         [InlineData(16, 0)]
-        [InlineData(16, 31)]
+        [InlineData(16, 63)]
         public void ComputeHashBadArgsFail(int sourceLength, int destinationLength)
         {
-            using (var hmac = new HMACSHA256())
+            using (var hmac = new HMACSHA512())
             {
                 var ex = Assert.Throws<ArgumentOutOfRangeException>(() => hmac.ComputeHash(new byte[sourceLength], new byte[destinationLength]));
 
@@ -33,11 +33,11 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Theory]
-        [InlineData(0, 32)]
-        [InlineData(5, 33)]
+        [InlineData(0, 64)]
+        [InlineData(5, 65)]
         public void ComputeHashPass(int sourceLength, int destinationLength)
         {
-            using (var hmac = new HMACSHA256())
+            using (var hmac = new HMACSHA512())
             {
                 hmac.ComputeHash(new byte[sourceLength], new byte[destinationLength]);
             }
@@ -65,12 +65,12 @@ namespace Neliva.Security.Cryptography.Tests
                 source[i] = (byte)i;
             }
 
-            var expected = new byte[32];
-            HMACSHA256.HashData(key, source, expected);
+            var expected = new byte[64];
+            HMACSHA512.HashData(key, source, expected);
 
-            using (var hmac = new HMACSHA256(key))
+            using (var hmac = new HMACSHA512(key))
             {
-                var actual = new byte[32];
+                var actual = new byte[64];
 
                 hmac.ComputeHash(source, actual);
 
