@@ -44,7 +44,7 @@ namespace Neliva.Security.Cryptography.Tests
         [InlineData(128)]
         public void CreateInvalidKeySizeFail(int keySize)
         {
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => new PackageKey(new byte[keySize]));
+            var ex = Assert.Throws<ArgumentException>(() => new PackageKey(new byte[keySize]));
 
             Assert.Equal("key", ex.ParamName);
             Assert.Equal("Key length must be between 32 and 64 bytes. (Parameter 'key')", ex.Message);
@@ -108,7 +108,7 @@ namespace Neliva.Security.Cryptography.Tests
         {
             using var pk = new PackageKey(new byte[MinKeySize]);
 
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => pk.DeriveKey(new byte[1], new byte[1], new byte[destinationLength]));
+            var ex = Assert.Throws<ArgumentException>(() => pk.DeriveKey(new byte[1], new byte[1], new byte[destinationLength]));
 
             Assert.Equal("destination", ex.ParamName);
             Assert.Equal("Destination length must be between 32 and 64 bytes. (Parameter 'destination')", ex.Message);
@@ -224,7 +224,7 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.Null(exCombined.ParamName);
 
             // destination is reported last.
-            var exDestination = Assert.Throws<ArgumentOutOfRangeException>(
+            var exDestination = Assert.Throws<ArgumentException>(
                 () => pk.DeriveKey(new byte[1], new byte[1], invalidDestination));
             Assert.Equal("destination", exDestination.ParamName);
         }
