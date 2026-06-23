@@ -39,7 +39,7 @@ namespace Neliva.Security.Cryptography
         // inside one block is 102 bytes.
         private const int MaxLabelContextLength = 102;
 
-        private readonly SP800108HmacCounterKdf _kdf;
+        private readonly SP800108HmacCounterKdf kdf;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PackageKey"/> class.
@@ -47,17 +47,17 @@ namespace Neliva.Security.Cryptography
         /// <param name="key">
         /// The master key used to derive keys. The length must be between 32 and 64 bytes.
         /// </param>
-        /// <exception cref="ArgumentOutOfRangeException">
+        /// <exception cref="ArgumentException">
         /// The <paramref name="key"/> length is less than 32 bytes or greater than 64 bytes.
         /// </exception>
         public PackageKey(ReadOnlySpan<byte> key)
         {
             if (key.Length < MinKeySize || key.Length > MaxKeySize)
             {
-                throw new ArgumentOutOfRangeException(nameof(key), "Key length must be between 32 and 64 bytes.");
+                throw new ArgumentException("Key length must be between 32 and 64 bytes.", nameof(key));
             }
 
-            this._kdf = new SP800108HmacCounterKdf(key, HashAlgorithmName.SHA512);
+            this.kdf = new SP800108HmacCounterKdf(key, HashAlgorithmName.SHA512);
         }
 
         /// <summary>
@@ -82,9 +82,8 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="context"/> is empty.
         /// - or -
         /// The combined length of <paramref name="label"/> and <paramref name="context"/>
-        /// exceeds 102 bytes.
-        /// </exception>
-        /// <exception cref="ArgumentOutOfRangeException">
+        /// exceeds 102 bytes. 
+        /// - or -
         /// The <paramref name="destination"/> length is less than 32 bytes or greater than 64 bytes.
         /// </exception>
         public void DeriveKey(ReadOnlySpan<byte> label, ReadOnlySpan<byte> context, Span<byte> destination)
@@ -106,10 +105,10 @@ namespace Neliva.Security.Cryptography
 
             if (destination.Length < MinKeySize || destination.Length > MaxKeySize)
             {
-                throw new ArgumentOutOfRangeException(nameof(destination), "Destination length must be between 32 and 64 bytes.");
+                throw new ArgumentException("Destination length must be between 32 and 64 bytes.", nameof(destination));
             }
 
-            this._kdf.DeriveKey(label, context, destination);
+            this.kdf.DeriveKey(label, context, destination);
         }
 
         /// <summary>
@@ -164,7 +163,7 @@ namespace Neliva.Security.Cryptography
         /// </summary>
         public void Dispose()
         {
-            this._kdf.Dispose();
+            this.kdf.Dispose();
         }
     }
 }

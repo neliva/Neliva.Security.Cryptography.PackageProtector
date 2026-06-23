@@ -15,15 +15,15 @@ namespace Neliva.Security.Cryptography.Tests
         {
             ArgumentException ex;
 
-            ex = Assert.Throws<ArgumentOutOfRangeException>(() => Internals.GetPKCS7PaddingLength(4, null));
+            ex = Assert.Throws<ArgumentException>(() => Internals.GetPKCS7PaddingLength(4, null));
             Assert.Equal("data", ex.ParamName);
             Assert.Equal("Span is empty. (Parameter 'data')", ex.Message);
 
-            ex = Assert.Throws<ArgumentOutOfRangeException>(() => Internals.GetPKCS7PaddingLength(4, default));
+            ex = Assert.Throws<ArgumentException>(() => Internals.GetPKCS7PaddingLength(4, default));
             Assert.Equal("data", ex.ParamName);
             Assert.Equal("Span is empty. (Parameter 'data')", ex.Message);
 
-            ex = Assert.Throws<ArgumentOutOfRangeException>(() => Internals.GetPKCS7PaddingLength(4, Span<byte>.Empty));
+            ex = Assert.Throws<ArgumentException>(() => Internals.GetPKCS7PaddingLength(4, Span<byte>.Empty));
             Assert.Equal("data", ex.ParamName);
             Assert.Equal("Span is empty. (Parameter 'data')", ex.Message);
 
@@ -41,15 +41,15 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.Equal("Value must be between 1 and 255. (Parameter 'blockSize')", ex.Message);
 
 
-            ex = Assert.Throws<ArgumentOutOfRangeException>(() => Internals.GetPKCS7PaddingLength(15, new byte[16]));
+            ex = Assert.Throws<ArgumentException>(() => Internals.GetPKCS7PaddingLength(15, new byte[16]));
             Assert.Equal("data", ex.ParamName);
             Assert.Equal("Span length is not a multiple of block size. (Parameter 'data')", ex.Message);
 
-            ex = Assert.Throws<ArgumentOutOfRangeException>(() => Internals.GetPKCS7PaddingLength(17, new byte[32]));
+            ex = Assert.Throws<ArgumentException>(() => Internals.GetPKCS7PaddingLength(17, new byte[32]));
             Assert.Equal("data", ex.ParamName);
             Assert.Equal("Span length is not a multiple of block size. (Parameter 'data')", ex.Message);
 
-            ex = Assert.Throws<ArgumentOutOfRangeException>(() => Internals.GetPKCS7PaddingLength(16, new byte[15]));
+            ex = Assert.Throws<ArgumentException>(() => Internals.GetPKCS7PaddingLength(16, new byte[15]));
             Assert.Equal("data", ex.ParamName);
             Assert.Equal("Span length is not a multiple of block size. (Parameter 'data')", ex.Message);
 

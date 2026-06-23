@@ -104,14 +104,15 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="package"/> destination.
         /// </returns>
-        /// <exception cref="ArgumentOutOfRangeException">
+        /// <exception cref="ArgumentException">
         /// The <paramref name="content"/> length is too large.
         /// - or -
         /// The <paramref name="package"/> destination space is insufficient.
         /// - or -
-        /// The <paramref name="iterations"/> is not a positive value.
-        /// - or -
         /// The <paramref name="associatedData"/> length is too large.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="iterations"/> is not a positive value.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
@@ -120,14 +121,14 @@ namespace Neliva.Security.Cryptography
         {
             if (content.Length < MinContentSize || content.Length > MaxContentSize || (content.Length % BlockSize) != 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(content), "Content length is invalid or not aligned to the required boundary.");
+                throw new ArgumentException("Content length is invalid or not aligned to the required boundary.", nameof(content));
             }
 
             int outputPackageSize = content.Length + OverheadSize;
 
             if (package.Length < outputPackageSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(package), "Insufficient space for package output.");
+                throw new ArgumentException("Insufficient space for package output.", nameof(package));
             }
 
             if (iterations <= 0)
@@ -137,7 +138,7 @@ namespace Neliva.Security.Cryptography
 
             if (associatedData.Length > MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
+                throw new ArgumentException("Associated data length is too large.", nameof(associatedData));
             }
 
             var output = package.Slice(0, outputPackageSize);
@@ -225,7 +226,7 @@ namespace Neliva.Security.Cryptography
         /// <returns>
         /// The number of bytes written to the <paramref name="content"/> destination.
         /// </returns>
-        /// <exception cref="ArgumentOutOfRangeException">
+        /// <exception cref="ArgumentException">
         /// The <paramref name="package"/> length is not correct.
         /// - or -
         /// The <paramref name="content"/> destination space is insufficient.
@@ -249,19 +250,19 @@ namespace Neliva.Security.Cryptography
         {
             if (package.Length < MinPackageSize || package.Length > MaxPackageSize || (package.Length % BlockSize) != 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned to the required boundary.");
+                throw new ArgumentException("Package length is invalid or not aligned to the required boundary.", nameof(package));
             }
 
             int outputContentSize = package.Length - OverheadSize;
 
             if (content.Length < outputContentSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
+                throw new ArgumentException("Insufficient space for content output.", nameof(content));
             }
 
             if (associatedData.Length > MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
+                throw new ArgumentException("Associated data length is too large.", nameof(associatedData));
             }
 
             var output = content.Slice(0, outputContentSize);
