@@ -95,7 +95,7 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[p.MaxContentSize];
             var package = new byte[p.MaxPackageSize];
 
-            var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new PackageKey(new byte[32]), new byte[associatedDataSize]));
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() => p.ProtectAsync(Stream.Null, Stream.Null, new PackageKey(new byte[32]), new byte[associatedDataSize]));
             Assert.Equal("associatedData", ex.ParamName);
             Assert.StartsWith("Associated data length is too large.", ex.Message);
         }
@@ -110,7 +110,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[p.MaxPackageSize];
 
-            var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new PackageKey(new byte[32]), new byte[associatedDataSize]));
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, new PackageKey(new byte[32]), new byte[associatedDataSize]));
             Assert.Equal("associatedData", ex.ParamName);
             Assert.StartsWith("Associated data length is too large.", ex.Message);
         }
@@ -870,7 +870,7 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.Equal("key", ex.ParamName);
 
             // associatedData is reported last.
-            var exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, validKey, new byte[1024]));
+            var exRange = await Assert.ThrowsAsync<ArgumentException>(() => p.ProtectAsync(Stream.Null, Stream.Null, validKey, new byte[1024]));
             Assert.Equal("associatedData", exRange.ParamName);
         }
 
@@ -896,7 +896,7 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.Equal("key", ex.ParamName);
 
             // associatedData is reported last.
-            var exRange = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, validKey, new byte[1024]));
+            var exRange = await Assert.ThrowsAsync<ArgumentException>(() => p.UnprotectAsync(Stream.Null, Stream.Null, validKey, new byte[1024]));
             Assert.Equal("associatedData", exRange.ParamName);
         }
 
@@ -988,7 +988,7 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.Equal(contentBytes, decrypted.ToArray());
 
             // One byte over the maximum must fail.
-            var ex = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => p.ProtectAsync(Stream.Null, Stream.Null, key, new byte[maxAssociatedDataSize + 1]));
+            var ex = await Assert.ThrowsAsync<ArgumentException>(() => p.ProtectAsync(Stream.Null, Stream.Null, key, new byte[maxAssociatedDataSize + 1]));
             Assert.Equal("associatedData", ex.ParamName);
             Assert.StartsWith("Associated data length is too large.", ex.Message);
         }

@@ -129,7 +129,8 @@ namespace Neliva.Security.Cryptography
         /// </returns>
         /// <exception cref="ArgumentOutOfRangeException">
         /// The <paramref name="blockSize"/> is less than 1 or greater than <see cref="byte.MaxValue"/>.
-        /// - or -
+        /// </exception>
+        /// <exception cref="ArgumentException">
         /// The <paramref name="data"/> is empty.
         /// - or -
         /// The <paramref name="data"/> length is not a multiple of <paramref name="blockSize"/>.
@@ -159,12 +160,12 @@ namespace Neliva.Security.Cryptography
 
             if (dataLength == 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(data), "Span is empty.");
+                throw new ArgumentException("Span is empty.", nameof(data));
             }
 
             if ((dataLength % blockSize) != 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(data), "Span length is not a multiple of block size.");
+                throw new ArgumentException("Span length is not a multiple of block size.", nameof(data));
             }
 
             uint padLength = data[dataLength - 1];

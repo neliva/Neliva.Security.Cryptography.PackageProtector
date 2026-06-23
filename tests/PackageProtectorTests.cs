@@ -411,7 +411,7 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[p.MaxContentSize];
             var package = new byte[p.MaxPackageSize];
 
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Protect(content, package, new PackageKey(new byte[32]), long.MaxValue, new byte[associatedDataSize]));
+            var ex = Assert.Throws<ArgumentException>(() => p.Protect(content, package, new PackageKey(new byte[32]), long.MaxValue, new byte[associatedDataSize]));
             Assert.Equal("associatedData", ex.ParamName);
             Assert.Equal("Associated data length is too large. (Parameter 'associatedData')", ex.Message);
         }
@@ -426,7 +426,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var package = new byte[p.MaxPackageSize];
 
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Unprotect(package, package, new PackageKey(new byte[32]), long.MaxValue, new byte[associatedDataSize]));
+            var ex = Assert.Throws<ArgumentException>(() => p.Unprotect(package, package, new PackageKey(new byte[32]), long.MaxValue, new byte[associatedDataSize]));
             Assert.Equal("associatedData", ex.ParamName);
             Assert.Equal("Associated data length is too large. (Parameter 'associatedData')", ex.Message);
         }
@@ -442,7 +442,7 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[p.MaxContentSize];
             var package = new byte[p.MaxPackageSize - 1];
 
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Protect(content, package, new PackageKey(new byte[32]), long.MaxValue, null));
+            var ex = Assert.Throws<ArgumentException>(() => p.Protect(content, package, new PackageKey(new byte[32]), long.MaxValue, null));
             Assert.Equal("package", ex.ParamName);
             Assert.Equal("Insufficient space for package output. (Parameter 'package')", ex.Message);
         }
@@ -458,7 +458,7 @@ namespace Neliva.Security.Cryptography.Tests
             var content = new byte[p.MaxContentSize + 1];
             var package = new byte[p.MaxPackageSize];
 
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Protect(content, package, new PackageKey(new byte[32]), long.MaxValue, null));
+            var ex = Assert.Throws<ArgumentException>(() => p.Protect(content, package, new PackageKey(new byte[32]), long.MaxValue, null));
             Assert.Equal("content", ex.ParamName);
             Assert.Equal("Content length is too large. (Parameter 'content')", ex.Message);
         }
@@ -475,7 +475,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var content = new byte[p.MaxContentSize];
 
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new PackageKey(new byte[32]), long.MaxValue, null));
+            var ex = Assert.Throws<ArgumentException>(() => p.Unprotect(package, content, new PackageKey(new byte[32]), long.MaxValue, null));
             Assert.Equal("content", ex.ParamName);
             Assert.Equal("Insufficient space for content output. (Parameter 'content')", ex.Message);
         }
@@ -503,7 +503,7 @@ namespace Neliva.Security.Cryptography.Tests
 
             var content = new byte[p.MaxContentSize + 1];
 
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(() => p.Unprotect(package, content, new PackageKey(new byte[32]), 0, null));
+            var ex = Assert.Throws<ArgumentException>(() => p.Unprotect(package, content, new PackageKey(new byte[32]), 0, null));
             Assert.Equal("package", ex.ParamName);
             Assert.Equal("Package length is invalid or not aligned to the required boundary. (Parameter 'package')", ex.Message);
         }
@@ -1367,10 +1367,10 @@ namespace Neliva.Security.Cryptography.Tests
             // One byte over the maximum must be rejected by both Protect and Unprotect.
             var tooLargeAssociatedData = new byte[maxAssociatedDataSize + 1];
 
-            var protectEx = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Protect(content, package, key, 5, tooLargeAssociatedData));
+            var protectEx = Assert.Throws<ArgumentException>(() => protector.Protect(content, package, key, 5, tooLargeAssociatedData));
             Assert.Equal("associatedData", protectEx.ParamName);
 
-            var unprotectEx = Assert.Throws<ArgumentOutOfRangeException>(() => protector.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), unprotectedContent, key, 5, tooLargeAssociatedData));
+            var unprotectEx = Assert.Throws<ArgumentException>(() => protector.Unprotect(new ArraySegment<byte>(package, 0, bytesProtected), unprotectedContent, key, 5, tooLargeAssociatedData));
             Assert.Equal("associatedData", unprotectEx.ParamName);
         }
 
@@ -1458,12 +1458,12 @@ namespace Neliva.Security.Cryptography.Tests
             var hugeAssociatedData = new byte[999];
 
             // content (too large) wins over package, key, packageNumber, associatedData.
-            var exContent = Assert.Throws<ArgumentOutOfRangeException>(
+            var exContent = Assert.Throws<ArgumentException>(
                 () => p.Protect(tooLargeContent, tinyPackage, null, -1, hugeAssociatedData));
             Assert.Equal("content", exContent.ParamName);
 
             // package (insufficient) wins over key, packageNumber, associatedData.
-            var exPackage = Assert.Throws<ArgumentOutOfRangeException>(
+            var exPackage = Assert.Throws<ArgumentException>(
                 () => p.Protect(validContent, tinyPackage, null, -1, hugeAssociatedData));
             Assert.Equal("package", exPackage.ParamName);
 
@@ -1478,7 +1478,7 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.Equal("packageNumber", exNumber.ParamName);
 
             // associatedData (too large) is reported last.
-            var exAad = Assert.Throws<ArgumentOutOfRangeException>(
+            var exAad = Assert.Throws<ArgumentException>(
                 () => p.Protect(validContent, validPackage, validKey, 0, hugeAssociatedData));
             Assert.Equal("associatedData", exAad.ParamName);
         }
@@ -1502,12 +1502,12 @@ namespace Neliva.Security.Cryptography.Tests
             var hugeAssociatedData = new byte[999];
 
             // package (bad size) wins over content, key, packageNumber, associatedData.
-            var exPackage = Assert.Throws<ArgumentOutOfRangeException>(
+            var exPackage = Assert.Throws<ArgumentException>(
                 () => p.Unprotect(invalidPackage, tinyContent, null, -1, hugeAssociatedData));
             Assert.Equal("package", exPackage.ParamName);
 
             // content (insufficient) wins over key, packageNumber, associatedData.
-            var exContent = Assert.Throws<ArgumentOutOfRangeException>(
+            var exContent = Assert.Throws<ArgumentException>(
                 () => p.Unprotect(validPackage, tinyContent, null, -1, hugeAssociatedData));
             Assert.Equal("content", exContent.ParamName);
 
@@ -1522,7 +1522,7 @@ namespace Neliva.Security.Cryptography.Tests
             Assert.Equal("packageNumber", exNumber.ParamName);
 
             // associatedData (too large) is reported last.
-            var exAad = Assert.Throws<ArgumentOutOfRangeException>(
+            var exAad = Assert.Throws<ArgumentException>(
                 () => p.Unprotect(validPackage, validContent, validKey, 0, hugeAssociatedData));
             Assert.Equal("associatedData", exAad.ParamName);
         }

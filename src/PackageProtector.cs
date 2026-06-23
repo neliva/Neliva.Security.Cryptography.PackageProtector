@@ -193,14 +193,15 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentNullException">
         /// The <paramref name="key"/> parameter is <c>null</c>.
         /// </exception>
-        /// <exception cref="ArgumentOutOfRangeException">
+        /// <exception cref="ArgumentException">
         /// The <paramref name="content"/> length is greater than <see cref="MaxContentSize"/>.
         /// - or -
         /// The <paramref name="package"/> destination space is insufficient.
         /// - or -
-        /// The <paramref name="packageNumber"/> is less than zero.
-        /// - or -
         /// The <paramref name="associatedData"/> length is greater than <see cref="MaxAssociatedDataSize"/>.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="packageNumber"/> is less than zero.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="content"/> and <paramref name="package"/> overlap in memory.
@@ -209,7 +210,7 @@ namespace Neliva.Security.Cryptography
         {
             if (content.Length > this.MaxContentSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(content), "Content length is too large.");
+                throw new ArgumentException("Content length is too large.", nameof(content));
             }
 
             int ivAndMacSize = this.IvSize + MacSize;
@@ -217,7 +218,7 @@ namespace Neliva.Security.Cryptography
 
             if (package.Length < outputPackageSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(package), "Insufficient space for package output.");
+                throw new ArgumentException("Insufficient space for package output.", nameof(package));
             }
 
             ArgumentNullException.ThrowIfNull(key);
@@ -229,7 +230,7 @@ namespace Neliva.Security.Cryptography
 
             if (associatedData.Length > this.MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
+                throw new ArgumentException("Associated data length is too large.", nameof(associatedData));
             }
 
             var output = package.Slice(0, outputPackageSize);
@@ -323,14 +324,15 @@ namespace Neliva.Security.Cryptography
         /// <exception cref="ArgumentNullException">
         /// The <paramref name="key"/> parameter is <c>null</c>.
         /// </exception>
-        /// <exception cref="ArgumentOutOfRangeException">
+        /// <exception cref="ArgumentException">
         /// The <paramref name="package"/> length is not correct.
         /// - or -
         /// The <paramref name="content"/> destination space is insufficient.
         /// - or -
-        /// The <paramref name="packageNumber"/> is less than zero.
-        /// - or -
         /// The <paramref name="associatedData"/> length is greater than <see cref="MaxAssociatedDataSize"/>.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// The <paramref name="packageNumber"/> is less than zero.
         /// </exception>
         /// <exception cref="InvalidOperationException">
         /// The <paramref name="package"/> and <paramref name="content"/> overlap in memory.
@@ -350,7 +352,7 @@ namespace Neliva.Security.Cryptography
         {
             if (this.IsInvalidPackageSize(package.Length))
             {
-                throw new ArgumentOutOfRangeException(nameof(package), "Package length is invalid or not aligned to the required boundary.");
+                throw new ArgumentException("Package length is invalid or not aligned to the required boundary.", nameof(package));
             }
 
             int ivAndMacSize = this.IvSize + MacSize;
@@ -358,7 +360,7 @@ namespace Neliva.Security.Cryptography
 
             if (content.Length < dataLength)
             {
-                throw new ArgumentOutOfRangeException(nameof(content), "Insufficient space for content output.");
+                throw new ArgumentException("Insufficient space for content output.", nameof(content));
             }
 
             ArgumentNullException.ThrowIfNull(key);
@@ -370,7 +372,7 @@ namespace Neliva.Security.Cryptography
 
             if (associatedData.Length > this.MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
+                throw new ArgumentException("Associated data length is too large.", nameof(associatedData));
             }
 
             var data = content.Slice(0, dataLength); // content + padding
@@ -466,7 +468,7 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="content"/>, <paramref name="package"/>, or <paramref name="key"/>
         /// parameter is <c>null</c>.
         /// </exception>
-        /// <exception cref="ArgumentOutOfRangeException">
+        /// <exception cref="ArgumentException">
         /// The <paramref name="associatedData"/> parameter length is greater than <see cref="MaxAssociatedDataSize"/>.
         /// </exception>
         public async Task<long> ProtectAsync(Stream content, Stream package, PackageKey key, ReadOnlyMemory<byte> associatedData = default, CancellationToken cancellationToken = default)
@@ -477,7 +479,7 @@ namespace Neliva.Security.Cryptography
 
             if (associatedData.Length > this.MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
+                throw new ArgumentException("Associated data length is too large.", nameof(associatedData));
             }
 
             var pool = ArrayPool<byte>.Shared;
@@ -574,7 +576,7 @@ namespace Neliva.Security.Cryptography
         /// The <paramref name="package"/>, <paramref name="content"/>, or <paramref name="key"/>
         /// parameter is <c>null</c>.
         /// </exception>
-        /// <exception cref="ArgumentOutOfRangeException">
+        /// <exception cref="ArgumentException">
         /// The <paramref name="associatedData"/> parameter length is greater than <see cref="MaxAssociatedDataSize"/>.
         /// </exception>
         /// <exception cref="InvalidDataException">
@@ -598,7 +600,7 @@ namespace Neliva.Security.Cryptography
 
             if (associatedData.Length > this.MaxAssociatedDataSize)
             {
-                throw new ArgumentOutOfRangeException(nameof(associatedData), "Associated data length is too large.");
+                throw new ArgumentException("Associated data length is too large.", nameof(associatedData));
             }
 
             var pool = ArrayPool<byte>.Shared;
