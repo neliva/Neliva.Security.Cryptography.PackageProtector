@@ -71,7 +71,7 @@ namespace Neliva.Security.Cryptography
         /// The minimum is (<paramref name="ivSize"/> + 48)
         /// and the maximum is <c>1073741824</c>.
         /// </param>
-        /// <exception cref="ArgumentOutOfRangeException">
+        /// <exception cref="ArgumentException">
         /// The <paramref name="ivSize"/> parameter is not 0, 16 or 32 bytes.
         /// - or -
         /// The <paramref name="packageSize"/> parameter is less than
@@ -87,7 +87,7 @@ namespace Neliva.Security.Cryptography
                     break;
 
                 default:
-                    throw new ArgumentOutOfRangeException(nameof(ivSize), "IV size must be 0, 16, or 32 bytes.");
+                    throw new ArgumentException("IV size must be 0, 16, or 32 bytes.", nameof(ivSize));
             }
 
             int minPackageSize = ivSize + MacSize + BlockSize;
@@ -97,7 +97,7 @@ namespace Neliva.Security.Cryptography
 
             if (packageSize < minPackageSize || packageSize > maxPackageSize || IsNotAlignedBlock(packageSize))
             {
-                throw new ArgumentOutOfRangeException(nameof(packageSize), "Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 1073741824 bytes.");
+                throw new ArgumentException("Package size must be a multiple of 16 bytes, at least (ivSize + 48), and no greater than 1073741824 bytes.", nameof(packageSize));
             }
 
             // Overhead is the minimum number of bytes added to content
