@@ -240,32 +240,31 @@ namespace Neliva.Security.Cryptography
                 throw new InvalidOperationException($"The '{nameof(package)}' must not overlap in memory with the '{nameof(content)}'.");
             }
 
-            var kdfIV = package.Slice(0, this.IvSize);
+            Span<byte> buf = stackalloc byte[64 + 32 + BlockSize];
+
+            Span<byte> tmp64 = buf.Slice(0, 64);
+            Span<byte> tmp32 = buf.Slice(64, 32);
+            Span<byte> paddedBlock = buf.Slice(96, BlockSize);
 
             try
             {
+                var kdfIV = output.Slice(0, this.IvSize);
+
                 this.FillRandom(kdfIV);
 
                 // PKCS7 padding length (1..BlockSize) and the split of the content
                 // into whole blocks plus a final block that holds the content tail
                 // together with the padding bytes.
-                int padLength = BlockSize - (content.Length % BlockSize);
                 int contentTailLength = content.Length % BlockSize;
                 int contentWholeLength = content.Length - contentTailLength;
 
-                Span<byte> buf = stackalloc byte[64 + 32 + BlockSize];
-
-                Span<byte> tmp64 = buf.Slice(0, 64);
-                Span<byte> tmp32 = buf.Slice(64, 32);
-                Span<byte> paddedBlock = buf.Slice(96, BlockSize);
-
-                // Assemble the final plaintext block.
-                // Content tail followed by the PKCS7 padding bytes.
-                content.Slice(contentWholeLength).CopyTo(paddedBlock);
-                paddedBlock.Slice(contentTailLength).Fill((byte)padLength);
-
                 try
                 {
+                    // Assemble the final plaintext block.
+                    // Content tail followed by the PKCS7 padding bytes.
+                    content.Slice(contentWholeLength).CopyTo(paddedBlock);
+                    paddedBlock.Slice(contentTailLength).Fill((byte)(BlockSize - contentTailLength));
+
                     DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, encKey: tmp32, macKey: tmp64);
 
                     // Sign plaintext and padding over chunks to avoid materializing
@@ -282,16 +281,18 @@ namespace Neliva.Security.Cryptography
                     {
                         aes.SetKey(tmp32);
 
-                        // Encrypt the mac (truncated to 32 bytes) into the destination.
-                        aes.EncryptCbcNoPadding(tmp64.Slice(0, MacSize), package.Slice(this.IvSize));
+                        // Encrypt the MAC (truncated to 32 bytes) into the destination.
+                        aes.EncryptCbcNoPadding(
+                            tmp64.Slice(0, MacSize),
+                            output.Slice(this.IvSize));
 
                         // Encrypt the whole content blocks into the destination.
                         if (contentWholeLength != 0)
                         {
                             aes.EncryptCbcNoPadding(
                                 content.Slice(0, contentWholeLength),
-                                package.Slice(ivAndMacSize),
-                                package.Slice(ivAndMacSize - BlockSize, BlockSize));
+                                output.Slice(ivAndMacSize),
+                                output.Slice(ivAndMacSize - BlockSize, BlockSize));
                         }
 
                         // Encrypt the final block (content tail and padding) into the destination.
@@ -299,8 +300,8 @@ namespace Neliva.Security.Cryptography
 
                         aes.EncryptCbcNoPadding(
                             paddedBlock,
-                            package.Slice(finalBlockOffset, BlockSize),
-                            package.Slice(finalBlockOffset - BlockSize, BlockSize));
+                            output.Slice(finalBlockOffset),
+                            output.Slice(finalBlockOffset - BlockSize, BlockSize));
                     }
 
                     return outputPackageSize;
