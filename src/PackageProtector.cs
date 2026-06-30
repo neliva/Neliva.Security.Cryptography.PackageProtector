@@ -252,26 +252,27 @@ namespace Neliva.Security.Cryptography
 
                 this.FillRandom(kdfIV);
 
-                // PKCS7 padding length (1..BlockSize) and the split of the content
-                // into whole blocks plus a final block that holds the content tail
-                // together with the padding bytes.
-                int contentTailLength = content.Length % BlockSize;
-                int contentWholeLength = content.Length - contentTailLength;
-
                 try
                 {
-                    // Assemble the final plaintext block.
-                    // Content tail followed by the PKCS7 padding bytes.
-                    content.Slice(contentWholeLength).CopyTo(paddedBlock);
-                    paddedBlock.Slice(contentTailLength).Fill((byte)(BlockSize - contentTailLength));
-
                     DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, encKey: tmp32, macKey: tmp64);
+
+                    // PKCS7 padding length (1..BlockSize) and the split of the content
+                    // into whole blocks plus a final block that holds the content tail
+                    // together with the padding bytes.
+                    int contentTailLength = content.Length % BlockSize;
+                    int contentWholeLength = content.Length - contentTailLength;
 
                     // Sign plaintext and padding over chunks to avoid materializing
                     // the padded plaintext in a single contiguous buffer.
                     using (var hmac = IncrementalHash.CreateHMAC(HashAlgorithmName.SHA512, tmp64))
                     {
                         hmac.AppendData(content.Slice(0, contentWholeLength));
+
+                        // Assemble the final plaintext block.
+                        // Content tail followed by the PKCS7 padding bytes.
+                        content.Slice(contentWholeLength).CopyTo(paddedBlock);
+                        paddedBlock.Slice(contentTailLength).Fill((byte)(BlockSize - contentTailLength));
+
                         hmac.AppendData(paddedBlock);
 
                         hmac.GetHashAndReset(tmp64);
