@@ -240,46 +240,67 @@ namespace Neliva.Security.Cryptography
                 throw new InvalidOperationException($"The '{nameof(package)}' must not overlap in memory with the '{nameof(content)}'.");
             }
 
-            var data = package.Slice(ivAndMacSize, outputPackageSize - ivAndMacSize);  // content + padding
             var kdfIV = package.Slice(0, this.IvSize);
 
             try
             {
                 this.FillRandom(kdfIV);
 
-                // Copy plain text to output buffer (after iv and mac).
-                content.CopyTo(data);
+                // PKCS7 padding length (1..BlockSize) and the split of the content
+                // into whole blocks plus a final block that holds the content tail
+                // together with the padding bytes.
+                int padLength = BlockSize - (content.Length % BlockSize);
+                int contentTailLength = content.Length % BlockSize;
+                int contentWholeLength = content.Length - contentTailLength;
 
-                // Pad data using PKCS7 scheme.
-                for (int pos = content.Length,
-                    padLength = BlockSize - (pos % BlockSize),
-                    padEnd = pos + padLength
-                    ; pos < padEnd; pos++)
-                {
-                    data[pos] = (byte)padLength;
-                }
-
-                Span<byte> buf = stackalloc byte[64 + 32];
+                Span<byte> buf = stackalloc byte[64 + 32 + BlockSize];
 
                 Span<byte> tmp64 = buf.Slice(0, 64);
                 Span<byte> tmp32 = buf.Slice(64, 32);
+                Span<byte> paddedBlock = buf.Slice(96, BlockSize);
+
+                // Assemble the final plaintext block.
+                // Content tail followed by the PKCS7 padding bytes.
+                content.Slice(contentWholeLength).CopyTo(paddedBlock);
+                paddedBlock.Slice(contentTailLength).Fill((byte)padLength);
 
                 try
                 {
                     DeriveKeys(key, packageNumber, this.MaxPackageSize, kdfIV, associatedData, encKey: tmp32, macKey: tmp64);
 
-                    // Sign plaintext and padding.
-                    HMACSHA512.HashData(key: tmp64, source: data, destination: tmp64);
+                    // Sign plaintext and padding over chunks to avoid materializing
+                    // the padded plaintext in a single contiguous buffer.
+                    using (var hmac = IncrementalHash.CreateHMAC(HashAlgorithmName.SHA512, tmp64))
+                    {
+                        hmac.AppendData(content.Slice(0, contentWholeLength));
+                        hmac.AppendData(paddedBlock);
 
-                    // Prepend the mac (truncated to 32 bytes) to the padded plaintext.
-                    tmp64.Slice(0, MacSize).CopyTo(package.Slice(this.IvSize));
+                        hmac.GetHashAndReset(tmp64);
+                    }
 
                     using (var aes = Aes.Create())
                     {
                         aes.SetKey(tmp32);
 
-                        // Encrypt buffer in place.
-                        aes.EncryptCbcNoPadding(package.Slice(this.IvSize, outputPackageSize - this.IvSize), package.Slice(this.IvSize));
+                        // Encrypt the mac (truncated to 32 bytes) into the destination.
+                        aes.EncryptCbcNoPadding(tmp64.Slice(0, MacSize), package.Slice(this.IvSize));
+
+                        // Encrypt the whole content blocks into the destination.
+                        if (contentWholeLength != 0)
+                        {
+                            aes.EncryptCbcNoPadding(
+                                content.Slice(0, contentWholeLength),
+                                package.Slice(ivAndMacSize),
+                                package.Slice(ivAndMacSize - BlockSize, BlockSize));
+                        }
+
+                        // Encrypt the final block (content tail and padding) into the destination.
+                        int finalBlockOffset = ivAndMacSize + contentWholeLength;
+
+                        aes.EncryptCbcNoPadding(
+                            paddedBlock,
+                            package.Slice(finalBlockOffset, BlockSize),
+                            package.Slice(finalBlockOffset - BlockSize, BlockSize));
                     }
 
                     return outputPackageSize;
