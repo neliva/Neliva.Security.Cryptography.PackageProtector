@@ -337,10 +337,23 @@ namespace Neliva.Security.Cryptography.Tests
         }
 
         [Theory]
-        [InlineData(16)]
-        [InlineData(32)]
-        public void ProtectClearOutputOnFailurePass(int ivSize)
+        // ivSize, contentLength. The failing RNG fills the IV (length == ivSize), so
+        // ivSize must be non-zero for the failure to be injected during Protect.
+        [InlineData(16, 0)]
+        [InlineData(16, 1)]
+        [InlineData(16, 15)]
+        [InlineData(16, 16)]
+        [InlineData(16, 17)]
+        [InlineData(16, 79)]
+        [InlineData(32, 0)]
+        [InlineData(32, 1)]
+        [InlineData(32, 16)]
+        [InlineData(32, 63)]
+        public void ProtectClearOutputOnFailurePass(int ivSize, int contentLength)
         {
+            const int PackageSize = 128;
+            const byte Sentinel = 0xCD;
+
             const string exStr = "CRNG FAILED";
             byte[] rngVal = Array.Empty<byte>();
 
@@ -358,21 +371,34 @@ namespace Neliva.Security.Cryptography.Tests
                 throw new Exception(exStr);
             };
 
-            var protector = new TestPackageProtector(rng, ivSize: ivSize, packageSize: 80);
+            var protector = new TestPackageProtector(rng, ivSize: ivSize, packageSize: PackageSize);
 
-            var content = new byte[1].Fill(100);
-            var package = new byte[protector.MaxPackageSize];
+            int outputPackageSize = ivSize + HashSize + ((contentLength / BlockSize) + 1) * BlockSize;
 
-            var ex = Assert.Throws<Exception>(() => protector.Protect(content, package, new PackageKey(new byte[32].Fill(32)), 0, null));
+            var content = new byte[contentLength].Fill(100);
+
+            // Over-allocate and pre-fill with a sentinel so that "cleared" is observable
+            // and so that bytes beyond the produced package can be checked for no writes.
+            var package = new byte[outputPackageSize + BlockSize].Fill(Sentinel);
+
+            using var key = new PackageKey(new byte[32].Fill(32));
+
+            var ex = Assert.Throws<Exception>(() => protector.Protect(content, package, key, 0, null));
             Assert.Equal(exStr, ex.Message);
 
+            // The RNG wrote the IV before failing.
             Assert.Equal(ivSize, rngVal.Length);
 
-            var pkgIV = new ArraySegment<byte>(package, 0, ivSize);
+            // The entire produced package region must be cleared on failure.
+            var producedOutput = new ArraySegment<byte>(package, 0, outputPackageSize);
+            Assert.True(producedOutput.IsAllZeros(), "Destination output not fully cleared on Protect() failure.");
 
-            Assert.True(pkgIV.IsAllZeros(), "Destination not cleared on Protect() failure.");
+            // The IV bytes the RNG wrote must not survive in the destination.
+            Assert.NotEqual(rngVal, new ArraySegment<byte>(package, 0, ivSize).ToArray());
 
-            Assert.NotEqual(rngVal, pkgIV.ToArray());
+            // Bytes beyond the produced package must be left untouched.
+            var trailing = package.AsSpan(outputPackageSize);
+            Assert.True(trailing.IsAllSameValue(Sentinel), "Protect() must not write beyond the produced package length.");
         }
 
         [Fact]
