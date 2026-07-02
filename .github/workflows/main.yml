@@ -33,7 +33,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
     - name: Make SemVer from git tag
       id: semver
       run: |
@@ -82,19 +82,50 @@ jobs:
         echo PackageVersion: ${{ steps.semver.outputs.PackageVersion }}
         echo ArtifactsVersion: ${{ steps.semver.outputs.ArtifactsVersion }}
     - name: Setup .NET Core
-      uses: actions/setup-dotnet@v3    # https://github.com/actions/setup-dotnet
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 10.0.x
     - name: Restore
       run: dotnet restore
+    - name: Restore .NET tools
+      run: dotnet tool restore
     - name: Build
       run: dotnet build --configuration Release --no-restore --nologo -p:AssemblyVersion=${{ steps.semver.outputs.AssemblyVersion }} -p:FileVersion=${{ steps.semver.outputs.FileVersion }} -p:InformationalVersion=${{ steps.semver.outputs.InformationalVersion }} -p:PackageVersion=${{ steps.semver.outputs.PackageVersion }}
-    - name: Test
-      run: dotnet test --configuration Release --no-build --no-restore --nologo --verbosity normal -p:AssemblyVersion=${{ steps.semver.outputs.AssemblyVersion }} -p:FileVersion=${{ steps.semver.outputs.FileVersion }} -p:InformationalVersion=${{ steps.semver.outputs.InformationalVersion }} -p:PackageVersion=${{ steps.semver.outputs.PackageVersion }}
+    - name: Test (with code coverage)
+      run: dotnet test --configuration Release --no-build --no-restore --nologo --verbosity normal --settings coverlet.runsettings --results-directory ./coverage -p:AssemblyVersion=${{ steps.semver.outputs.AssemblyVersion }} -p:FileVersion=${{ steps.semver.outputs.FileVersion }} -p:InformationalVersion=${{ steps.semver.outputs.InformationalVersion }} -p:PackageVersion=${{ steps.semver.outputs.PackageVersion }}
+    - name: Generate coverage report
+      run: dotnet reportgenerator "-reports:coverage/**/coverage.cobertura.xml" "-targetdir:coverage/report" "-reporttypes:Html;MarkdownSummaryGithub;TextSummary"
+    - name: Publish coverage summary
+      if: always()
+      run: cat coverage/report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+    - name: Upload coverage report
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: coverage-report
+        path: coverage/report
+    - name: Enforce 100% code coverage
+      run: |
+        summary="coverage/report/Summary.txt"
+        line=$(grep -oP 'Line coverage:\s*\K[0-9.]+' "$summary")
+        branch=$(grep -oP 'Branch coverage:\s*\K[0-9.]+' "$summary")
+        method=$(grep -oP 'Method coverage:\s*\K[0-9.]+' "$summary")
+        echo "Line coverage:   ${line}%"
+        echo "Branch coverage: ${branch}%"
+        echo "Method coverage: ${method}%"
+        fail=false
+        if [ "$line" != "100" ]; then echo "::error::Line coverage ${line}% is below the required 100%."; fail=true; fi
+        if [ "$branch" != "100" ]; then echo "::error::Branch coverage ${branch}% is below the required 100%."; fail=true; fi
+        if [ "$method" != "100" ]; then echo "::error::Method coverage ${method}% is below the required 100%."; fail=true; fi
+        if [ "$fail" = true ]; then
+          echo "Code coverage gate failed. Merges are blocked until coverage is 100%."
+          exit 1
+        fi
+        echo "Code coverage gate passed (100% line, branch, and method coverage)."
     - name: Pack
       run: dotnet pack --configuration Release --no-build --no-restore --nologo --output ./artifacts -p:AssemblyVersion=${{ steps.semver.outputs.AssemblyVersion }} -p:FileVersion=${{ steps.semver.outputs.FileVersion }} -p:InformationalVersion=${{ steps.semver.outputs.InformationalVersion }} -p:PackageVersion=${{ steps.semver.outputs.PackageVersion }}
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ github.event.repository.name }}.${{ steps.semver.outputs.ArtifactsVersion }}
         path: ./artifacts
