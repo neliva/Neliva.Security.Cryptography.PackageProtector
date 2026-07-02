@@ -1,119 +1,102 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
+	<PropertyGroup>
 
-    <RootNamespace>Neliva.Security.Cryptography</RootNamespace>
+		<RootNamespace>Neliva.Security.Cryptography</RootNamespace>
 
-    <Authors>Neliva</Authors>
-    <Company>Neliva</Company>
+		<Authors>Neliva</Authors>
+		<Company>Neliva</Company>
 
-    <Copyright>This is free and unencumbered software released into the public domain.</Copyright>
+		<Copyright>This is free and unencumbered software released into the public domain.</Copyright>
 
-    <PackageTags>cryptography crypto security encryption decryption hashing aes aes256 aes-256 cbc aes-cbc hmac hmac-sha512 sha512 sha-512 sha2 pbkdf2 password kdf sp800-108 aead authenticated-encryption dataprotection data-protection dataprotector data-at-rest key key-wrap keywrap wrap key-commitment committing stream streaming pkcs7 dotnet</PackageTags>
+		<PackageTags>cryptography crypto security encryption decryption hashing aes aes256 aes-256 cbc aes-cbc hmac hmac-sha512 sha512 sha-512 sha2 pbkdf2 password kdf sp800-108 aead authenticated-encryption dataprotection data-protection dataprotector data-at-rest key key-wrap keywrap wrap key-commitment committing stream streaming pkcs7 dotnet</PackageTags>
 
-    <PackageProjectUrl>https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector</PackageProjectUrl>
+		<PackageProjectUrl>https://github.com/neliva/Neliva.Security.Cryptography.PackageProtector</PackageProjectUrl>
 
-    <!--
-    // https://github.com/NuGet/Home/wiki/Packaging-License-within-the-nupkg-(Technical-Spec)#spdx-specification
-    -->
-    <!-- <PackageLicenseFile>UNLICENSE.md</PackageLicenseFile> -->
-    <PackageLicenseExpression>Unlicense</PackageLicenseExpression>
+		<!--
+		// https://github.com/NuGet/Home/wiki/Packaging-License-within-the-nupkg-(Technical-Spec)#spdx-specification
+		-->
+		<!-- <PackageLicenseFile>UNLICENSE.md</PackageLicenseFile> -->
+		<PackageLicenseExpression>Unlicense</PackageLicenseExpression>
 
-    <!--
-    // The NuGet client min required version to use the package.
-    // With NuGet 4.3.0+ and Visual Studio 2017 version 15.3+, NuGet supports Semantic Versioning 2.0.0.
-    -->
-    <MinClientVersion>4.3.0</MinClientVersion>
+		<!--
+		// The NuGet client min required version to use the package.
+		// With NuGet 4.3.0+ and Visual Studio 2017 version 15.3+, NuGet supports Semantic Versioning 2.0.0.
+		-->
+		<MinClientVersion>4.3.0</MinClientVersion>
 
-    <Description>Safe and secure data at rest protection.</Description>
+		<Title>Package Protector</Title>
+		<Description>Safe and secure data at rest protection.</Description>
 
-    <!-- README shown on the NuGet package page. -->
-    <PackageReadmeFile>NUGET.md</PackageReadmeFile>
+		<!--
+		// Package validation catches accidental breaking API and package changes at pack time.
+		// Enable it and set a baseline once a stable version is published to NuGet:
+		// <EnablePackageValidation>true</EnablePackageValidation>
+		// <PackageValidationBaselineVersion>1.0.0</PackageValidationBaselineVersion>
+		-->
 
-    <!-- https://github.com/dotnet/sdk/blob/master/src/Tasks/Microsoft.NET.Build.Tasks/targets/Microsoft.NET.DefaultAssemblyInfo.targets -->
-    <VersionPrefix Condition=" '$(Version)' == '' and '$(VersionPrefix)' == '' ">0.1.0</VersionPrefix>
-    <VersionSuffix Condition=" '$(Version)' == '' and '$(VersionSuffix)' == ''">dev</VersionSuffix>
+		<!-- README shown on the NuGet package page. -->
+		<PackageReadmeFile>NUGET.md</PackageReadmeFile>
 
-    <!--
-    // https://github.com/dotnet/sourcelink/blob/master/docs/README.md
-    // Starting with .NET Core SDK 2.1.300, a fully deterministic build is
-    // turned on when both Deterministic and ContinuousIntegrationBuild properties are set to true.
-    -->
-    <Deterministic>true</Deterministic>
+		<!-- https://github.com/dotnet/sdk/blob/master/src/Tasks/Microsoft.NET.Build.Tasks/targets/Microsoft.NET.DefaultAssemblyInfo.targets -->
+		<VersionPrefix Condition=" '$(Version)' == '' and '$(VersionPrefix)' == '' ">0.1.0</VersionPrefix>
+		<VersionSuffix Condition=" '$(Version)' == '' and '$(VersionSuffix)' == ''">dev</VersionSuffix>
 
-    <!-- Optional: Publish the repository URL in the built .nupkg (in the NuSpec <Repository> element) -->
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<!--
+		// https://github.com/dotnet/sourcelink
+		// A fully deterministic build is produced when both ContinuousIntegrationBuild
+		// and DeterministicSourcePaths are set to true (see the GITHUB_ACTIONS group
+		// below). Deterministic is on by default in the SDK. Source Link and embedded
+		// untracked sources are enabled by the .NET SDK for GitHub-hosted repositories,
+		// so no Source Link package reference is required.
+		-->
+		<Deterministic>true</Deterministic>
+		
+		<!-- Optional: Publish the repository URL in the built .nupkg (in the NuSpec <Repository> element) -->
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 
-    <!-- Optional: Build symbol package (.snupkg) to distribute the PDB containing Source Link -->
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<!-- Optional: Build symbol package (.snupkg) to distribute the PDB containing Source Link -->
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 
-    <!--
-    // Optional: Embed source files that are not tracked by the source control manager in the PDB.
-    // This packs auto generated files such as AssemblyInfo, etc.
-    -->
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+		<!--
+		// Optional: Embed source files that are not tracked by the source control manager in the PDB.
+		// This packs auto generated files such as AssemblyInfo, etc.
+		-->
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
 
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 
-    <NoWarn>$(NoWarn);NU5105</NoWarn>
+		<NoWarn>$(NoWarn);NU5105</NoWarn>
 
-    <AssemblyOriginatorKeyFile>..\build\AssemblyKey.snk</AssemblyOriginatorKeyFile>
-    <SignAssembly>true</SignAssembly>
+		<AssemblyOriginatorKeyFile>..\build\AssemblyKey.snk</AssemblyOriginatorKeyFile>
+		<SignAssembly>true</SignAssembly>
 
-    <NeutralLanguage>en-US</NeutralLanguage>
+		<NeutralLanguage>en-US</NeutralLanguage>
 
-  </PropertyGroup>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <!-- Needed for NuGet package. Do not remove. -->
-    <None Include="..\UNLICENSE.md" Pack="true" PackagePath="" Visible="false" />
-    <None Include="NUGET.md" Pack="true" PackagePath="" Visible="false" />
-  </ItemGroup>
+	<ItemGroup>
+		<!-- Needed for NuGet package. Do not remove. -->
+		<None Include="..\UNLICENSE.md" Pack="true" PackagePath="" Visible="false" />
+		<None Include="NUGET.md" Pack="true" PackagePath="" Visible="false" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <!-- Build generated file. -->
-    <None Include=".AssemblyAttributes" Visible="false" />
-  </ItemGroup>
-  
-  <!-- This should not be enabled during local dev or the debugger won't be able to find the local source files. -->
-  <!-- https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables -->
-  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
-    <!-- Set ContinuousIntegrationBuild to true to indicate that the build executes on a build/CI server. -->
-    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+	<!-- This should not be enabled during local dev or the debugger won't be able to find the local source files. -->
+	<!-- https://help.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables#default-environment-variables -->
+	<PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+		<!-- Set ContinuousIntegrationBuild to true to indicate that the build executes on a build/CI server. -->
+		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
 
-    <!-- Only set DeterministicSourcePaths to true on a build/CI server, never for local builds. -->
-    <DeterministicSourcePaths>true</DeterministicSourcePaths>
-  </PropertyGroup>
-  
-  <ItemGroup>
-    <!-- https://github.com/dotnet/sourcelink -->
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
-  </ItemGroup>
-  
-  <!--
-  // Workaround for deterministic builds on SDKs prior to 3.1.300
-  // https://github.com/clairernovotny/DeterministicBuilds
-  // https://github.com/dotnet/sourcelink/issues/572
-  -->
-  <PropertyGroup>
-    <TargetFrameworkMonikerAssemblyAttributesPath>$([System.IO.Path]::Combine('$(IntermediateOutputPath)','$(TargetFrameworkMoniker).AssemblyAttributes$(DefaultLanguageSourceExtension)'))</TargetFrameworkMonikerAssemblyAttributesPath>
-  </PropertyGroup>
-  
-  <ItemGroup>
-    <EmbeddedFiles Include="$(GeneratedAssemblyInfoFile)" />
-  </ItemGroup>
-  
-  <!-- Workaround for https://github.com/dotnet/sdk/issues/11105 -->
-  <ItemGroup>
-    <SourceRoot Include="$(NuGetPackageRoot)" Condition="'$(NuGetPackageRoot)' != ''" />
-  </ItemGroup>
+		<!-- Only set DeterministicSourcePaths to true on a build/CI server, never for local builds. -->
+		<DeterministicSourcePaths>true</DeterministicSourcePaths>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
-      <_Parameter1>Authors</_Parameter1>
-      <_Parameter2>Maksim Goleta</_Parameter2>
-    </AssemblyAttribute>
-  </ItemGroup>
+	<ItemGroup>
+		<AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+			<_Parameter1>Authors</_Parameter1>
+			<_Parameter2>Maksim Goleta</_Parameter2>
+		</AssemblyAttribute>
+	</ItemGroup>
 </Project>
