@@ -57,6 +57,14 @@ dlldata.c
 # Benchmark Results
 BenchmarkDotNet.Artifacts/
 
+# Code coverage results and generated reports
+coverage/
+[Cc]overage[Rr]esults/
+*.cobertura.xml
+coverage.opencover.xml
+coverage.json
+lcov.info
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json

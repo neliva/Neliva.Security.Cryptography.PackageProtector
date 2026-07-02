@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  This is free and unencumbered software released into the public domain.
+  See the UNLICENSE file in the project root for more information.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+	<DataCollectors>
+	  <DataCollector friendlyName="XPlat Code Coverage">
+		<Configuration>
+		  <Format>cobertura</Format>
+
+		  <!-- Measure only the production library assembly. -->
+		  <Include>[Neliva.Security.Cryptography.PackageProtector]*</Include>
+
+		  <!-- Never measure the test or benchmark assemblies. -->
+		  <Exclude>[Neliva.Security.Cryptography.PackageProtector.Tests]*,[Neliva.Security.Cryptography.PackageProtector.Benchmarks]*</Exclude>
+
+		  <!-- Honor [ExcludeFromCodeCoverage] and skip compiler-generated code. -->
+		  <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+
+		  <SkipAutoProps>true</SkipAutoProps>
+		  <UseSourceLink>true</UseSourceLink>
+		  <DeterministicReport>true</DeterministicReport>
+		</Configuration>
+	  </DataCollector>
+	</DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>
